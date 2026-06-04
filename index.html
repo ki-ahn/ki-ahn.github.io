@@ -371,9 +371,12 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
     </div>
     <div class="tb-group">
       <span class="tb-label">🎯 공부횟수</span>
-      <div class="s-chips" id="study-count-chips">
-        <div class="s-chip active" data-val="전체" onclick="StudyModule.selectCount(this,'전체')">전체</div>
-      </div>
+      <input class="num-input" id="study-count-filter" type="number"
+        min="0" max="7" placeholder="전체"
+        style="width:62px"
+        oninput="StudyModule.onCountFilterChange()"
+        title="이 횟수 이하 단어만 표시 (비우면 전체)">
+      <span style="font-size:11px;color:var(--text3)">이하</span>
     </div>
     <div class="tb-group">
       <span class="tb-label">📋 표시</span>

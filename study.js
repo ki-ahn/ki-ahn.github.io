@@ -14,6 +14,7 @@ const StudyModule = (() => {
   let notebookFiles = [];
 
   const LOCAL_KEY = 'study_counts';
+  const MAX_STUDY = 7;
 
   /* ── 로컬 카운트 ── */
   function loadLocalCounts() {
@@ -33,9 +34,7 @@ const StudyModule = (() => {
       const tree = await GitHubModule.fetchTree();
       notebookFiles = tree.tree
         .filter(f => f.type === 'blob' && f.path.endsWith('.md'))
-        .filter(f => !cfg.bibleFolder || !f.path.startsWith(cfg.bibleFolder + '/'))
-        .filter(f => !cfg.wordsFolder || f.path.startsWith(cfg.wordsFolder + '/') ||
-                     (!cfg.wordsFolder && true));
+        .filter(f => !cfg.bibleFolder || !f.path.startsWith(cfg.bibleFolder + '/'));
 
       // wordsFolder 가 설정된 경우 그 폴더만
       if (cfg.wordsFolder) {
@@ -73,8 +72,11 @@ const StudyModule = (() => {
     try {
       const text = await GitHubModule.readFile(path);
       allWords = parseWords(text, path);
-      buildChips();
+      buildCountInput();
       selectedStudyCount = null;
+      // 필터 입력 초기화
+      const inp = document.getElementById('study-count-filter');
+      if (inp) inp.value = '';
       renderWords();
       toast(`${allWords.length}개 단어 로드 완료`, 'success');
     } catch(e) {
@@ -85,9 +87,19 @@ const StudyModule = (() => {
 
   /* ── 파싱 ── */
   function parseWords(text, filePath) {
-    // "---" 구분자로 분리 (앞뒤 공백 포함 다양한 패턴 허용)
-    const blocks = text.split(/\n\s*---\s*\n|\n\s*---\s*$|^\s*---\s*\n/gm)
-                       .map(b => b.trim()).filter(Boolean);
+    // 줄 단위로 "---" 만 있는 줄을 구분자로 분리
+    const blocks = [];
+    let cur = [];
+    for (const line of text.split('\n')) {
+      if (/^\s*---\s*$/.test(line)) {
+        if (cur.length) blocks.push(cur.join('\n'));
+        cur = [];
+      } else {
+        cur.push(line);
+      }
+    }
+    if (cur.length) blocks.push(cur.join('\n'));
+
     const words = [];
     blocks.forEach((block, idx) => {
       const w = { _file: filePath, _idx: idx };
@@ -95,13 +107,13 @@ const StudyModule = (() => {
         const m = line.match(/^([^:：]+)[：:]\s*(.*)$/);
         if (!m) return;
         const k = m[1].trim(), v = m[2].trim();
-        if (k === '라오')    w.lao = v;
-        if (k === '발음')    w.pron = v;
-        if (k === '한글')    w.kor = v;
-        if (k === '영어')    w.eng = v;
-        if (k === '반대말')  w.opp = v;
-        if (k === '음성')    w.audio = v;
-        if (k === '공부횟수') w.studyCount = parseInt(v) || 0;
+        if (k === '라오')     w.lao = v;
+        if (k === '발음')     w.pron = v;
+        if (k === '한글')     w.kor = v;
+        if (k === '영어')     w.eng = v;
+        if (k === '반대말')   w.opp = v;
+        if (k === '음성')     w.audio = v;
+        if (k === '공부횟수') w.studyCount = Math.min(MAX_STUDY, parseInt(v) || 0);
       });
       // 로컬 카운트 우선
       const lk = `${filePath}::${idx}`;
@@ -111,21 +123,19 @@ const StudyModule = (() => {
     return words;
   }
 
-  /* ── 공부횟수 칩 ── */
-  function buildChips() {
-    const max = Math.max(0, ...allWords.map(w => w.studyCount || 0));
-    const cont = document.getElementById('study-count-chips');
-    const vals = ['전체', ...Array.from({length: max + 1}, (_, i) => i)];
-    cont.innerHTML = vals.map(v =>
-      `<div class="s-chip${v === '전체' ? ' active' : ''}" data-val="${v}"
-        onclick="StudyModule.selectCount(this,'${v}')">${v}</div>`
-    ).join('');
+  /* ── 공부횟수 필터 — 숫자 입력 (max 7) ── */
+  function buildCountInput() {
+    // 이미 있으면 그대로 (동적 생성 불필요, HTML에서 고정)
   }
 
-  function selectCount(el, val) {
-    document.querySelectorAll('.s-chip').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
-    selectedStudyCount = (val === '전체') ? null : parseInt(val);
+  function getStudyFilter() {
+    const inp = document.getElementById('study-count-filter');
+    if (!inp || inp.value === '') return null;
+    return Math.min(MAX_STUDY, Math.max(0, parseInt(inp.value) || 0));
+  }
+
+  function onCountFilterChange() {
+    selectedStudyCount = getStudyFilter();
     renderWords();
   }
 
@@ -136,6 +146,8 @@ const StudyModule = (() => {
 
   /* ── 렌더링 ── */
   function renderWords() {
+    selectedStudyCount = getStudyFilter();
+
     let filtered = selectedStudyCount === null
       ? [...allWords]
       : allWords.filter(w => (w.studyCount || 0) <= selectedStudyCount);
@@ -155,21 +167,21 @@ const StudyModule = (() => {
       sb.style.display = 'none';
     }
 
-    const area = document.getElementById('study-words-area');
+    const area = document.getElementById('study-words');
     if (!shown.length) {
       area.innerHTML = `<div class="s-status"><div class="s-icon">🔍</div>
         <h3>표시할 단어가 없습니다</h3>
         <p>공부횟수 필터나 표시 개수를 조정해 보세요.</p></div>`;
       return;
     }
-    area.innerHTML = shown.map((w, i) => cardHTML(w, i)).join('');
+    area.innerHTML = shown.map(w => cardHTML(w)).join('');
   }
 
   function cardHTML(w) {
     const lk = `${w._file}::${w._idx}`;
     const lkSafe = lk.replace(/[^a-zA-Z0-9]/g, '_');
     const cnt = w.studyCount || 0;
-    const hide = (col) => colVis[col] ? '' : 'vis-hidden';
+    const hide = col => colVis[col] ? '' : 'vis-hidden';
     return `
     <div class="s-card" id="sc_${lkSafe}">
       <button class="s-audio-btn" onclick="StudyModule.playAudio('${w.audio||''}','${lk}')"
@@ -195,9 +207,9 @@ const StudyModule = (() => {
       <div class="s-study-ctrl">
         <div class="s-count-display" title="공부횟수">${cnt}</div>
         <div class="s-count-btns">
-          <button class="s-inc-btn" onclick="StudyModule.changeCount('${lk}', 1)" title="횟수 +1">＋</button>
-          <button class="s-dec-btn" onclick="StudyModule.changeCount('${lk}', -1)" title="횟수 -1">－</button>
-          <button class="s-set-btn" onclick="StudyModule.promptCount('${lk}')" title="직접 입력">✎</button>
+          <button class="s-inc-btn" onclick="StudyModule.changeCount('${lk}', 1)"  title="+1">＋</button>
+          <button class="s-dec-btn" onclick="StudyModule.changeCount('${lk}', -1)" title="-1">－</button>
+          <button class="s-set-btn" onclick="StudyModule.setCountInline('${lk}')"  title="직접 입력">✎</button>
         </div>
       </div>
     </div>`;
@@ -220,7 +232,7 @@ const StudyModule = (() => {
     return `https://raw.githubusercontent.com/${cfg.user}/${cfg.repo}/${cfg.branch}/audio/${filename}`;
   }
 
-  function playAudio(filename, lk) {
+  function playAudio(filename) {
     if (!filename) return;
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     const a = new Audio(getAudioUrl(filename));
@@ -251,37 +263,69 @@ const StudyModule = (() => {
 
   /* ── 공부횟수 변경 ── */
   async function changeCount(lk, delta) {
-    const [file, idxStr] = lk.split('::');
-    const idx = parseInt(idxStr);
-    const word = allWords.find(w => w._file === file && w._idx === idx);
+    const word = findWord(lk);
     if (!word) return;
-
-    word.studyCount = Math.max(0, (word.studyCount || 0) + delta);
+    word.studyCount = Math.min(MAX_STUDY, Math.max(0, (word.studyCount || 0) + delta));
     localCounts[lk] = word.studyCount;
     saveLocalCounts();
     updateCardCount(lk, word.studyCount);
-    buildChips();
-    restoreChipSelection();
-    await trySaveGitHub(lk, word);
+    await trySaveGitHub(word);
   }
 
-  async function promptCount(lk) {
-    const [file, idxStr] = lk.split('::');
-    const idx = parseInt(idxStr);
-    const word = allWords.find(w => w._file === file && w._idx === idx);
+  /* 카드 내 인라인 숫자 입력으로 직접 설정 */
+  function setCountInline(lk) {
+    const id = 'sc_' + lk.replace(/[^a-zA-Z0-9]/g, '_');
+    const ctrl = document.getElementById(id)?.querySelector('.s-study-ctrl');
+    if (!ctrl) return;
+    const word = findWord(lk);
     if (!word) return;
+
     const cur = word.studyCount || 0;
-    const inp = prompt(`공부횟수를 입력하세요 (현재: ${cur})`, cur);
-    if (inp === null) return;
-    const n = parseInt(inp);
-    if (isNaN(n) || n < 0) { toast('0 이상의 숫자를 입력하세요', 'error'); return; }
+    ctrl.innerHTML = `
+      <input id="inline-inp-${id}" type="number" min="0" max="${MAX_STUDY}" value="${cur}"
+        style="width:52px;padding:4px;border-radius:6px;border:1px solid var(--accent);background:var(--bg3);color:var(--accent);font-size:16px;font-family:monospace;text-align:center;outline:none"
+        onkeydown="if(event.key==='Enter')StudyModule.confirmInline('${lk}','${id}');if(event.key==='Escape')StudyModule.cancelInline('${lk}','${id}',${cur})"
+      >
+      <div class="s-count-btns" style="margin-top:2px">
+        <button class="s-inc-btn" onclick="StudyModule.confirmInline('${lk}','${id}')" title="확인" style="background:var(--accent3);color:#000;border-color:var(--accent3)">✓</button>
+        <button class="s-dec-btn" onclick="StudyModule.cancelInline('${lk}','${id}',${cur})" title="취소" style="font-size:12px">✕</button>
+      </div>`;
+    setTimeout(() => document.getElementById(`inline-inp-${id}`)?.focus(), 0);
+  }
+
+  async function confirmInline(lk, id) {
+    const inp = document.getElementById(`inline-inp-${id}`);
+    if (!inp) return;
+    const n = Math.min(MAX_STUDY, Math.max(0, parseInt(inp.value) || 0));
+    const word = findWord(lk);
+    if (!word) return;
     word.studyCount = n;
     localCounts[lk] = n;
     saveLocalCounts();
-    updateCardCount(lk, n);
-    buildChips();
-    restoreChipSelection();
-    await trySaveGitHub(lk, word);
+    // 컨트롤 복원
+    restoreCtrl(id, lk, n);
+    await trySaveGitHub(word);
+  }
+
+  function cancelInline(lk, id, prev) {
+    restoreCtrl(id, lk, prev);
+  }
+
+  function restoreCtrl(id, lk, cnt) {
+    const ctrl = document.getElementById(id)?.querySelector('.s-study-ctrl');
+    if (!ctrl) return;
+    ctrl.innerHTML = `
+      <div class="s-count-display" title="공부횟수">${cnt}</div>
+      <div class="s-count-btns">
+        <button class="s-inc-btn" onclick="StudyModule.changeCount('${lk}', 1)"  title="+1">＋</button>
+        <button class="s-dec-btn" onclick="StudyModule.changeCount('${lk}', -1)" title="-1">－</button>
+        <button class="s-set-btn" onclick="StudyModule.setCountInline('${lk}')"  title="직접 입력">✎</button>
+      </div>`;
+  }
+
+  function findWord(lk) {
+    const [file, idxStr] = lk.split('::');
+    return allWords.find(w => w._file === file && w._idx === parseInt(idxStr));
   }
 
   function updateCardCount(lk, count) {
@@ -294,49 +338,37 @@ const StudyModule = (() => {
     }
   }
 
-  function restoreChipSelection() {
-    document.querySelectorAll('.s-chip').forEach(c => {
-      const v = c.dataset.val;
-      const isActive = (selectedStudyCount === null && v === '전체') ||
-                       (selectedStudyCount !== null && parseInt(v) === selectedStudyCount);
-      c.classList.toggle('active', isActive);
-    });
-  }
-
   /* ── GitHub 저장 ── */
-  async function trySaveGitHub(lk, word) {
-    if (!GitHubModule.get().token) return;
-    if (!currentFile) return;
+  async function trySaveGitHub(word) {
+    if (!GitHubModule.get().token || !currentFile) return;
     try {
       const text = await GitHubModule.readFile(currentFile);
       const updated = updateCountInText(text, word);
       await GitHubModule.writeFile(currentFile, updated, `공부횟수: ${word.lao||''} → ${word.studyCount}회`);
-      toast(`✓ GitHub 저장 완료 (${word.studyCount}회)`, 'success');
+      toast(`✓ GitHub 저장 (${word.studyCount}회)`, 'success');
     } catch(e) {
-      toast('로컬 저장됨 (GitHub: ' + e.message + ')', '');
+      toast('로컬 저장됨 (GitHub 오류: ' + e.message + ')', '');
     }
   }
 
   function updateCountInText(text, word) {
     if (!word.lao) return text;
     const laoEsc = word.lao.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // 해당 라오 단어가 있는 블록의 공부횟수 업데이트
     const re = new RegExp(
-      `(라오\\s*[：:]\\s*${laoEsc}[\\s\\S]*?공부횟수\\s*[：:]\\s*)\\d+`,
-      'g'
+      `(라오\\s*[：:]\\s*${laoEsc}[\\s\\S]*?공부횟수\\s*[：:]\\s*)\\d+`, 'g'
     );
     return text.replace(re, `$1${word.studyCount}`);
   }
 
   /* ── UI 헬퍼 ── */
   function showLoading() {
-    document.getElementById('study-words-area').innerHTML =
+    document.getElementById('study-words').innerHTML =
       `<div class="s-status"><div class="s-loader"></div><h3>단어장 로딩 중…</h3></div>`;
     document.getElementById('study-stats').style.display = 'none';
   }
 
   function showStatus(icon, title, msg) {
-    document.getElementById('study-words-area').innerHTML =
+    document.getElementById('study-words').innerHTML =
       `<div class="s-status"><div class="s-icon">${icon}</div><h3>${title}</h3><p>${msg}</p></div>`;
   }
 
@@ -350,14 +382,11 @@ const StudyModule = (() => {
     toast('로컬 데이터 삭제 완료', '');
   }
 
-  /* ── 초기화 ── */
-  function init() {
-    loadLocalCounts();
-  }
+  function init() { loadLocalCounts(); }
 
   return {
-    init, loadNotebooks, loadCurrentNotebook,
-    selectCount, toggleCol, playAudio, playAll,
-    changeCount, promptCount, clearLocal,
+    init, loadNotebooks, loadCurrentNotebook, renderWords,
+    onCountFilterChange, toggleCol, playAudio, playAll,
+    changeCount, setCountInline, confirmInline, cancelInline, clearLocal,
   };
 })();

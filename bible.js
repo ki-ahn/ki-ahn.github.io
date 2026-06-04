@@ -501,10 +501,20 @@ const BibleModule = (() => {
         font-size: .91em;
         overflow: hidden;
       }
+      /* 다크모드: data-dark 속성 방식 (index.html 기준) */
+      [data-dark] .bible-callout,
       [data-theme="dark"] .bible-callout {
         background: #1e1a10;
         border-color: #4a3808;
-        border-left-color: var(--accent, #c4a45a);
+        border-left-color: #c4a45a;
+      }
+      [data-dark] .bible-callout-ref,
+      [data-theme="dark"] .bible-callout-ref {
+        color: #e8dcc8 !important;
+      }
+      [data-dark] .bible-callout-icon,
+      [data-theme="dark"] .bible-callout-icon {
+        color: #c4a45a !important;
       }
       .bible-callout-hd {
         display: flex; align-items: center; gap: 7px;
@@ -542,8 +552,35 @@ const BibleModule = (() => {
       }
       .bv-all-btn:hover  { background: rgba(100,160,255,.28) !important; }
       .bv-all-btn.active { background: #5080cc !important; color: #fff !important; border-color: #3060aa !important; }
-      [data-theme="dark"] .bv-all-btn { color: #88aaee !important; border-color: #4466aa !important; }
-      [data-theme="dark"] .bv-all-btn.active { background: #3355aa !important; }
+      [data-theme="dark"] .bv-all-btn,
+      [data-dark] .bv-all-btn { color: #88aaee !important; border-color: #4466aa !important; }
+      [data-theme="dark"] .bv-all-btn.active,
+      [data-dark] .bv-all-btn.active { background: #3355aa !important; }
+
+      /* ── 다크모드 본문 텍스트 (data-dark 방식) ── */
+      [data-dark] .bible-content,
+      [data-theme="dark"] .bible-content { color: #e8dcc8 !important; }
+      [data-dark] .bible-verse-num,
+      [data-theme="dark"] .bible-verse-num { color: #c4a45a !important; }
+      [data-dark] .bible-ver-label,
+      [data-theme="dark"] .bible-ver-label { color: #c4a45a !important; }
+      [data-dark] .bible-loading,
+      [data-dark] .bible-no-verse,
+      [data-theme="dark"] .bible-loading,
+      [data-theme="dark"] .bible-no-verse { color: #8a7a5a !important; }
+      [data-dark] .bible-callout-body,
+      [data-theme="dark"] .bible-callout-body { color: #e8dcc8; }
+      [data-dark] .bible-callout-hd,
+      [data-theme="dark"] .bible-callout-hd {
+        background: rgba(196,164,90,.12);
+        border-bottom-color: rgba(196,164,90,.25);
+      }
+      [data-dark] .bible-version-tabs,
+      [data-theme="dark"] .bible-version-tabs { border-bottom-color: rgba(196,164,90,.2); }
+      [data-dark] .bv-tab,
+      [data-theme="dark"] .bv-tab { color: #c4a45a; }
+      [data-dark] .bible-all-block,
+      [data-theme="dark"] .bible-all-block { border-bottom-color: rgba(196,164,90,.18); }
 
       .bible-callout-body { padding: 11px 15px 13px; }
 
@@ -597,17 +634,51 @@ const BibleModule = (() => {
   }
 
   /* ══════════════════════════════════════════
-     TTS — 영어 성경 읽기 (Web Speech API)
+     TTS — 성경 읽기 (Web Speech API)
+     크롬/사파리/안드로이드 모두 대응
   ══════════════════════════════════════════ */
   let _ttsUtt = null;
+  let _ttsBtn = null;
+  let _ttsTimer = null;
+
+  // 크롬은 약 14초마다 speechSynthesis가 멈추는 버그가 있음 → 주기적으로 resume()
+  function _keepAlive() {
+    _ttsTimer = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 10000);
+  }
+
+  function _stopKeepAlive() {
+    if (_ttsTimer) { clearInterval(_ttsTimer); _ttsTimer = null; }
+  }
+
+  function _resetBtn() {
+    _ttsUtt = null;
+    _stopKeepAlive();
+    if (_ttsBtn) {
+      _ttsBtn.textContent = '▶ 듣기';
+      _ttsBtn.classList.remove('playing');
+      _ttsBtn = null;
+    }
+    // 다른 버튼도 초기화
+    document.querySelectorAll('.bible-tts-btn')
+      .forEach(b => { b.textContent = '▶ 듣기'; b.classList.remove('playing'); });
+  }
 
   function tts(btn) {
+    // TTS 미지원 브라우저
+    if (!window.speechSynthesis) {
+      AppToast.show('이 브라우저는 TTS를 지원하지 않습니다.', 'error');
+      return;
+    }
+
     // 재생 중이면 정지
-    if (_ttsUtt) {
+    if (_ttsUtt || window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
-      _ttsUtt = null;
-      document.querySelectorAll('.bible-tts-btn')
-        .forEach(b => { b.textContent = '▶ 듣기'; b.classList.remove('playing'); });
+      _resetBtn();
       return;
     }
 
@@ -618,59 +689,51 @@ const BibleModule = (() => {
     const text = lines.join(' ');
     if (!text) return;
 
-    // Web Speech API 지원 확인
-    if (!window.speechSynthesis) {
-      alert('이 브라우저는 TTS를 지원하지 않습니다.');
-      return;
-    }
-
+    _ttsBtn = btn;
     btn.textContent = '■ 정지';
     btn.classList.add('playing');
 
     function _speak(voice) {
-      // Android: cancel() 후 약간의 딜레이가 필요한 경우 있음
       window.speechSynthesis.cancel();
       setTimeout(() => {
         const utt = new SpeechSynthesisUtterance(text);
-        utt.lang  = 'en-US';
+        utt.lang  = 'ko-KR'; // 한국어 구절이 섞여있을 수 있으므로 기본 한국어
         utt.rate  = 0.88;
         utt.pitch = 1.0;
-        if (voice) utt.voice = voice;
-
-        const reset = () => {
-          _ttsUtt = null;
-          btn.textContent = '▶ 듣기';
-          btn.classList.remove('playing');
-        };
-        utt.onend   = reset;
-        utt.onerror = reset;
-
+        // 영어 버전(ESV, NIV, Henry 등)이면 영어 목소리 선택
+        const ver = content.dataset.version || '';
+        const isEng = ['ESV','NIV','Henry','KJV','NASB'].some(v => ver.includes(v));
+        if (isEng) {
+          utt.lang = 'en-US';
+          if (voice) utt.voice = voice;
+        }
+        utt.onend   = _resetBtn;
+        utt.onerror = _resetBtn;
         _ttsUtt = utt;
         window.speechSynthesis.speak(utt);
-      }, 50);
+        _keepAlive(); // 크롬 버그 우회
+      }, 100);
     }
 
-    // 목소리 선택: Daniel(macOS/iOS) > en-GB > en-* 순서
+    // 목소리 선택: 영어 우선 Daniel(macOS) > en-GB > en-US
     const pick = (list) => {
-      const targetVoice = list.find(v => v.name.includes('Daniel') || v.name.includes('en-GB'));
-      const defaultEn   = list.find(v => v.lang.startsWith('en-'));
-      return targetVoice || defaultEn || null;
+      return list.find(v => v.name.includes('Daniel'))
+          || list.find(v => v.lang === 'en-GB')
+          || list.find(v => v.lang.startsWith('en-'))
+          || null;
     };
 
-    // getVoices(): 크롬은 동기, Safari/Android는 비동기 → 둘 다 대응
+    // 크롬은 getVoices() 동기, Safari/Android는 비동기
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
       _speak(pick(voices));
     } else {
-      // 비동기 로드 대기 (iOS Safari, 일부 Android)
       window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.onvoiceschanged = null;
         _speak(pick(window.speechSynthesis.getVoices()));
       };
-      // 500ms 후에도 목소리 없으면 기본값으로 실행
-      setTimeout(() => {
-        if (_ttsUtt === null) _speak(null);
-      }, 500);
+      // 800ms 후에도 목소리 로드 안되면 기본값
+      setTimeout(() => { if (!_ttsUtt) _speak(null); }, 800);
     }
   }
 
