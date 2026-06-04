@@ -248,40 +248,74 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
 .bk-hpa{display:flex;gap:5px}
 .bk-hpbtn{flex:1;background:var(--pb);border:1px solid var(--pbd);border-radius:5px;padding:4px 7px;font-size:11px;cursor:pointer;color:var(--pm)}
 .bk-hpbtn.save:hover{background:var(--ac);color:#fff}.bk-hpbtn.del:hover{background:#d44;color:#fff}
-#bk-search{position:fixed;top:96px;right:14px;background:var(--paper);border:1px solid var(--pbd);border-radius:10px;width:330px;max-height:440px;box-shadow:0 8px 28px rgba(0,0,0,.12);display:none;flex-direction:column;z-index:400;overflow:hidden}
+/* ─── 검색 패널: 반투명 오버레이 배경 ─── */
+#bk-search-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:399;
+}
+#bk-search-overlay.open{display:block}
+#bk-search{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-54%);
+  background:#fdf8f0;border:1px solid #ccc0a0;
+  border-radius:12px;width:min(480px,92vw);max-height:60vh;
+  box-shadow:0 12px 40px rgba(0,0,0,.28);
+  display:none;flex-direction:column;z-index:400;overflow:hidden;
+}
 #bk-search.open{display:flex}
-.bk-sw{display:flex;align-items:center;border-bottom:1px solid var(--pbd)}
+/* 다크모드 검색 */
+#bk-search.dark-mode{background:#1c1810;border-color:#403828;}
+#bk-search.dark-mode .bk-sw{border-bottom-color:#403828;}
+#bk-search.dark-mode #bk-sinp{color:#e8dfc8;background:transparent;}
+#bk-search.dark-mode .bk-si{color:#9a8a6a;}
+#bk-search.dark-mode .bk-sc{color:#9a8a6a;}
+#bk-search.dark-mode #bk-sres{background:#1c1810;}
+#bk-search.dark-mode .bk-sri{border-bottom-color:#302818;}
+#bk-search.dark-mode .bk-sri:hover{background:#2a2418;}
+#bk-search.dark-mode .bk-srt{color:#e8dfc8;}
+#bk-search.dark-mode .bk-srp{color:#9a8a6a;}
+#bk-search.dark-mode .bk-sre{color:#9a8a6a;}
+#bk-search.dark-mode .bk-srs{color:#9a8a6a;}
+.bk-sw{display:flex;align-items:center;border-bottom:1px solid var(--pbd);background:inherit;}
+.bk-sw-title{padding:10px 13px 10px 13px;font-size:13px;font-weight:600;color:var(--pm);border-bottom:1px solid var(--pbd);display:flex;align-items:center;justify-content:space-between;}
 .bk-si{padding:0 9px;color:var(--pm);font-size:13px}
-#bk-sinp{flex:1;border:none;padding:9px 5px;font-size:13px;outline:none;background:transparent;color:var(--pt)}
-.bk-sc{padding:0 9px;color:var(--pm);cursor:pointer;font-size:15px}
+#bk-sinp{flex:1;border:none;padding:11px 6px;font-size:14px;outline:none;background:transparent;color:var(--pt)}
+.bk-sc{padding:0 11px;color:var(--pm);cursor:pointer;font-size:16px;line-height:1}
 #bk-sres{overflow-y:auto;flex:1}
-.bk-sri{padding:7px 13px;cursor:pointer;border-bottom:1px solid var(--pbd)}
+.bk-sri{padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--pbd)}
 .bk-sri:hover{background:var(--pb)}
 .bk-srt{font-weight:600;font-size:13px;color:var(--pt)}
 .bk-srp{font-size:11px;color:var(--pm)}
 .bk-sre{font-size:12px;color:var(--pm);margin-top:3px;line-height:1.4}
-.bk-sre mark{background:rgba(255,220,80,.45);border-radius:2px}
-.bk-srs{padding:14px;text-align:center;color:var(--pm);font-size:13px}
-#bk-settings{position:fixed;top:96px;right:14px;background:var(--paper);border:1px solid var(--pbd);border-radius:10px;width:276px;box-shadow:0 8px 28px rgba(0,0,0,.12);display:none;z-index:400;overflow:hidden}
+.bk-sre mark{background:rgba(255,220,80,.55);border-radius:2px;color:#1e1608;}
+.bk-srs{padding:18px;text-align:center;color:var(--pm);font-size:13px}
+
+/* ─── 설정 패널 ─── */
+#bk-settings{
+  position:fixed;top:96px;right:14px;
+  background:#fdf8f0;border:1px solid #ccc0a0;
+  border-radius:10px;width:276px;
+  box-shadow:0 8px 28px rgba(0,0,0,.18);display:none;z-index:400;overflow:hidden;
+}
 #bk-settings.open{display:block}
-.bk-seth{padding:9px 13px;border-bottom:1px solid var(--pbd);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
-.bk-setc{cursor:pointer;color:var(--pm);font-size:15px}
-.bk-setb{padding:11px 13px}
-.bk-setr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.bk-setl{font-size:13px}
-.bk-tog{width:34px;height:19px;background:var(--pbd);border-radius:10px;cursor:pointer;position:relative;transition:background .2s}
-.bk-tog.on{background:var(--ac)}
-.bk-tog::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;background:#fff;border-radius:50%;transition:left .2s}
-.bk-tog.on::after{left:17px}
-.bk-fsb{display:flex;gap:3px}
-.bk-fsbtn{background:var(--pb);border:1px solid var(--pbd);border-radius:5px;padding:3px 7px;font-size:11px;cursor:pointer;color:var(--pm)}
-.bk-fsbtn.on{background:var(--ac);color:#fff;border-color:var(--ac2)}
-.bk-secs{font-size:11px;font-weight:700;color:var(--pm);text-transform:uppercase;letter-spacing:.7px;margin:10px 0 5px;border-top:1px solid var(--pbd);padding-top:10px}
-.bk-vcbs{display:flex;flex-wrap:wrap;gap:5px}
-.bk-vcb{font-size:12px;color:var(--pm);display:flex;align-items:center;gap:4px;cursor:pointer}
-.bk-vcb input{cursor:pointer;accent-color:var(--ac)}
-.bk-reset{width:100%;background:var(--pb);border:1px solid var(--pbd);border-radius:6px;padding:7px;font-size:12px;cursor:pointer;color:var(--pm);margin-top:10px}
-.bk-reset:hover{background:#d44;border-color:#d44;color:#fff}
+/* 다크모드 설정 */
+#bk-settings.dark-mode{background:#1c1810;border-color:#403828;}
+#bk-settings.dark-mode .bk-seth{color:#e8dfc8;border-bottom-color:#403828;}
+#bk-settings.dark-mode .bk-setc{color:#9a8a6a;}
+#bk-settings.dark-mode .bk-setl{color:#e8dfc8;}
+#bk-settings.dark-mode .bk-fsbtn{background:#2a2418;color:#9a8a6a;border-color:#403828;}
+#bk-settings.dark-mode .bk-fsbtn.on{background:#c4a45a;color:#111;border-color:#a08030;}
+#bk-settings.dark-mode .bk-tog{background:#403828;}
+#bk-settings.dark-mode .bk-secs{color:#9a8a6a;border-top-color:#403828;}
+#bk-settings.dark-mode .bk-vcb{color:#9a8a6a;}
+#bk-settings.dark-mode .bk-reset{background:#2a2418;color:#9a8a6a;border-color:#403828;}
+
+/* ─── 밑줄 패널 다크 ─── */
+#bk-annot.dark-mode{background:#1c1810;border-color:#403828;}
+#bk-annot.dark-mode .bk-an-hd{color:#e8dfc8;border-bottom-color:#403828;}
+#bk-annot.dark-mode .bk-an-item{border-bottom-color:#302818;}
+#bk-annot.dark-mode .bk-an-item:hover{background:#2a2418;}
+#bk-annot.dark-mode .bk-an-text{color:#e8dfc8;}
+#bk-annot.dark-mode .bk-an-note{color:#9a8a6a;}
+#bk-annot.dark-mode .bk-an-empty{color:#9a8a6a;}
 .bible-tts-btn{background:none;border:1px solid var(--ac);color:var(--ac2);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:6px;transition:all .12s}
 .bible-tts-btn:hover,.bible-tts-btn.playing{background:var(--ac);color:#fff}
 .bk-setup{text-align:center;padding:48px 24px;color:var(--pm);display:flex;flex-direction:column;align-items:center}
@@ -317,6 +351,26 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
 #book-wrap[data-dark] .bk-an-item{border-bottom-color:#302818}
 #book-wrap[data-dark] .bk-an-item:hover{background:rgba(196,164,90,.06)}
 #book-wrap[data-dark] .bk-an-text{color:var(--pt)}
+
+/* ─── 설정 패널 공통 CSS ─── */
+.bk-seth{padding:9px 13px;border-bottom:1px solid var(--pbd);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.bk-setc{cursor:pointer;color:var(--pm);font-size:15px}
+.bk-setb{padding:11px 13px}
+.bk-setr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bk-setl{font-size:13px}
+.bk-tog{width:34px;height:19px;background:var(--pbd);border-radius:10px;cursor:pointer;position:relative;transition:background .2s}
+.bk-tog.on{background:var(--ac)}
+.bk-tog::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;background:#fff;border-radius:50%;transition:left .2s}
+.bk-tog.on::after{left:17px}
+.bk-fsb{display:flex;gap:3px}
+.bk-fsbtn{background:var(--pb);border:1px solid var(--pbd);border-radius:5px;padding:3px 7px;font-size:11px;cursor:pointer;color:var(--pm)}
+.bk-fsbtn.on{background:var(--ac);color:#fff;border-color:var(--ac2)}
+.bk-secs{font-size:11px;font-weight:700;color:var(--pm);text-transform:uppercase;letter-spacing:.7px;margin:10px 0 5px;border-top:1px solid var(--pbd);padding-top:10px}
+.bk-vcbs{display:flex;flex-wrap:wrap;gap:5px}
+.bk-vcb{font-size:12px;color:var(--pm);display:flex;align-items:center;gap:4px;cursor:pointer}
+.bk-vcb input{cursor:pointer;accent-color:var(--ac)}
+.bk-reset{width:100%;background:var(--pb);border:1px solid var(--pbd);border-radius:6px;padding:7px;font-size:12px;cursor:pointer;color:var(--pm);margin-top:10px}
+.bk-reset:hover{background:#d44;border-color:#d44;color:#fff}
 
 /* ═══ 기타 ═══ */
 #panel-etc{padding:28px 18px;max-width:540px;margin:0 auto}
@@ -387,6 +441,8 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
       <button class="bk-hpbtn del"  onclick="bkHideHlPop()">✕ 취소</button>
     </div>
   </div>
+  <!-- 검색 오버레이 배경 -->
+  <div id="bk-search-overlay" onclick="bkTogSearch()"></div>
   <div id="bk-search">
     <div class="bk-sw"><span class="bk-si">🔍</span>
       <input id="bk-sinp" placeholder="전체 검색…" oninput="bkDoSearch(this.value)">
@@ -632,9 +688,14 @@ function bkSaveStore() {
   localStorage.setItem('obr-pos', JSON.stringify(_bkPos));
 }
 function bkApply() {
-  document.getElementById('book-wrap').dataset.dark = _bkS.dark ? '1' : '';
-  document.getElementById('bk-darktog').classList.toggle('on', _bkS.dark);
+  const isDark = _bkS.dark;
+  document.getElementById('book-wrap').dataset.dark = isDark ? '1' : '';
+  document.getElementById('bk-darktog').classList.toggle('on', isDark);
   document.getElementById('bk-reader').style.fontSize = _bkS.fs + 'px';
+  // fixed 패널들은 book-wrap 밖에 있으므로 직접 클래스 적용
+  ['bk-search','bk-settings','bk-annot'].forEach(id => {
+    document.getElementById(id)?.classList.toggle('dark-mode', isDark);
+  });
   // 본문 너비 복원
   if (_bkS.readerW) {
     document.getElementById('bk-reader').style.maxWidth = _bkS.readerW + 'px';
@@ -838,9 +899,13 @@ function bkShowAnnot() { bkTogAnnot(); }
 function bkTogAnnot() {
   const panel = document.getElementById('bk-annot');
   panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    panel.classList.toggle('dark-mode', _bkS.dark);
+    bkRenderAnnot();
+  }
   document.getElementById('bk-search').classList.remove('open');
+  document.getElementById('bk-search-overlay').classList.remove('open');
   document.getElementById('bk-settings').classList.remove('open');
-  if (panel.classList.contains('open')) bkRenderAnnot();
 }
 function bkRenderAnnot() {
   const list = document.getElementById('bk-an-list');
@@ -934,9 +999,16 @@ async function bkBuildSrIdx() {
   _bkSrReady = true;
 }
 function bkTogSearch() {
-  const p = document.getElementById('bk-search'); p.classList.toggle('open');
+  const p = document.getElementById('bk-search');
+  const ov = document.getElementById('bk-search-overlay');
+  const open = !p.classList.contains('open');
+  p.classList.toggle('open', open);
+  ov.classList.toggle('open', open);
   document.getElementById('bk-settings').classList.remove('open');
-  if (p.classList.contains('open')) {
+  document.getElementById('bk-annot').classList.remove('open');
+  if (open) {
+    // 다크모드 클래스 동기화
+    p.classList.toggle('dark-mode', _bkS.dark);
     document.getElementById('bk-sinp').value = '';
     document.getElementById('bk-sinp').focus();
     document.getElementById('bk-sres').innerHTML = `<div class="bk-srs">${_bkSrReady ? '검색어를 입력하세요' : '인덱싱 중…'}</div>`;
@@ -961,8 +1033,12 @@ function bkDoSearch(q) {
   }).join('');
 }
 function bkTogSettings() {
-  document.getElementById('bk-settings').classList.toggle('open');
+  const p = document.getElementById('bk-settings');
+  p.classList.toggle('open');
+  if (p.classList.contains('open')) p.classList.toggle('dark-mode', _bkS.dark);
   document.getElementById('bk-search').classList.remove('open');
+  document.getElementById('bk-search-overlay').classList.remove('open');
+  document.getElementById('bk-annot').classList.remove('open');
 }
 function bkTogDark() { _bkS.dark = !_bkS.dark; bkApply(); bkSaveStore(); }
 function bkFontSize(sz, btn) {
@@ -1005,7 +1081,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     bkHideHlPop();
     document.getElementById('bk-search').classList.remove('open');
+    document.getElementById('bk-search-overlay').classList.remove('open');
     document.getElementById('bk-settings').classList.remove('open');
+    document.getElementById('bk-annot').classList.remove('open');
     document.getElementById('cfg-overlay').classList.remove('open');
   }
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); bkTogSearch(); }
