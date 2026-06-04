@@ -577,8 +577,14 @@ const BibleModule = (() => {
       }
       [data-dark] .bible-version-tabs,
       [data-theme="dark"] .bible-version-tabs { border-bottom-color: rgba(196,164,90,.2); }
+      /* 버전 탭 — 라이트모드 */
+      .bv-tab { color: #5a3c08; }
+      .bv-tab.active { background: var(--accent, #c4a45a); color: #fff !important; border-color: var(--accent2, #8b6914); }
+      /* 다크모드 버전 탭 */
       [data-dark] .bv-tab,
-      [data-theme="dark"] .bv-tab { color: #c4a45a; }
+      [data-theme="dark"] .bv-tab { color: #c4a45a; background: rgba(196,164,90,.08); }
+      [data-dark] .bv-tab.active,
+      [data-theme="dark"] .bv-tab.active { background: #c4a45a !important; color: #111 !important; border-color: #a08030 !important; }
       [data-dark] .bible-all-block,
       [data-theme="dark"] .bible-all-block { border-bottom-color: rgba(196,164,90,.18); }
 

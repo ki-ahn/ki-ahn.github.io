@@ -34,11 +34,17 @@ const StudyModule = (() => {
       const tree = await GitHubModule.fetchTree();
       notebookFiles = tree.tree
         .filter(f => f.type === 'blob' && f.path.endsWith('.md'))
+        // .Trash, .obsidian 등 숨김 폴더 제외
+        .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
+        // 성경 폴더 제외
         .filter(f => !cfg.bibleFolder || !f.path.startsWith(cfg.bibleFolder + '/'));
 
-      // wordsFolder 가 설정된 경우 그 폴더만
+      // wordsFolder 설정 시 그 폴더만 (대소문자 무시, 앞뒤 슬래시 정규화)
       if (cfg.wordsFolder) {
-        notebookFiles = notebookFiles.filter(f => f.path.startsWith(cfg.wordsFolder + '/'));
+        const folder = cfg.wordsFolder.replace(/^\/+|\/+$/g, '').toLowerCase();
+        notebookFiles = notebookFiles.filter(f =>
+          f.path.toLowerCase().startsWith(folder + '/')
+        );
       }
 
       if (!notebookFiles.length) {
@@ -106,7 +112,9 @@ const StudyModule = (() => {
       block.split('\n').forEach(line => {
         const m = line.match(/^([^:：]+)[：:]\s*(.*)$/);
         if (!m) return;
-        const k = m[1].trim(), v = m[2].trim();
+        const k = m[1].trim();
+        // 마크다운 굵게(**text**, __text__) 및 기울임(*text*, _text_) 제거
+        const v = m[2].trim().replace(/\*\*([^*]+)\*\*/g,'$1').replace(/__([^_]+)__/g,'$1').replace(/\*([^*]+)\*/g,'$1').replace(/_([^_]+)_/g,'$1');
         if (k === '라오')     w.lao = v;
         if (k === '발음')     w.pron = v;
         if (k === '한글')     w.kor = v;
