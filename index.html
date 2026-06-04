@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>ລາວ 학습 앱</title>
+<!-- 외부 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- 모듈 로드 순서: github → study → bible → app(인라인) -->
+<script src="github.js"></script>
+<script src="study.js"></script>
+<script src="bible.js"></script>
+<style>
+/* ═══ 공통 변수 ═══ */
+:root{
+  --bg:#0f1117;--bg2:#1a1d27;--bg3:#22263a;
+  --border:#2e3350;--accent:#e8a040;--accent2:#4fa3e0;--accent3:#7dd3a8;
+  --text:#e8eaf0;--text2:#8b90aa;--text3:#5a5f78;--danger:#e05555;--r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ─── 1단 탭 ─── */
+#main-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 14px;gap:2px;position:sticky;top:0;z-index:100}
+.main-tab{padding:13px 18px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap}
+.main-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.main-tab:hover:not(.on){color:var(--text)}
+.panel{display:none}.panel.on{display:block}
+
+/* ─── 토스트 ─── */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 15px;font-size:13px;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,.4);transform:translateY(80px);opacity:0;transition:all .28s;z-index:9999;max-width:300px}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.ok{border-color:var(--accent3);color:var(--accent3)}
+#toast.err{border-color:var(--danger);color:var(--danger)}
+
+/* ─── 설정 모달 ─── */
+#cfg-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:500;align-items:center;justify-content:center;padding:18px}
+#cfg-overlay.open{display:flex}
+#cfg-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:26px;width:100%;max-width:440px;box-shadow:0 6px 32px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto}
+#cfg-box h3{font-size:15px;margin-bottom:18px;color:var(--text)}
+.cfg-label{display:block;font-size:11px;color:var(--text2);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.5px}
+.cfg-input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 11px;border-radius:7px;font-size:13px;font-family:monospace}
+.cfg-input:focus{outline:none;border-color:var(--accent2)}
+.cfg-hint{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5}
+.cfg-row{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+.btn-ok{padding:8px 20px;background:var(--accent);color:#000;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-cancel{padding:8px 14px;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:7px;font-size:13px;cursor:pointer}
+
+/* ═══ 단어공부 ═══ */
+#study-toolbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tb-group{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.tb-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.tb-sel{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 9px;border-radius:6px;cursor:pointer;min-width:110px}
+.tb-sel:focus{outline:none;border-color:var(--accent)}
+.s-chips{display:flex;gap:3px;flex-wrap:wrap}
+.s-chip{padding:3px 9px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2);transition:all .13s;font-family:monospace}
+.s-chip.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.s-chip:hover:not(.active){border-color:var(--accent);color:var(--accent)}
+.num-input{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;padding:4px 7px;border-radius:6px;width:56px;text-align:center;font-family:monospace}
+.num-input:focus{outline:none;border-color:var(--accent2)}
+.tb-icon-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;transition:all .13s;white-space:nowrap}
+.tb-icon-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+#study-togglebar{background:var(--bg);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.tog-btn{padding:4px 13px;border-radius:18px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2);transition:all .13s}
+.tog-btn.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.tog-btn:hover:not(.on){border-color:var(--text2);color:var(--text)}
+.play-all-btn{padding:4px 13px;border-radius:18px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--accent3);background:transparent;color:var(--accent3);display:flex;align-items:center;gap:4px;transition:all .13s}
+.play-all-btn:hover{background:var(--accent3);color:#000}
+#study-stats{background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 14px;display:none;gap:14px;font-size:11px;color:var(--text3);font-family:monospace}
+#study-stats span{color:var(--accent)}
+#study-words{padding:12px 14px;display:flex;flex-direction:column;gap:7px}
+.s-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;display:grid;grid-template-columns:36px 1.6fr 1fr 1fr 1.2fr 96px;align-items:center;gap:10px;transition:border-color .18s}
+.s-card:hover{border-color:var(--bg3)}
+.s-audio-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .13s;flex-shrink:0}
+.s-audio-btn:hover{background:var(--accent3);color:#000;border-color:var(--accent3)}
+.s-audio-btn:disabled{opacity:.3;cursor:not-allowed}
+.s-cell{min-width:0}
+.s-lao{font-family:"Noto Sans Lao",Georgia,serif;font-size:17px;color:var(--accent);font-weight:700}
+.s-pron{font-size:11px;color:var(--text3);margin-top:1px}
+.s-eng{font-size:13px;color:var(--accent2)}
+.s-kor{font-size:14px;color:var(--text)}
+.s-opp{font-size:12px;color:var(--text3)}
+.vis-hidden{filter:blur(5px);user-select:none;pointer-events:none}
+.s-study-ctrl{display:flex;flex-direction:column;align-items:center;gap:4px}
+.s-count-display{font-size:20px;font-weight:700;color:var(--accent);font-family:monospace;min-width:36px;text-align:center;transition:transform .2s;line-height:1}
+.s-count-display.bump{transform:scale(1.6)}
+.s-count-btns{display:flex;gap:3px}
+.s-inc-btn,.s-dec-btn,.s-set-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .13s}
+.s-inc-btn:hover{background:var(--accent3);color:#000;border-color:var(--accent3)}
+.s-dec-btn:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
+.s-set-btn:hover{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.s-status{text-align:center;padding:56px 18px;color:var(--text3)}
+.s-icon{font-size:38px;margin-bottom:10px}
+.s-status h3{font-size:14px;color:var(--text2);font-weight:400;margin-bottom:6px}
+.s-status p{font-size:13px;line-height:1.6}
+.s-loader{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){
+  .s-card{grid-template-columns:32px 1fr 80px;grid-template-rows:auto auto}
+  .s-cell:nth-child(4),.s-cell:nth-child(5){grid-column:2}
+}
+
+/* ═══ 책보기 ═══ */
+#panel-book{height:calc(100vh - 48px);display:none;flex-direction:column;overflow:hidden}
+#panel-book.on{display:flex}
+#book-wrap{flex:1;overflow:hidden;display:flex;height:100%;
+  --pb:#f7f4ef;--paper:#fdfaf5;--ps:#e8e0d0;--pt:#2c2416;--pm:#8a7a5a;--pbd:#d8ccb0;
+  --ac:#c4a45a;--ac2:#8b6914;background:var(--pb);color:var(--pt)}
+#book-wrap[data-dark]{--pb:#0f0e0b;--paper:#1a1814;--pt:#e8dcc8;--pm:#8a7a5a;--pbd:#2a2418;background:var(--pb);color:var(--pt)}
+#bk-main-col{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;overflow:hidden}
+#bk-topbar{background:var(--paper);border-bottom:1px solid var(--pbd);padding:0 11px;height:46px;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.bk-btn{background:none;border:1px solid var(--pbd);color:var(--pm);border-radius:5px;padding:3px 8px;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .12s;display:flex;align-items:center;gap:3px}
+.bk-btn:hover{background:var(--pb);color:var(--pt)}
+.bk-btn.on{background:var(--ac);color:#fff;border-color:var(--ac2)}
+#bk-title{flex:1;font-size:12px;color:var(--pm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#bk-title strong{color:var(--pt)}
+.bk-hl-colors{display:flex;gap:4px}
+.bk-hc{width:15px;height:15px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .12s}
+.bk-hc:hover{transform:scale(1.2)}.bk-hc.on{border-color:var(--pt)}
+#bk-sidebar{width:260px;min-width:100px;max-width:460px;background:#1a1814;display:none;flex-direction:column;height:100%;overflow:hidden;flex-shrink:0;border-right:1px solid #2a2520}
+#bk-sidebar.open{display:flex}
+.bk-sbh{padding:12px 11px 8px;border-bottom:1px solid #2a2520;flex-shrink:0}
+.bk-sbh h1{color:#c4a45a;font-size:14px;font-weight:600}
+.bk-sbh p{color:#5a5040;font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk-sbs{padding:6px 10px;border-bottom:1px solid #2a2520;flex-shrink:0}
+.bk-sbs input{width:100%;background:#2a2520;border:1px solid #3a3020;color:#c8c2b4;border-radius:5px;padding:4px 8px;font-size:12px;outline:none}
+#bk-ftree{flex:1;overflow-y:auto;padding:4px 0}
+#bk-ftree::-webkit-scrollbar{width:3px}
+#bk-ftree::-webkit-scrollbar-thumb{background:#3a3020}
+.bk-tf{cursor:pointer;padding:5px 10px;color:#c4a45a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;display:flex;align-items:center;gap:5px;user-select:none}
+.bk-tf:hover{background:#2a2520}
+.bk-tf .arr{font-size:9px;transition:transform .2s;color:#5a5040}
+.bk-tf.open .arr{transform:rotate(90deg)}
+.bk-tc{display:none}.bk-tc.open{display:block}
+.bk-fi{padding:4px 10px 4px 22px;color:#c8c2b4;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background .1s}
+.bk-fi:hover{background:#2a2520}.bk-fi.active{background:#3d3528;color:#c4a45a}
+.bk-sbf{padding:7px 10px;border-top:1px solid #2a2520;flex-shrink:0;display:flex;gap:5px}
+.bk-sbb{flex:1;background:#2a2520;border:1px solid #3a3020;color:#c8c2b4;border-radius:5px;padding:5px;font-size:11px;cursor:pointer;text-align:center}
+.bk-sbb:hover{background:#3a3020}
+.bk-spl{width:4px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .15s;user-select:none}
+.bk-spl:hover,.bk-spl.drag{background:var(--ac)}
+#bk-content{flex:1;display:flex;overflow:hidden}
+#bk-rw{flex:1;overflow-y:auto;padding:28px 0;background:var(--pb);min-width:180px}
+#bk-rw::-webkit-scrollbar{width:5px}
+#bk-rw::-webkit-scrollbar-thumb{background:var(--ps);border-radius:3px}
+#bk-reader{max-width:740px;margin:0 auto;background:var(--paper);border-radius:4px;box-shadow:0 2px 20px rgba(0,0,0,.08);padding:48px 60px;font-family:Georgia,"Times New Roman",serif;line-height:1.85;color:var(--pt);font-size:17px;word-break:normal;overflow-wrap:break-word}
+@media(max-width:820px){#bk-reader{padding:28px 16px;font-size:16px}}
+#bk-reader h1{font-size:2em;font-weight:700;margin:0 0 1em;border-bottom:2px solid var(--ac);padding-bottom:.35em}
+#bk-reader h2{font-size:1.4em;font-weight:700;margin:1.8em 0 .65em}
+#bk-reader h3{font-size:1.15em;font-weight:700;margin:1.5em 0 .5em}
+#bk-reader h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--pm)}
+#bk-reader p{margin:0 0 .95em}
+#bk-reader ul,#bk-reader ol{margin:0 0 .95em 1.4em}
+#bk-reader li{margin:.2em 0}
+#bk-reader blockquote{border-left:3px solid var(--ac);padding:.5em 1em;color:var(--pm);margin:.9em 0;font-style:italic;background:rgba(196,164,90,.06);border-radius:0 4px 4px 0}
+#bk-reader code{background:rgba(196,164,90,.08);padding:2px 5px;border-radius:3px;font-size:.87em;font-family:monospace}
+#bk-reader pre{background:rgba(196,164,90,.08);padding:1em;border-radius:6px;overflow-x:auto;margin:.9em 0}
+#bk-reader pre code{background:none;padding:0}
+#bk-reader hr{border:none;border-top:1px solid var(--pbd);margin:1.6em 0}
+#bk-reader a{color:var(--ac2);text-decoration:underline}
+#bk-reader table{width:100%;border-collapse:collapse;margin:.9em 0;font-size:.9em}
+#bk-reader th{background:rgba(196,164,90,.08);padding:7px 10px;border:1px solid var(--pbd);font-weight:600;text-align:left}
+#bk-reader td{padding:6px 10px;border:1px solid var(--pbd)}
+#bk-reader tr:nth-child(even) td{background:rgba(0,0,0,.02)}
+.obs-callout{border-radius:6px;margin:1em 0;padding:10px 14px;border-left:4px solid;font-size:.93em}
+.obs-callout.note{background:rgba(100,160,255,.08);border-color:#4080ff}
+.obs-callout.tip{background:rgba(80,200,120,.08);border-color:#40c870}
+.obs-callout.warning{background:rgba(255,160,40,.08);border-color:#ffa020}
+.obs-callout.danger{background:rgba(255,60,60,.08);border-color:#ff3c3c}
+.obs-callout.info{background:rgba(40,180,200,.08);border-color:#28b4c8}
+.obs-callout.quote{background:rgba(196,164,90,.08);border-color:var(--ac)}
+.obs-callout-title{font-weight:700;margin-bottom:5px;font-size:.92em;display:flex;align-items:center;gap:5px}
+.obs-callout-body{line-height:1.7}
+#bk-toc{background:var(--paper);border-left:1px solid var(--pbd);overflow-y:auto;padding:13px 9px;flex-shrink:0;display:none;min-width:100px;max-width:340px;width:190px}
+#bk-toc.open{display:block}
+#bk-toc h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--pm);margin-bottom:8px}
+.bk-ti{display:block;color:var(--pm);font-size:11px;padding:3px 0 3px 6px;cursor:pointer;line-height:1.4;border-left:2px solid transparent;margin-bottom:1px}
+.bk-ti:hover{color:var(--pt);border-color:var(--ac)}
+.bk-ti.h3{padding-left:14px}.bk-ti.h4{padding-left:22px}
+.hl{cursor:pointer;border-radius:2px}
+.hl-yellow{background:rgba(255,220,80,.45)}.hl-green{background:rgba(100,200,120,.35)}
+.hl-blue{background:rgba(80,160,255,.35)}.hl-pink{background:rgba(255,100,150,.35)}
+#bk-hlpop{position:fixed;background:var(--paper);border:1px solid var(--pbd);border-radius:8px;padding:9px;box-shadow:0 4px 18px rgba(0,0,0,.14);display:none;z-index:600;flex-direction:column;gap:6px;min-width:185px}
+#bk-hlpop.show{display:flex}
+.bk-hpc{display:flex;gap:6px}
+.bk-hpcol{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s}
+.bk-hpcol:hover{transform:scale(1.15);border-color:var(--pt)}
+#bk-hpnote{border:1px solid var(--pbd);border-radius:5px;padding:4px 7px;font-size:12px;width:100%;outline:none;background:var(--pb);color:var(--pt)}
+.bk-hpa{display:flex;gap:5px}
+.bk-hpbtn{flex:1;background:var(--pb);border:1px solid var(--pbd);border-radius:5px;padding:4px 7px;font-size:11px;cursor:pointer;color:var(--pm)}
+.bk-hpbtn.save:hover{background:var(--ac);color:#fff}.bk-hpbtn.del:hover{background:#d44;color:#fff}
+#bk-search{position:fixed;top:96px;right:14px;background:var(--paper);border:1px solid var(--pbd);border-radius:10px;width:330px;max-height:440px;box-shadow:0 8px 28px rgba(0,0,0,.12);display:none;flex-direction:column;z-index:400;overflow:hidden}
+#bk-search.open{display:flex}
+.bk-sw{display:flex;align-items:center;border-bottom:1px solid var(--pbd)}
+.bk-si{padding:0 9px;color:var(--pm);font-size:13px}
+#bk-sinp{flex:1;border:none;padding:9px 5px;font-size:13px;outline:none;background:transparent;color:var(--pt)}
+.bk-sc{padding:0 9px;color:var(--pm);cursor:pointer;font-size:15px}
+#bk-sres{overflow-y:auto;flex:1}
+.bk-sri{padding:7px 13px;cursor:pointer;border-bottom:1px solid var(--pbd)}
+.bk-sri:hover{background:var(--pb)}
+.bk-srt{font-weight:600;font-size:13px;color:var(--pt)}
+.bk-srp{font-size:11px;color:var(--pm)}
+.bk-sre{font-size:12px;color:var(--pm);margin-top:3px;line-height:1.4}
+.bk-sre mark{background:rgba(255,220,80,.45);border-radius:2px}
+.bk-srs{padding:14px;text-align:center;color:var(--pm);font-size:13px}
+#bk-settings{position:fixed;top:96px;right:14px;background:var(--paper);border:1px solid var(--pbd);border-radius:10px;width:276px;box-shadow:0 8px 28px rgba(0,0,0,.12);display:none;z-index:400;overflow:hidden}
+#bk-settings.open{display:block}
+.bk-seth{padding:9px 13px;border-bottom:1px solid var(--pbd);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.bk-setc{cursor:pointer;color:var(--pm);font-size:15px}
+.bk-setb{padding:11px 13px}
+.bk-setr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.bk-setl{font-size:13px}
+.bk-tog{width:34px;height:19px;background:var(--pbd);border-radius:10px;cursor:pointer;position:relative;transition:background .2s}
+.bk-tog.on{background:var(--ac)}
+.bk-tog::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;background:#fff;border-radius:50%;transition:left .2s}
+.bk-tog.on::after{left:17px}
+.bk-fsb{display:flex;gap:3px}
+.bk-fsbtn{background:var(--pb);border:1px solid var(--pbd);border-radius:5px;padding:3px 7px;font-size:11px;cursor:pointer;color:var(--pm)}
+.bk-fsbtn.on{background:var(--ac);color:#fff;border-color:var(--ac2)}
+.bk-secs{font-size:11px;font-weight:700;color:var(--pm);text-transform:uppercase;letter-spacing:.7px;margin:10px 0 5px;border-top:1px solid var(--pbd);padding-top:10px}
+.bk-vcbs{display:flex;flex-wrap:wrap;gap:5px}
+.bk-vcb{font-size:12px;color:var(--pm);display:flex;align-items:center;gap:4px;cursor:pointer}
+.bk-vcb input{cursor:pointer;accent-color:var(--ac)}
+.bk-reset{width:100%;background:var(--pb);border:1px solid var(--pbd);border-radius:6px;padding:7px;font-size:12px;cursor:pointer;color:var(--pm);margin-top:10px}
+.bk-reset:hover{background:#d44;border-color:#d44;color:#fff}
+.bible-tts-btn{background:none;border:1px solid var(--ac);color:var(--ac2);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:6px;transition:all .12s}
+.bible-tts-btn:hover,.bible-tts-btn.playing{background:var(--ac);color:#fff}
+.bk-setup{text-align:center;padding:48px 24px;color:var(--pm);display:flex;flex-direction:column;align-items:center}
+.bk-setup h2{font-size:1.7em;color:var(--ac);margin-bottom:9px;font-family:Georgia,serif}
+.bk-setup>p{font-size:13px;line-height:1.7;max-width:380px;margin-bottom:18px}
+.bk-setup-card{background:var(--paper);border:1px solid var(--pbd);border-radius:10px;padding:20px 24px;max-width:420px;width:100%;text-align:left}
+.bk-setup-card h3{color:var(--pt);margin-bottom:11px;font-size:14px}
+.bk-go{width:100%;background:var(--ac);color:#fff;border:none;border-radius:7px;padding:9px;font-size:14px;font-weight:600;cursor:pointer;margin-top:7px}
+.bk-go:hover{background:var(--ac2)}
+.bk-spin{text-align:center;padding:48px;color:var(--pm);font-size:14px;line-height:2}
+#bk-prog{height:2px;background:var(--ac);position:fixed;top:0;left:0;z-index:999;transition:width .15s;pointer-events:none}
+
+/* ═══ 기타 ═══ */
+#panel-etc{padding:28px 18px;max-width:540px;margin:0 auto}
+#panel-etc h2{font-size:15px;margin-bottom:18px;color:var(--accent)}
+.etc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:15px;margin-bottom:9px;font-size:13px;color:var(--text2);line-height:1.7}
+.etc-card strong{color:var(--text)}
+.etc-card code{color:var(--accent);font-family:monospace;font-size:12px}
+.etc-card pre{margin-top:7px;font-size:11px;color:var(--text3);line-height:1.8;overflow-x:auto;font-family:monospace}
+.danger-btn{padding:7px 13px;background:var(--danger);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-top:9px}
+</style>
+</head>
+<body>
+
+<div id="bk-prog" style="width:0"></div>
+<div id="toast"></div>
+
+<!-- ══ 설정 모달 ══ -->
+<div id="cfg-overlay">
+  <div id="cfg-box">
+    <h3>🔑 GitHub 저장소 설정</h3>
+    <label class="cfg-label">사용자명 (owner)</label>
+    <input class="cfg-input" id="cfg-user" placeholder="예: ki-ahn">
+    <label class="cfg-label">저장소 이름 (repo)</label>
+    <input class="cfg-input" id="cfg-repo" placeholder="예: Blog">
+    <label class="cfg-label">브랜치</label>
+    <input class="cfg-input" id="cfg-branch" value="main">
+    <label class="cfg-label">단어장 폴더 경로 <small style="color:var(--text3);text-transform:none">(비우면 전체 .md)</small></label>
+    <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
+    <label class="cfg-label">책보기 루트 폴더 <small style="color:var(--text3);text-transform:none">(선택)</small></label>
+    <input class="cfg-input" id="cfg-root" placeholder="예: Notes">
+    <label class="cfg-label">성경 데이터 폴더</label>
+    <input class="cfg-input" id="cfg-bible" value="Bible">
+    <label class="cfg-label">Personal Access Token <small style="color:var(--text3);text-transform:none">(쓰기 시 필요)</small></label>
+    <input class="cfg-input" id="cfg-token" type="password" placeholder="ghp_xxxx…">
+    <div class="cfg-hint">Settings → Developer Settings → Personal access tokens (repo 권한)</div>
+    <div class="cfg-row">
+      <button class="btn-cancel" onclick="closeCfg()">취소</button>
+      <button class="btn-ok" onclick="saveCfg()">저장 &amp; 로드</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 1단 탭 ══ -->
+<nav id="main-tabs">
+  <div class="main-tab" id="tab-book"  onclick="switchTab('book')">📖 책보기</div>
+  <div class="main-tab on" id="tab-study" onclick="switchTab('study')">✏️ 단어공부</div>
+  <div class="main-tab" id="tab-etc"   onclick="switchTab('etc')">⚙️ 기타</div>
+</nav>
+
+<!-- ══ 책보기 패널 ══ -->
+<div class="panel" id="panel-book">
+  <div id="bk-hlpop">
+    <div style="font-size:11px;color:var(--pm)">색상 선택</div>
+    <div class="bk-hpc">
+      <div class="bk-hpcol" style="background:#ffdc50" onclick="bkHlColor('yellow',this)"></div>
+      <div class="bk-hpcol" style="background:#64c878" onclick="bkHlColor('green',this)"></div>
+      <div class="bk-hpcol" style="background:#50a0ff" onclick="bkHlColor('blue',this)"></div>
+      <div class="bk-hpcol" style="background:#ff6496" onclick="bkHlColor('pink',this)"></div>
+    </div>
+    <input id="bk-hpnote" placeholder="메모 추가…">
+    <div class="bk-hpa">
+      <button class="bk-hpbtn save" onclick="bkSaveHl()">💾 저장</button>
+      <button class="bk-hpbtn del"  onclick="bkHideHlPop()">✕ 취소</button>
+    </div>
+  </div>
+  <div id="bk-search">
+    <div class="bk-sw"><span class="bk-si">🔍</span>
+      <input id="bk-sinp" placeholder="전체 검색…" oninput="bkDoSearch(this.value)">
+      <span class="bk-sc" onclick="bkTogSearch()">✕</span>
+    </div>
+    <div id="bk-sres"><div class="bk-srs">검색어를 입력하세요</div></div>
+  </div>
+  <div id="bk-settings">
+    <div class="bk-seth">책보기 설정 <span class="bk-setc" onclick="bkTogSettings()">✕</span></div>
+    <div class="bk-setb">
+      <div class="bk-setr"><div class="bk-setl">글자 크기</div>
+        <div class="bk-fsb">
+          <button class="bk-fsbtn"    onclick="bkFontSize(15,this)">S</button>
+          <button class="bk-fsbtn on" onclick="bkFontSize(17,this)">M</button>
+          <button class="bk-fsbtn"    onclick="bkFontSize(19,this)">L</button>
+          <button class="bk-fsbtn"    onclick="bkFontSize(21,this)">XL</button>
+        </div>
+      </div>
+      <div class="bk-setr"><div class="bk-setl">다크 모드</div>
+        <div class="bk-tog" id="bk-darktog" onclick="bkTogDark()"></div>
+      </div>
+      <div class="bk-secs">성경 버전</div>
+      <div class="bk-vcbs" id="bk-vcbs"></div>
+      <button class="bk-reset" onclick="bkResetSettings()">⚠ 설정 초기화</button>
+    </div>
+  </div>
+  <div id="book-wrap">
+    <div id="bk-main-col">
+      <div id="bk-topbar">
+        <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
+        <div id="bk-title">파일을 선택하세요</div>
+        <button class="bk-btn" id="bk-tocbtn" onclick="bkTogToc()">목차</button>
+        <button class="bk-btn" id="bk-hlbtn" onclick="bkTogHlMode()">🖊</button>
+        <div class="bk-hl-colors" id="bk-hlcols" style="display:none">
+          <div class="bk-hc on" style="background:#ffdc50" onclick="bkHlColor('yellow',this)"></div>
+          <div class="bk-hc"    style="background:#64c878" onclick="bkHlColor('green',this)"></div>
+          <div class="bk-hc"    style="background:#50a0ff" onclick="bkHlColor('blue',this)"></div>
+          <div class="bk-hc"    style="background:#ff6496" onclick="bkHlColor('pink',this)"></div>
+        </div>
+        <button class="bk-btn" onclick="bkTogSearch()">🔍</button>
+        <button class="bk-btn" onclick="bkTogSettings()">⚙</button>
+      </div>
+      <div id="bk-content">
+        <div id="bk-sidebar">
+          <div class="bk-sbh"><h1>📖 Obsidian Reader</h1><p id="bk-repo-lbl">저장소를 연결하세요</p></div>
+          <div class="bk-sbs"><input placeholder="파일 필터…" oninput="bkFilterTree(this.value)"></div>
+          <div id="bk-ftree"><div style="padding:16px;color:#5a5040;font-size:12px;text-align:center">저장소를 연결하세요</div></div>
+          <div class="bk-sbf">
+            <button class="bk-sbb" onclick="bkRefresh()">↺ 새로고침</button>
+            <button class="bk-sbb" onclick="bkShowAnnot()">🖊 밑줄</button>
+          </div>
+        </div>
+        <div class="bk-spl" id="bk-spl-l" onmousedown="bkDragStart(event,'l')" style="display:none"></div>
+        <div id="bk-rw"><div id="bk-reader"></div></div>
+        <div class="bk-spl" id="bk-spl-r" onmousedown="bkDragStart(event,'r')" style="display:none"></div>
+        <div id="bk-toc"><h3>목차</h3><div id="bk-toclist"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 단어공부 패널 ══ -->
+<div class="panel on" id="panel-study">
+  <div id="study-toolbar">
+    <div class="tb-group">
+      <span class="tb-label">📂 노트</span>
+      <select class="tb-sel" id="study-notebook-sel" onchange="StudyModule.loadCurrentNotebook()">
+        <option value="">— 설정 필요 —</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">🎯 공부횟수</span>
+      <div class="s-chips" id="study-count-chips">
+        <div class="s-chip active" data-val="전체" onclick="StudyModule.selectCount(this,'전체')">전체</div>
+      </div>
+    </div>
+    <div class="tb-group">
+      <span class="tb-label">📋 표시</span>
+      <input class="num-input" id="study-display-count" type="number" min="1" max="100" value="20" onchange="StudyModule.renderWords()">
+      <span style="font-size:11px;color:var(--text3)">개</span>
+    </div>
+    <div class="tb-group" style="margin-left:auto">
+      <button class="tb-icon-btn" onclick="openCfg()">🔑 GitHub 설정</button>
+      <button class="tb-icon-btn" onclick="StudyModule.loadNotebooks()">🔄 새로고침</button>
+    </div>
+  </div>
+  <div id="study-togglebar">
+    <button class="play-all-btn" onclick="StudyModule.playAll()">▶ 전체 재생</button>
+    <div style="width:1px;height:18px;background:var(--border);margin:0 3px"></div>
+    <button class="tog-btn on" id="stog-lao" onclick="StudyModule.toggleCol('lao')">라오어</button>
+    <button class="tog-btn on" id="stog-eng" onclick="StudyModule.toggleCol('eng')">영어</button>
+    <button class="tog-btn on" id="stog-kor" onclick="StudyModule.toggleCol('kor')">한글</button>
+    <button class="tog-btn on" id="stog-opp" onclick="StudyModule.toggleCol('opp')">반댓말</button>
+    <div style="flex:1"></div>
+    <span id="st-range" style="font-size:11px;color:var(--text3)"></span>
+  </div>
+  <div id="study-stats">
+    전체&nbsp;<span id="st-total">0</span>개 ·
+    표시&nbsp;<span id="st-shown">0</span>개 ·
+    학습완료&nbsp;<span id="st-studied">0</span>개
+  </div>
+  <div id="study-words">
+    <div class="s-status">
+      <div class="s-icon">☝️</div>
+      <h3>GitHub 저장소를 설정하세요</h3>
+      <p>🔑 GitHub 설정 버튼을 눌러 저장소 정보를 입력하세요.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 기타 패널 ══ -->
+<div class="panel" id="panel-etc">
+  <h2>⚙️ 설정 및 정보</h2>
+  <div class="etc-card">
+    <strong>🔑 현재 GitHub 저장소</strong><br>
+    <code id="etc-gh-label">미설정</code><br><br>
+    <button class="tb-icon-btn" onclick="openCfg()" style="display:inline-flex">설정 열기</button>
+  </div>
+  <div class="etc-card">
+    <strong>💾 공부횟수 저장</strong><br><br>
+    • <strong style="color:var(--accent2)">로컬 저장</strong>: 항상 브라우저 localStorage에 즉시 저장<br>
+    • <strong style="color:var(--accent3)">GitHub 저장</strong>: 토큰 설정 시 .md 파일도 업데이트
+  </div>
+  <div class="etc-card">
+    <strong>📝 단어 데이터 형식</strong>
+    <pre>라오: ລູກຊາຍ
+발음: [룩-싸이 ↗]
+한글: 아들
+영어: son
+반대말: ລູກສາວ (딸)
+음성: luk_sai.mp3
+공부횟수: 0
+---
+라오: ...</pre>
+  </div>
+  <div class="etc-card">
+    <strong>🎵 음성 파일</strong><br>
+    저장소 <code>audio/</code> 폴더에 mp3 파일.<br>예: <code>audio/luk_sai.mp3</code>
+  </div>
+  <div class="etc-card">
+    <strong>📁 파일 구조 (GitHub Pages)</strong>
+    <pre>ki-ahn.github.io/
+├── index.html   ← 이 파일
+├── github.js    ← GitHub API 모듈
+├── study.js     ← 단어공부 모듈
+└── bible.js     ← 성경 모듈</pre>
+  </div>
+  <div class="etc-card">
+    <strong>🗑️ 로컬 데이터 초기화</strong><br>
+    <button class="danger-btn" onclick="StudyModule.clearLocal()">로컬 공부횟수 삭제</button>
+  </div>
+</div>
+
+<!-- ══ app.js 인라인 — 탭 전환 + 책보기 + 초기화 ══ -->
+<script>
+/* ── AppToast ── */
+const AppToast = {
+  _t: null,
+  show(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type === 'success' ? ' ok' : type === 'error' ? ' err' : '');
+    clearTimeout(this._t);
+    this._t = setTimeout(() => el.classList.remove('show'), 3200);
+  }
+};
+
+/* ── 탭 전환 ── */
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('panel-' + name).classList.add('on');
+  document.getElementById('tab-' + name).classList.add('on');
+  if (name === 'book' && !_bkInited) bkInit();
+}
+
+/* ── 설정 모달 ── */
+function openCfg() {
+  const c = GitHubModule.get();
+  document.getElementById('cfg-user').value   = c.user || '';
+  document.getElementById('cfg-repo').value   = c.repo || '';
+  document.getElementById('cfg-branch').value = c.branch || 'main';
+  document.getElementById('cfg-words').value  = c.wordsFolder || '';
+  document.getElementById('cfg-root').value   = c.rootFolder || '';
+  document.getElementById('cfg-bible').value  = c.bibleFolder || 'Bible';
+  document.getElementById('cfg-token').value  = c.token || '';
+  document.getElementById('cfg-overlay').classList.add('open');
+}
+function closeCfg() { document.getElementById('cfg-overlay').classList.remove('open'); }
+function saveCfg() {
+  const user = document.getElementById('cfg-user').value.trim();
+  const repo = document.getElementById('cfg-repo').value.trim();
+  if (!user || !repo) { AppToast.show('사용자명과 저장소를 입력하세요', 'error'); return; }
+  GitHubModule.configure({
+    user, repo,
+    branch:      document.getElementById('cfg-branch').value.trim() || 'main',
+    wordsFolder: document.getElementById('cfg-words').value.trim().replace(/^\/+|\/+$/g, ''),
+    rootFolder:  document.getElementById('cfg-root').value.trim().replace(/^\/+|\/+$/g, ''),
+    bibleFolder: document.getElementById('cfg-bible').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible',
+    token:       document.getElementById('cfg-token').value.trim(),
+  });
+  closeCfg();
+  updateEtcLabel();
+  bkSyncBible();
+  StudyModule.loadNotebooks();
+}
+function updateEtcLabel() {
+  const c = GitHubModule.get();
+  const el = document.getElementById('etc-gh-label');
+  if (el) el.textContent = c.user && c.repo ? `${c.user}/${c.repo}` : '미설정';
+}
+
+/* ════════════════════════════════
+   책보기 모듈 (book.js 역할)
+════════════════════════════════ */
+const BIBLE_VERSIONS = ['개역개정', '새번역', 'ESV', 'NIV', 'LAO', 'Henry', 'Hokma'];
+const _bkS = { dark: false, fs: 17, vers: ['개역개정', 'ESV'] };
+let _bkInited = false;
+let _bkFiles = [], _bkCur = null, _bkContent = '';
+let _bkHls = {}, _bkPos = {};
+let _bkHlMode = false, _bkHlCol = 'yellow', _bkSelR = null;
+let _bkSrIdx = [], _bkSrReady = false;
+let _bkDrag = null;
+
+function bkLoadStore() {
+  try {
+    const c = localStorage.getItem('obr-cfg'); if (c) Object.assign(_bkS, JSON.parse(c));
+    const h = localStorage.getItem('obr-hl');  if (h) _bkHls = JSON.parse(h);
+    const p = localStorage.getItem('obr-pos'); if (p) _bkPos = JSON.parse(p);
+  } catch(e) {}
+}
+function bkSaveStore() {
+  localStorage.setItem('obr-cfg', JSON.stringify(_bkS));
+  localStorage.setItem('obr-hl',  JSON.stringify(_bkHls));
+  localStorage.setItem('obr-pos', JSON.stringify(_bkPos));
+}
+function bkApply() {
+  document.getElementById('book-wrap').dataset.dark = _bkS.dark ? '1' : '';
+  document.getElementById('bk-darktog').classList.toggle('on', _bkS.dark);
+  document.getElementById('bk-reader').style.fontSize = _bkS.fs + 'px';
+  document.getElementById('bk-vcbs').innerHTML = BIBLE_VERSIONS.map(v =>
+    `<label class="bk-vcb"><input type="checkbox" ${_bkS.vers.includes(v) ? 'checked' : ''} onchange="bkTogVer('${v}',this.checked)"> ${v}</label>`
+  ).join('');
+}
+function bkTogVer(v, on) {
+  if (on && !_bkS.vers.includes(v)) _bkS.vers.push(v);
+  if (!on) _bkS.vers = _bkS.vers.filter(x => x !== v);
+  bkSaveStore(); bkSyncBible(); if (_bkCur) bkRender();
+}
+function bkSyncBible() {
+  const c = GitHubModule.get();
+  BibleModule.configure({
+    user: c.user, repo: c.repo, branch: c.branch, token: c.token,
+    bibleFolder: c.bibleFolder || 'Bible',
+    enabledVersions: _bkS.vers,
+  });
+}
+function bkInit() {
+  _bkInited = true;
+  bkLoadStore(); bkApply(); BibleModule.injectStyles();
+  const c = GitHubModule.get();
+  document.getElementById('bk-repo-lbl').textContent = c.user && c.repo ? `${c.user}/${c.repo}` : '저장소를 연결하세요';
+  bkSyncBible(); bkWelcome();
+}
+function bkWelcome() {
+  const c = GitHubModule.get();
+  document.getElementById('bk-reader').innerHTML = `
+    <div class="bk-setup">
+      <h2>📖 Obsidian Reader</h2>
+      <p>GitHub Obsidian 노트를 읽고 성경 구절을 확인하세요.</p>
+      <div class="bk-setup-card">
+        <h3>GitHub 저장소 연결</h3>
+        <p style="font-size:13px;color:var(--pm);margin-bottom:12px;line-height:1.7">
+          현재: <strong style="color:var(--ac)">${c.user && c.repo ? c.user + '/' + c.repo : '미설정'}</strong>
+        </p>
+        ${c.user && c.repo ? `<button class="bk-go" onclick="bkLoadFiles()">📂 파일 목록 불러오기</button>` : ''}
+      </div>
+    </div>`;
+}
+async function bkLoadFiles() {
+  document.getElementById('bk-ftree').innerHTML = '<div class="bk-spin">🔍 로딩 중…</div>';
+  const c = GitHubModule.get();
+  if (!c.user || !c.repo) { AppToast.show('저장소를 먼저 설정하세요', 'error'); return; }
+  try {
+    const tree = await GitHubModule.fetchTree();
+    _bkFiles = tree.tree
+      .filter(f => f.type === 'blob' && f.path.endsWith('.md'))
+      .filter(f => !c.rootFolder  || f.path.startsWith(c.rootFolder + '/'))
+      .filter(f => !c.bibleFolder || !f.path.startsWith(c.bibleFolder + '/'))
+      .filter(f => !c.wordsFolder || !f.path.startsWith(c.wordsFolder + '/'))
+      .map(f => f.path);
+    bkRenderTree(_bkFiles);
+    AppToast.show(`📚 ${_bkFiles.length}개 파일 로드됨`);
+    bkBuildSrIdx();
+  } catch(e) {
+    document.getElementById('bk-ftree').innerHTML = `<div style="padding:14px;color:#e66;font-size:12px;line-height:1.9">오류: ${e.message}</div>`;
+    AppToast.show(e.message, 'error');
+  }
+}
+function bkRefresh() {
+  if (GitHubModule.isReady()) bkLoadFiles();
+  else AppToast.show('저장소를 먼저 설정하세요', 'error');
+}
+function bkRenderTree(files) {
+  const tree = {};
+  files.forEach(path => {
+    const parts = path.split('/'); let node = tree;
+    parts.forEach((p, i) => {
+      if (i === parts.length - 1) { (node.__f__ = node.__f__ || []).push({ name: p, path }); }
+      else { node[p] = node[p] || {}; node = node[p]; }
+    });
+  });
+  document.getElementById('bk-ftree').innerHTML = bkRNode(tree, 0);
+}
+function bkRNode(node, d) {
+  let html = ''; const pad = 10 + d * 10;
+  Object.keys(node).filter(k => k !== '__f__').sort().forEach(k => {
+    html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${bkRNode(node[k], d + 1)}</div>`;
+  });
+  (node.__f__ || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
+    const name = f.name.replace(/\.md$/, '');
+    html += `<div class="bk-fi" style="padding-left:${pad + 12}px" data-path="${f.path}" onclick="bkOpen('${f.path}')" title="${f.path}">📄 ${name}</div>`;
+  });
+  return html;
+}
+function bkFilterTree(q) {
+  q = q.toLowerCase();
+  if (!q) { bkRenderTree(_bkFiles); return; }
+  bkRenderTree(_bkFiles.filter(p => p.toLowerCase().includes(q)));
+}
+async function bkOpen(path) {
+  document.querySelectorAll('.bk-fi').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.bk-fi[data-path="${CSS.escape(path)}"]`);
+  if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); }
+  if (_bkCur && _bkCur !== path) { _bkPos[_bkCur] = document.getElementById('bk-rw').scrollTop; bkSaveStore(); }
+  _bkCur = path;
+  const fname = path.split('/').pop().replace(/\.md$/, '');
+  document.getElementById('bk-title').innerHTML = `<strong>${fname}</strong>`;
+  document.getElementById('bk-reader').innerHTML = '<div class="bk-spin">📖 불러오는 중…</div>';
+  try {
+    _bkContent = await GitHubModule.readFile(path);
+    bkRender();
+    if (_bkPos[path]) setTimeout(() => { document.getElementById('bk-rw').scrollTop = _bkPos[path]; }, 150);
+    else document.getElementById('bk-rw').scrollTop = 0;
+  } catch(e) {
+    document.getElementById('bk-reader').innerHTML = `<div style="padding:28px;color:#e66">오류: ${e.message}</div>`;
+  }
+}
+function bkRender() {
+  let md = _bkContent;
+  md = md.replace(/^---[\s\S]*?---\n?/, '');
+  md = md.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (_, p, a) => a ? a.slice(1) : p);
+  md = md.replace(/^(> \[!(\w+)\][^\n]*\n(?:>.*\n?)*)/gm, (m) => {
+    const lines = m.split('\n');
+    const tm = lines[0].match(/\[!(\w+)\](.*)/);
+    const type = tm ? tm[1].toLowerCase() : 'note';
+    const title = tm ? tm[2].trim() : '';
+    const body = lines.slice(1).map(l => l.replace(/^> ?/, '')).join('\n').trim();
+    const icons = { note:'📝', tip:'💡', warning:'⚠️', danger:'🚨', info:'ℹ️', quote:'💬', important:'❗' };
+    return `\n\n<div class="obs-callout ${type}"><div class="obs-callout-title">${icons[type]||'📌'} ${title||type}</div><div class="obs-callout-body">${body}</div></div>\n\n`;
+  });
+  bkSyncBible();
+  md = BibleModule.protectRefs(md);
+  let html = '';
+  try { html = marked.parse(md, { gfm: true, breaks: false }); }
+  catch(e) { html = '<pre>' + md.replace(/</g, '&lt;') + '</pre>'; }
+  html = BibleModule.restoreRefs(html);
+  const reader = document.getElementById('bk-reader');
+  reader.innerHTML = html;
+  reader.style.fontSize = _bkS.fs + 'px';
+  BibleModule.processDom(reader);
+  bkApplyHls(); bkBuildToc(); bkTrackProg();
+}
+/* 하이라이트 */
+function bkTogHlMode() {
+  _bkHlMode = !_bkHlMode;
+  document.getElementById('bk-hlbtn').classList.toggle('on', _bkHlMode);
+  document.getElementById('bk-hlcols').style.display = _bkHlMode ? 'flex' : 'none';
+  document.getElementById('bk-reader').style.cursor = _bkHlMode ? 'text' : '';
+}
+function bkHlColor(col, btn) {
+  _bkHlCol = col;
+  btn?.closest('.bk-hl-colors,.bk-hpc')?.querySelectorAll('.bk-hc,.bk-hpcol').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
+}
+document.addEventListener('mouseup', e => {
+  if (!_bkHlMode) return;
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+  const range = sel.getRangeAt(0);
+  if (!document.getElementById('bk-reader').contains(range.commonAncestorContainer)) return;
+  _bkSelR = range.cloneRange();
+  const rect = range.getBoundingClientRect();
+  const pop = document.getElementById('bk-hlpop');
+  pop.style.left = Math.min(rect.left, window.innerWidth - 210) + 'px';
+  pop.style.top  = Math.max(8, rect.top - 118) + 'px';
+  pop.classList.add('show');
+  document.getElementById('bk-hpnote').value = '';
+});
+function bkHideHlPop() { document.getElementById('bk-hlpop').classList.remove('show'); window.getSelection()?.removeAllRanges(); _bkSelR = null; }
+function bkSaveHl() {
+  if (!_bkSelR || !_bkCur) { bkHideHlPop(); return; }
+  const text = _bkSelR.toString().trim();
+  if (!text || text.length < 2) { AppToast.show('텍스트를 선택하세요'); return; }
+  const note = document.getElementById('bk-hpnote').value.trim();
+  if (!_bkHls[_bkCur]) _bkHls[_bkCur] = [];
+  const id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
+  _bkHls[_bkCur].push({ id, text, color: _bkHlCol, note, date: new Date().toISOString() });
+  bkSaveStore(); bkApplyHls(); bkHideHlPop();
+  AppToast.show('✏️ 밑줄 저장됨');
+}
+function bkApplyHls() {
+  if (!_bkCur || !_bkHls[_bkCur]) return;
+  const reader = document.getElementById('bk-reader');
+  _bkHls[_bkCur].forEach(h => { try { bkHlDom(reader, h.text, h.color, h.id, h.note); } catch(e) {} });
+}
+function bkHlDom(el, text, color, id, note) {
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+  const nodes = []; let n;
+  while (n = w.nextNode()) nodes.push(n);
+  for (const tn of nodes) {
+    const idx = tn.textContent.indexOf(text);
+    if (idx === -1) continue;
+    if (tn.parentNode.classList?.contains('hl')) continue;
+    const span = document.createElement('span');
+    span.className = `hl hl-${color}`; span.dataset.hlId = id; span.title = note || '';
+    const r = document.createRange();
+    r.setStart(tn, idx); r.setEnd(tn, idx + text.length);
+    try { r.surroundContents(span); break; } catch(e) {}
+  }
+}
+function bkShowAnnot() {
+  const hls = _bkCur && _bkHls[_bkCur];
+  AppToast.show(hls?.length ? `밑줄 ${hls.length}개` : '밑줄이 없습니다');
+}
+/* TOC */
+function bkBuildToc() {
+  const hs = document.querySelectorAll('#bk-reader h1,#bk-reader h2,#bk-reader h3,#bk-reader h4');
+  const list = document.getElementById('bk-toclist');
+  if (!hs.length) { list.innerHTML = '<div style="font-size:12px;color:var(--pm);padding:5px 0">제목 없음</div>'; return; }
+  list.innerHTML = Array.from(hs).map((h, i) => {
+    h.id = `bkh-${i}`;
+    return `<div class="bk-ti ${h.tagName.toLowerCase()}" onclick="document.getElementById('bkh-${i}').scrollIntoView({behavior:'smooth'})">${h.textContent}</div>`;
+  }).join('');
+}
+function bkTogToc() {
+  const p = document.getElementById('bk-toc'); p.classList.toggle('open');
+  document.getElementById('bk-tocbtn').classList.toggle('on', p.classList.contains('open'));
+  document.getElementById('bk-spl-r').style.display = p.classList.contains('open') ? 'block' : 'none';
+}
+function bkTogSidebar() {
+  const sb = document.getElementById('bk-sidebar'); sb.classList.toggle('open');
+  const open = sb.classList.contains('open');
+  document.getElementById('bk-spl-l').style.display = open ? 'block' : 'none';
+  document.getElementById('bk-sbbtn').classList.toggle('on', open);
+  if (open && _bkFiles.length === 0) bkLoadFiles();
+}
+/* 검색 */
+async function bkBuildSrIdx() {
+  _bkSrIdx = []; _bkSrReady = false;
+  const batch = 10;
+  for (let i = 0; i < _bkFiles.length; i += batch) {
+    await Promise.all(_bkFiles.slice(i, i + batch).map(async path => {
+      try {
+        const text = await GitHubModule.readFile(path);
+        _bkSrIdx.push({ path, title: path.split('/').pop().replace(/\.md$/, ''), content: text.replace(/---[\s\S]*?---/, '').replace(/[#*`[\]]/g, ' ') });
+      } catch(e) {}
+    }));
+    await new Promise(r => setTimeout(r, 80));
+  }
+  _bkSrReady = true;
+}
+function bkTogSearch() {
+  const p = document.getElementById('bk-search'); p.classList.toggle('open');
+  document.getElementById('bk-settings').classList.remove('open');
+  if (p.classList.contains('open')) {
+    document.getElementById('bk-sinp').value = '';
+    document.getElementById('bk-sinp').focus();
+    document.getElementById('bk-sres').innerHTML = `<div class="bk-srs">${_bkSrReady ? '검색어를 입력하세요' : '인덱싱 중…'}</div>`;
+  }
+}
+function bkDoSearch(q) {
+  q = q.trim(); const res = document.getElementById('bk-sres');
+  if (!q) { res.innerHTML = '<div class="bk-srs">검색어를 입력하세요</div>'; return; }
+  if (q.length < 2) { res.innerHTML = '<div class="bk-srs">두 글자 이상</div>'; return; }
+  const low = q.toLowerCase();
+  const hits = _bkSrIdx.filter(f => f.title.toLowerCase().includes(low) || f.content.toLowerCase().includes(low)).slice(0, 30);
+  if (!hits.length) { res.innerHTML = '<div class="bk-srs">결과 없음</div>'; return; }
+  const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  res.innerHTML = hits.map(f => {
+    const idx = f.content.toLowerCase().indexOf(low);
+    const ex = idx > -1 ? f.content.slice(Math.max(0, idx - 50), idx + 80).trim().replace(/\n/g, ' ') : '';
+    const hi = ex.replace(new RegExp(esc, 'gi'), m => `<mark>${m}</mark>`);
+    return `<div class="bk-sri" onclick="bkOpen('${f.path}');document.getElementById('bk-search').classList.remove('open')">
+      <div class="bk-srt">${f.title}</div><div class="bk-srp">${f.path}</div>
+      ${hi ? `<div class="bk-sre">${hi}…</div>` : ''}
+    </div>`;
+  }).join('');
+}
+function bkTogSettings() {
+  document.getElementById('bk-settings').classList.toggle('open');
+  document.getElementById('bk-search').classList.remove('open');
+}
+function bkTogDark() { _bkS.dark = !_bkS.dark; bkApply(); bkSaveStore(); }
+function bkFontSize(sz, btn) {
+  _bkS.fs = sz; document.getElementById('bk-reader').style.fontSize = sz + 'px'; bkSaveStore();
+  document.querySelectorAll('.bk-fsbtn').forEach(b => b.classList.remove('on')); btn?.classList.add('on');
+}
+function bkResetSettings() {
+  if (!confirm('설정을 초기화하시겠습니까?')) return;
+  _bkS.dark = false; _bkS.fs = 17; _bkS.vers = ['개역개정', 'ESV'];
+  localStorage.removeItem('obr-cfg'); bkApply(); bkTogSettings();
+}
+function bkTrackProg() {
+  const wrap = document.getElementById('bk-rw'); let t = null;
+  wrap.onscroll = () => {
+    const tot = wrap.scrollHeight - wrap.clientHeight;
+    document.getElementById('bk-prog').style.width = (tot > 0 ? wrap.scrollTop / tot * 100 : 0) + '%';
+    if (t) clearTimeout(t);
+    t = setTimeout(() => { if (_bkCur) { _bkPos[_bkCur] = wrap.scrollTop; bkSaveStore(); } }, 400);
+  };
+}
+/* 드래그 리사이즈 */
+function bkDragStart(e, side) {
+  e.preventDefault();
+  const splId = side === 'l' ? 'bk-spl-l' : 'bk-spl-r';
+  document.getElementById(splId).classList.add('drag');
+  if (side === 'l') {
+    const sb = document.getElementById('bk-sidebar');
+    const sx = e.clientX, sw = sb.offsetWidth;
+    _bkDrag = { move(e) { sb.style.width = Math.max(80, Math.min(460, sw + (e.clientX - sx))) + 'px'; }, up() { document.getElementById(splId).classList.remove('drag'); _bkDrag = null; } };
+  } else {
+    const toc = document.getElementById('bk-toc');
+    const sx = e.clientX, sw = toc.offsetWidth;
+    _bkDrag = { move(e) { toc.style.width = Math.max(90, Math.min(380, sw - (e.clientX - sx))) + 'px'; }, up() { document.getElementById(splId).classList.remove('drag'); _bkDrag = null; } };
+  }
+}
+document.addEventListener('mousemove', e => { if (_bkDrag) _bkDrag.move(e); });
+document.addEventListener('mouseup',   e => { if (_bkDrag) _bkDrag.up(e); });
+/* 키보드 */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    bkHideHlPop();
+    document.getElementById('bk-search').classList.remove('open');
+    document.getElementById('bk-settings').classList.remove('open');
+    document.getElementById('cfg-overlay').classList.remove('open');
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); bkTogSearch(); }
+});
+
+/* ════════════════════════════════
+   앱 초기화
+════════════════════════════════ */
+(function init() {
+  GitHubModule.load();
+  StudyModule.init();
+  updateEtcLabel();
+  bkLoadStore();
+  if (GitHubModule.isReady()) StudyModule.loadNotebooks();
+})();
+</script>
+</body>
+</html>
