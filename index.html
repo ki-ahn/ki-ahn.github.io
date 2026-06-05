@@ -222,11 +222,11 @@ html[data-dark] #dark-toggle::after { left: 18px; }
   height: 100%; overflow: hidden; flex-shrink: 0;
   border-right: 1px solid var(--sb-bdr);
 }
-/* 라이트모드 사이드바 */
+/* 라이트모드 사이드바 — 밝은 베이지/크림 계열 */
 html:not([data-dark]) #bk-sidebar {
-  --sb-bg:    #2c2416; --sb-bg2:   #3a3020; --sb-bg3:   #4a3e2a;
-  --sb-text:  #d4c8a8; --sb-text2: #8a7050; --sb-acc:   #c4a45a;
-  --sb-bdr:   #3a3020;
+  --sb-bg:    #f0ece4; --sb-bg2:   #e4dfd5; --sb-bg3:   #d8d0c4;
+  --sb-text:  #2c2010; --sb-text2: #7a6a50; --sb-acc:   #8a6010;
+  --sb-bdr:   #d0c8b8;
 }
 /* 다크모드 사이드바 */
 html[data-dark] #bk-sidebar {
@@ -989,32 +989,40 @@ function bkHideHlPop() {
   _bkSelR = null; _bkSelText = '';
 }
 
-// 색상 클릭 → 즉시 밑줄 저장
+// 색상 클릭 → 즉시 밑줄 저장 (메모 없이)
 async function bkSaveHlColor(col, btn) {
-  // 색상 active 표시
+  if (!_bkSelText) return; // 이미 저장됐거나 선택 없으면 무시
   document.querySelectorAll('.bk-hlpop-c').forEach(b => b.classList.remove('on'));
   btn?.classList.add('on');
   _bkHlCol = col;
-  await bkDoSaveHl('');
+  const note = document.getElementById('bk-hlpop-note');
+  // 메모 입력창이 열려있고 내용 있으면 메모도 같이 저장
+  const memoVal = (note.style.display !== 'none') ? note.value.trim() : '';
+  await bkDoSaveHl(memoVal);
 }
 
 // 메모 Enter → 현재 색상으로 저장
 async function bkSaveHlWithMemo() {
+  if (!_bkSelText) return; // 이미 저장됐으면 무시
   const note = document.getElementById('bk-hlpop-note').value.trim();
   await bkDoSaveHl(note);
 }
 
-// 실제 저장 로직 (색상·메모 공통)
+// 실제 저장 로직 — 저장 즉시 _bkSelText 초기화로 중복 방지
 async function bkDoSaveHl(note) {
   if (!_bkSelR || !_bkCur || !_bkSelText) { bkHideHlPop(); return; }
+  // 중복 저장 방지: 저장 시작 전에 선택 텍스트 초기화
+  const textToSave = _bkSelText;
+  _bkSelText = '';
   if (!_bkHls[_bkCur]) _bkHls[_bkCur] = [];
   const id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
-  _bkHls[_bkCur].push({ id, text: _bkSelText, color: _bkHlCol, note, date: new Date().toISOString() });
+  _bkHls[_bkCur].push({ id, text: textToSave, color: _bkHlCol, note, date: new Date().toISOString() });
   bkSaveStore();
-  await bkSaveHlToGitHub(_bkCur);
   bkApplyHls();
   bkHideHlPop();
-  AppToast.show(note ? `✏️ 밑줄+메모 저장됨` : `✏️ 밑줄 저장됨`);
+  AppToast.show(note ? '✏️ 밑줄+메모 저장됨' : '✏️ 밑줄 저장됨');
+  // GitHub 저장은 비동기 (UI 블록 안 함)
+  bkSaveHlToGitHub(_bkCur).catch(() => {});
 }
 
 function bkHlColor(col, btn) {
@@ -1029,8 +1037,12 @@ function bkTogMemo() {
   if (note.style.display === 'none') {
     note.style.display = 'block';
     note.value = '';
+    // 팝업 너비 조금 늘려서 입력 편하게
+    document.getElementById('bk-hlpop').style.flexWrap = 'wrap';
     note.focus();
     btn.textContent = '메모▲';
+    // 안내: 색상 클릭하면 메모와 함께 저장
+    note.placeholder = '메모 입력 후 색상 클릭 또는 Enter…';
   } else {
     note.style.display = 'none';
     btn.textContent = '메모';
