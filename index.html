@@ -2,384 +2,437 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>ລາວ 학습 앱</title>
-<!-- 외부 라이브러리 -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Book Reader</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<!-- 모듈 로드 순서: github → study → bible → app(인라인) -->
 <script src="github.js"></script>
 <script src="study.js"></script>
 <script src="bible.js"></script>
 <style>
-/* ═══ 공통 변수 ═══ */
-:root{
-  --bg:#0f1117;--bg2:#1a1d27;--bg3:#22263a;
-  --border:#2e3350;--accent:#e8a040;--accent2:#4fa3e0;--accent3:#7dd3a8;
-  --text:#e8eaf0;--text2:#8b90aa;--text3:#5a5f78;--danger:#e05555;--r:10px;
+/* ══════════════════════════════════════
+   전역 테마 변수 — 라이트(기본) / 다크
+══════════════════════════════════════ */
+:root {
+  /* 공통 UI (탭바·단어공부·설정모달) */
+  --ui-bg:      #ffffff;
+  --ui-bg2:     #f4f4f6;
+  --ui-bg3:     #e8e8ec;
+  --ui-border:  #d0d0d8;
+  --ui-text:    #1a1a2e;
+  --ui-text2:   #5a5a78;
+  --ui-text3:   #9090a8;
+  --ui-accent:  #5a7ef0;
+  --ui-accent2: #3d9970;
+  --ui-accent3: #e07820;
+  --ui-danger:  #d03030;
+  --r: 10px;
+  /* 책보기 테마 */
+  --pb: #f5f0e8;
+  --paper: #fdfaf4;
+  --ps: #ddd0b8;
+  --pt: #1e1608;
+  --pm: #6a5a3a;
+  --pbd: #ccc0a0;
+  --ac: #b8943a;
+  --ac2: #7a5c10;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-
-/* ─── 1단 탭 ─── */
-#main-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 14px;gap:2px;position:sticky;top:0;z-index:100}
-.main-tab{padding:13px 18px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap}
-.main-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
-.main-tab:hover:not(.on){color:var(--text)}
-.panel{display:none}.panel.on{display:block}
-
-/* ─── 토스트 ─── */
-#toast{position:fixed;bottom:22px;right:22px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 15px;font-size:13px;color:var(--text);box-shadow:0 4px 20px rgba(0,0,0,.4);transform:translateY(80px);opacity:0;transition:all .28s;z-index:9999;max-width:300px}
-#toast.show{transform:translateY(0);opacity:1}
-#toast.ok{border-color:var(--accent3);color:var(--accent3)}
-#toast.err{border-color:var(--danger);color:var(--danger)}
-
-/* ─── 설정 모달 ─── */
-#cfg-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:500;align-items:center;justify-content:center;padding:18px}
-#cfg-overlay.open{display:flex}
-#cfg-box{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:26px;width:100%;max-width:440px;box-shadow:0 6px 32px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto}
-#cfg-box h3{font-size:15px;margin-bottom:18px;color:var(--text)}
-.cfg-label{display:block;font-size:11px;color:var(--text2);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.5px}
-.cfg-input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 11px;border-radius:7px;font-size:13px;font-family:monospace}
-.cfg-input:focus{outline:none;border-color:var(--accent2)}
-.cfg-hint{font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5}
-.cfg-row{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
-.btn-ok{padding:8px 20px;background:var(--accent);color:#000;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer}
-.btn-cancel{padding:8px 14px;background:transparent;color:var(--text2);border:1px solid var(--border);border-radius:7px;font-size:13px;cursor:pointer}
-
-/* ═══ 단어공부 ═══ */
-#study-toolbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:9px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.tb-group{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.tb-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
-.tb-sel{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 9px;border-radius:6px;cursor:pointer;min-width:110px}
-.tb-sel:focus{outline:none;border-color:var(--accent)}
-.s-chips{display:flex;gap:3px;flex-wrap:wrap}
-.s-chip{padding:3px 9px;border-radius:18px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2);transition:all .13s;font-family:monospace}
-.s-chip.active{background:var(--accent);color:#000;border-color:var(--accent)}
-.s-chip:hover:not(.active){border-color:var(--accent);color:var(--accent)}
-.num-input{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:12px;padding:4px 7px;border-radius:6px;width:56px;text-align:center;font-family:monospace}
-.num-input:focus{outline:none;border-color:var(--accent2)}
-.tb-icon-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:4px;transition:all .13s;white-space:nowrap}
-.tb-icon-btn:hover{border-color:var(--accent2);color:var(--accent2)}
-#study-togglebar{background:var(--bg);border-bottom:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.tog-btn{padding:4px 13px;border-radius:18px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2);transition:all .13s}
-.tog-btn.on{background:var(--accent2);color:#fff;border-color:var(--accent2)}
-.tog-btn:hover:not(.on){border-color:var(--text2);color:var(--text)}
-.play-all-btn{padding:4px 13px;border-radius:18px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--accent3);background:transparent;color:var(--accent3);display:flex;align-items:center;gap:4px;transition:all .13s}
-.play-all-btn:hover{background:var(--accent3);color:#000}
-#study-stats{background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 14px;display:none;gap:14px;font-size:11px;color:var(--text3);font-family:monospace}
-#study-stats span{color:var(--accent)}
-#study-words{padding:12px 14px;display:flex;flex-direction:column;gap:7px}
-.s-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;display:grid;grid-template-columns:36px 1.6fr 1fr 1fr 1.2fr 96px;align-items:center;gap:10px;transition:border-color .18s}
-.s-card:hover{border-color:var(--bg3)}
-.s-audio-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .13s;flex-shrink:0}
-.s-audio-btn:hover{background:var(--accent3);color:#000;border-color:var(--accent3)}
-.s-audio-btn:disabled{opacity:.3;cursor:not-allowed}
-.s-cell{min-width:0}
-.s-lao{font-family:"Noto Sans Lao",Georgia,serif;font-size:17px;color:var(--accent);font-weight:700}
-.s-pron{font-size:11px;color:var(--text3);margin-top:1px}
-.s-eng{font-size:13px;color:var(--accent2)}
-.s-kor{font-size:14px;color:var(--text)}
-.s-opp{font-size:12px;color:var(--text3)}
-.vis-hidden{filter:blur(5px);user-select:none;pointer-events:none}
-.s-study-ctrl{display:flex;flex-direction:column;align-items:center;gap:4px}
-.s-count-display{font-size:20px;font-weight:700;color:var(--accent);font-family:monospace;min-width:36px;text-align:center;transition:transform .2s;line-height:1}
-.s-count-display.bump{transform:scale(1.6)}
-.s-count-btns{display:flex;gap:3px}
-.s-inc-btn,.s-dec-btn,.s-set-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .13s}
-.s-inc-btn:hover{background:var(--accent3);color:#000;border-color:var(--accent3)}
-.s-dec-btn:hover{background:var(--danger);color:#fff;border-color:var(--danger)}
-.s-set-btn:hover{background:var(--accent2);color:#fff;border-color:var(--accent2)}
-.s-status{text-align:center;padding:56px 18px;color:var(--text3)}
-.s-icon{font-size:38px;margin-bottom:10px}
-.s-status h3{font-size:14px;color:var(--text2);font-weight:400;margin-bottom:6px}
-.s-status p{font-size:13px;line-height:1.6}
-.s-loader{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:640px){
-  .s-card{grid-template-columns:32px 1fr 80px;grid-template-rows:auto auto}
-  .s-cell:nth-child(4),.s-cell:nth-child(5){grid-column:2}
+html[data-dark] {
+  --ui-bg:      #0f1117;
+  --ui-bg2:     #1a1d27;
+  --ui-bg3:     #22263a;
+  --ui-border:  #2e3350;
+  --ui-text:    #e8eaf0;
+  --ui-text2:   #8b90aa;
+  --ui-text3:   #5a5f78;
+  --ui-accent:  #e8a040;
+  --ui-accent2: #4fa3e0;
+  --ui-accent3: #7dd3a8;
+  --ui-danger:  #e05555;
+  --pb: #111008;
+  --paper: #1c1810;
+  --ps: #2e2818;
+  --pt: #e8dfc8;
+  --pm: #9a8a6a;
+  --pbd: #302818;
+  --ac: #c4a45a;
+  --ac2: #a08030;
 }
 
-/* ═══ 책보기 ═══ */
-#panel-book{height:calc(100vh - 48px);display:none;flex-direction:column;overflow:hidden}
-#panel-book.on{display:flex}
-#book-wrap{
-  flex:1;overflow:hidden;display:flex;height:100%;
-  --pb:#f5f0e8;--paper:#fdf8f0;--ps:#ddd0b8;--pt:#1e1608;--pm:#7a6a4a;--pbd:#ccc0a0;
-  --ac:#b8943a;--ac2:#7a5c10;
-  background:var(--pb);color:var(--pt);
-  transition:background .25s,color .25s;
+/* ══ 리셋 ══ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "Noto Sans KR", sans-serif;
+  background: var(--ui-bg); color: var(--ui-text);
+  min-height: 100vh; overflow-x: hidden;
+  transition: background .2s, color .2s;
 }
-/* 다크모드: 배경/텍스트 명확히 구분 */
-#book-wrap[data-dark]{
-  --pb:#111008;--paper:#1c1810;--ps:#2e2818;--pt:#e8dfc8;--pm:#9a8a6a;--pbd:#302818;
-  --ac:#c4a45a;--ac2:#a08030;
-  background:var(--pb);color:var(--pt);
-}
-#book-wrap[data-dark] #bk-topbar{ background:#1c1810; border-bottom-color:#302818; }
-#book-wrap[data-dark] #bk-rw   { background:var(--pb); }
-#book-wrap[data-dark] #bk-reader{ background:var(--paper); color:var(--pt); box-shadow:0 2px 20px rgba(0,0,0,.6); }
-#book-wrap[data-dark] #bk-toc  { background:var(--paper); border-left-color:#302818; }
-#book-wrap[data-dark] .bk-btn  { color:var(--pm); border-color:#403828; }
-#book-wrap[data-dark] .bk-btn:hover { background:#2a2418; color:var(--pt); }
-#book-wrap[data-dark] #bk-title strong { color:var(--pt); }
-#book-wrap[data-dark] #bk-reader h1,
-#book-wrap[data-dark] #bk-reader h2,
-#book-wrap[data-dark] #bk-reader h3 { color:var(--pt); }
-#book-wrap[data-dark] #bk-reader blockquote { background:rgba(196,164,90,.08); color:var(--pm); }
-#book-wrap[data-dark] #bk-reader code,
-#book-wrap[data-dark] #bk-reader pre  { background:rgba(255,255,255,.05); color:#d4c8a8; }
-#book-wrap[data-dark] #bk-reader th   { background:rgba(196,164,90,.1); color:var(--pt); }
-#book-wrap[data-dark] #bk-reader td   { color:var(--pt); }
-#book-wrap[data-dark] #bk-reader hr   { border-top-color:#302818; }
-#book-wrap[data-dark] .obs-callout    { background:rgba(255,255,255,.04); }
-#book-wrap[data-dark] #bk-search,
-#book-wrap[data-dark] #bk-settings   { background:var(--paper); border-color:#302818; }
-#book-wrap[data-dark] #bk-sinp       { color:var(--pt); }
-#book-wrap[data-dark] .bk-srt        { color:var(--pt); }
-#book-wrap[data-dark] .bk-sri:hover  { background:#2a2418; }
-#book-wrap[data-dark] .bk-seth       { color:var(--pt); border-bottom-color:#302818; }
-#book-wrap[data-dark] .bk-setl       { color:var(--pt); }
-#book-wrap[data-dark] .bk-fsbtn      { background:#2a2418; color:var(--pm); border-color:#403828; }
-#book-wrap[data-dark] .bk-tog        { background:#403828; }
-#book-wrap[data-dark] .bk-vcb        { color:var(--pm); }
-#book-wrap[data-dark] .bk-reset      { background:#2a2418; color:var(--pm); border-color:#403828; }
-#book-wrap[data-dark] #bk-hlpop      { background:var(--paper); border-color:#403828; }
-#book-wrap[data-dark] #bk-hpnote     { background:#2a2418; color:var(--pt); border-color:#403828; }
-#book-wrap[data-dark] .bk-hpbtn      { background:#2a2418; color:var(--pm); border-color:#403828; }
 
-#bk-main-col{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;overflow:hidden}
-#bk-topbar{background:var(--paper);border-bottom:1px solid var(--pbd);padding:0 11px;height:46px;display:flex;align-items:center;gap:6px;flex-shrink:0}
-.bk-btn{background:none;border:1px solid var(--pbd);color:var(--pm);border-radius:5px;padding:3px 8px;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .12s;display:flex;align-items:center;gap:3px;font-family:-apple-system,sans-serif}
-.bk-btn:hover{background:var(--pb);color:var(--pt)}
-.bk-btn.on{background:var(--ac);color:#fff;border-color:var(--ac2)}
-#bk-title{flex:1;font-size:12px;color:var(--pm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#bk-title strong{color:var(--pt)}
-.bk-hl-colors{display:flex;gap:4px}
-.bk-hc{width:15px;height:15px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .12s}
-.bk-hc:hover{transform:scale(1.2)}.bk-hc.on{border-color:var(--pt)}
-#bk-sidebar{width:260px;min-width:100px;max-width:460px;background:#1a1814;display:none;flex-direction:column;height:100%;overflow:hidden;flex-shrink:0;border-right:1px solid #2a2520}
-#bk-sidebar.open{display:flex}
-.bk-sbh{padding:12px 11px 8px;border-bottom:1px solid #2a2520;flex-shrink:0}
-.bk-sbh h1{color:#c4a45a;font-size:14px;font-weight:600}
-.bk-sbh p{color:#5a5040;font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bk-sbs{padding:6px 10px;border-bottom:1px solid #2a2520;flex-shrink:0}
-.bk-sbs input{width:100%;background:#2a2520;border:1px solid #3a3020;color:#c8c2b4;border-radius:5px;padding:4px 8px;font-size:12px;outline:none}
-#bk-ftree{flex:1;overflow-y:auto;padding:4px 0}
-#bk-ftree::-webkit-scrollbar{width:3px}
-#bk-ftree::-webkit-scrollbar-thumb{background:#3a3020}
-.bk-tf{cursor:pointer;padding:5px 10px;color:#c4a45a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;display:flex;align-items:center;gap:5px;user-select:none}
-.bk-tf:hover{background:#2a2520}
-.bk-tf .arr{font-size:9px;transition:transform .2s;color:#5a5040}
-.bk-tf.open .arr{transform:rotate(90deg)}
-.bk-tc{display:none}.bk-tc.open{display:block}
-.bk-fi{padding:4px 10px 4px 22px;color:#c8c2b4;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background .1s}
-.bk-fi:hover{background:#2a2520}.bk-fi.active{background:#3d3528;color:#c4a45a}
-.bk-sbf{padding:7px 10px;border-top:1px solid #2a2520;flex-shrink:0;display:flex;gap:5px}
-.bk-sbb{flex:1;background:#2a2520;border:1px solid #3a3020;color:#c8c2b4;border-radius:5px;padding:5px;font-size:11px;cursor:pointer;text-align:center}
-.bk-sbb:hover{background:#3a3020}
-.bk-spl{width:4px;flex-shrink:0;cursor:col-resize;background:transparent;transition:background .15s;user-select:none}
-.bk-spl:hover,.bk-spl.drag{background:var(--ac)}
-#bk-content{flex:1;display:flex;overflow:hidden}
-#bk-rw{flex:1;overflow-y:auto;padding:28px 0;background:var(--pb);min-width:180px}
-#bk-rw::-webkit-scrollbar{width:5px}
-#bk-rw::-webkit-scrollbar-thumb{background:var(--ps);border-radius:3px}
-#bk-reader{
-  /* max-width는 JS로 --reader-w 변수 제어 */
-  max-width:var(--reader-w,740px);
-  margin:0 auto;background:var(--paper);border-radius:4px;
-  box-shadow:0 2px 20px rgba(0,0,0,.08);padding:48px 60px;
-  font-family:Georgia,"Times New Roman",serif;
-  line-height:1.85;color:var(--pt);
-  font-size:17px;word-break:normal;overflow-wrap:break-word;
-  -webkit-text-size-adjust:100%; /* 사파리 자동 폰트 크기 조정 방지 */
-  text-size-adjust:100%;
+/* ══ 탭바 ══ */
+#main-tabs {
+  display: flex; align-items: center;
+  background: var(--ui-bg2); border-bottom: 1px solid var(--ui-border);
+  padding: 0 10px; gap: 2px; position: sticky; top: 0; z-index: 100;
 }
-/* 본문 너비 조절 슬라이더 */
-#bk-width-wrap{
-  display:flex;align-items:center;gap:6px;padding:0 4px;
+.main-tab {
+  padding: 13px 16px; font-size: 13px; font-weight: 500;
+  color: var(--ui-text2); cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all .18s; white-space: nowrap;
 }
-#bk-width-wrap label{font-size:10px;color:var(--pm);white-space:nowrap}
-#bk-width-sl{
-  width:70px;accent-color:var(--ac);cursor:pointer;
+.main-tab.on { color: var(--ui-accent); border-bottom-color: var(--ui-accent); }
+.main-tab:hover:not(.on) { color: var(--ui-text); }
+#tabs-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.tab-icon-btn {
+  background: none; border: 1px solid var(--ui-border);
+  color: var(--ui-text2); border-radius: 6px; padding: 5px 10px;
+  font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+  transition: all .15s; white-space: nowrap;
 }
-@media(max-width:820px){#bk-reader{padding:28px 16px;font-size:16px}}
-#bk-reader h1{font-size:2em;font-weight:700;margin:0 0 1em;border-bottom:2px solid var(--ac);padding-bottom:.35em}
-#bk-reader h2{font-size:1.4em;font-weight:700;margin:1.8em 0 .65em}
-#bk-reader h3{font-size:1.15em;font-weight:700;margin:1.5em 0 .5em}
-#bk-reader h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--pm)}
-#bk-reader p{margin:0 0 .95em}
-#bk-reader ul,#bk-reader ol{margin:0 0 .95em 1.4em}
-#bk-reader li{margin:.2em 0}
-#bk-reader blockquote{border-left:3px solid var(--ac);padding:.5em 1em;color:var(--pm);margin:.9em 0;font-style:italic;background:rgba(196,164,90,.06);border-radius:0 4px 4px 0}
-#bk-reader code{background:rgba(196,164,90,.08);padding:2px 5px;border-radius:3px;font-size:.87em;font-family:monospace}
-#bk-reader pre{background:rgba(196,164,90,.08);padding:1em;border-radius:6px;overflow-x:auto;margin:.9em 0}
-#bk-reader pre code{background:none;padding:0}
-#bk-reader hr{border:none;border-top:1px solid var(--pbd);margin:1.6em 0}
-#bk-reader a{color:var(--ac2);text-decoration:underline}
-#bk-reader table{width:100%;border-collapse:collapse;margin:.9em 0;font-size:.9em}
-#bk-reader th{background:rgba(196,164,90,.08);padding:7px 10px;border:1px solid var(--pbd);font-weight:600;text-align:left}
-#bk-reader td{padding:6px 10px;border:1px solid var(--pbd)}
-#bk-reader tr:nth-child(even) td{background:rgba(0,0,0,.02)}
-.obs-callout{border-radius:6px;margin:1em 0;padding:10px 14px;border-left:4px solid;font-size:.93em}
-.obs-callout.note{background:rgba(100,160,255,.08);border-color:#4080ff}
-.obs-callout.tip{background:rgba(80,200,120,.08);border-color:#40c870}
-.obs-callout.warning{background:rgba(255,160,40,.08);border-color:#ffa020}
-.obs-callout.danger{background:rgba(255,60,60,.08);border-color:#ff3c3c}
-.obs-callout.info{background:rgba(40,180,200,.08);border-color:#28b4c8}
-.obs-callout.quote{background:rgba(196,164,90,.08);border-color:var(--ac)}
-.obs-callout-title{font-weight:700;margin-bottom:5px;font-size:.92em;display:flex;align-items:center;gap:5px}
-.obs-callout-body{line-height:1.7}
-#bk-toc{background:var(--paper);border-left:1px solid var(--pbd);overflow-y:auto;padding:13px 9px;flex-shrink:0;display:none;min-width:100px;max-width:340px;width:190px}
-#bk-toc.open{display:block}
-#bk-toc h3{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--pm);margin-bottom:8px}
-.bk-ti{display:block;color:var(--pm);font-size:11px;padding:3px 0 3px 6px;cursor:pointer;line-height:1.4;border-left:2px solid transparent;margin-bottom:1px}
-.bk-ti:hover{color:var(--pt);border-color:var(--ac)}
-.bk-ti.h3{padding-left:14px}.bk-ti.h4{padding-left:22px}
-.hl{cursor:pointer;border-radius:2px}
-.hl-yellow{background:rgba(255,220,80,.45)}.hl-green{background:rgba(100,200,120,.35)}
-.hl-blue{background:rgba(80,160,255,.35)}.hl-pink{background:rgba(255,100,150,.35)}
-#bk-hlpop{position:fixed;background:var(--paper);border:1px solid var(--pbd);border-radius:8px;padding:9px;box-shadow:0 4px 18px rgba(0,0,0,.14);display:none;z-index:600;flex-direction:column;gap:6px;min-width:185px}
-#bk-hlpop.show{display:flex}
-.bk-hpc{display:flex;gap:6px}
-.bk-hpcol{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s}
-.bk-hpcol:hover{transform:scale(1.15);border-color:var(--pt)}
-#bk-hpnote{border:1px solid var(--pbd);border-radius:5px;padding:4px 7px;font-size:12px;width:100%;outline:none;background:var(--pb);color:var(--pt)}
-.bk-hpa{display:flex;gap:5px}
-.bk-hpbtn{flex:1;background:var(--pb);border:1px solid var(--pbd);border-radius:5px;padding:4px 7px;font-size:11px;cursor:pointer;color:var(--pm)}
-.bk-hpbtn.save:hover{background:var(--ac);color:#fff}.bk-hpbtn.del:hover{background:#d44;color:#fff}
-/* ─── 검색 패널: 반투명 오버레이 배경 ─── */
-#bk-search-overlay{
-  display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:399;
-}
-#bk-search-overlay.open{display:block}
-#bk-search{
-  position:fixed;top:50%;left:50%;transform:translate(-50%,-54%);
-  background:#fdf8f0;border:1px solid #ccc0a0;
-  border-radius:12px;width:min(480px,92vw);max-height:60vh;
-  box-shadow:0 12px 40px rgba(0,0,0,.28);
-  display:none;flex-direction:column;z-index:400;overflow:hidden;
-}
-#bk-search.open{display:flex}
-/* 다크모드 검색 */
-#bk-search.dark-mode{background:#1c1810;border-color:#403828;}
-#bk-search.dark-mode .bk-sw{border-bottom-color:#403828;}
-#bk-search.dark-mode #bk-sinp{color:#e8dfc8;background:transparent;}
-#bk-search.dark-mode .bk-si{color:#9a8a6a;}
-#bk-search.dark-mode .bk-sc{color:#9a8a6a;}
-#bk-search.dark-mode #bk-sres{background:#1c1810;}
-#bk-search.dark-mode .bk-sri{border-bottom-color:#302818;}
-#bk-search.dark-mode .bk-sri:hover{background:#2a2418;}
-#bk-search.dark-mode .bk-srt{color:#e8dfc8;}
-#bk-search.dark-mode .bk-srp{color:#9a8a6a;}
-#bk-search.dark-mode .bk-sre{color:#9a8a6a;}
-#bk-search.dark-mode .bk-srs{color:#9a8a6a;}
-.bk-sw{display:flex;align-items:center;border-bottom:1px solid var(--pbd);background:inherit;}
-.bk-sw-title{padding:10px 13px 10px 13px;font-size:13px;font-weight:600;color:var(--pm);border-bottom:1px solid var(--pbd);display:flex;align-items:center;justify-content:space-between;}
-.bk-si{padding:0 9px;color:var(--pm);font-size:13px}
-#bk-sinp{flex:1;border:none;padding:11px 6px;font-size:14px;outline:none;background:transparent;color:var(--pt)}
-.bk-sc{padding:0 11px;color:var(--pm);cursor:pointer;font-size:16px;line-height:1}
-#bk-sres{overflow-y:auto;flex:1}
-.bk-sri{padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--pbd)}
-.bk-sri:hover{background:var(--pb)}
-.bk-srt{font-weight:600;font-size:13px;color:var(--pt)}
-.bk-srp{font-size:11px;color:var(--pm)}
-.bk-sre{font-size:12px;color:var(--pm);margin-top:3px;line-height:1.4}
-.bk-sre mark{background:rgba(255,220,80,.55);border-radius:2px;color:#1e1608;}
-.bk-srs{padding:18px;text-align:center;color:var(--pm);font-size:13px}
+.tab-icon-btn:hover { color: var(--ui-text); border-color: var(--ui-text2); }
+.tab-icon-btn.active { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
 
-/* ─── 설정 패널 ─── */
-#bk-settings{
-  position:fixed;top:96px;right:14px;
-  background:#fdf8f0;border:1px solid #ccc0a0;
-  border-radius:10px;width:276px;
-  box-shadow:0 8px 28px rgba(0,0,0,.18);display:none;z-index:400;overflow:hidden;
+/* 다크모드 토글 버튼 */
+#dark-toggle {
+  width: 38px; height: 22px; border-radius: 11px;
+  background: var(--ui-bg3); border: 1px solid var(--ui-border);
+  cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0;
 }
-#bk-settings.open{display:block}
-/* 다크모드 설정 */
-#bk-settings.dark-mode{background:#1c1810;border-color:#403828;}
-#bk-settings.dark-mode .bk-seth{color:#e8dfc8;border-bottom-color:#403828;}
-#bk-settings.dark-mode .bk-setc{color:#9a8a6a;}
-#bk-settings.dark-mode .bk-setl{color:#e8dfc8;}
-#bk-settings.dark-mode .bk-fsbtn{background:#2a2418;color:#9a8a6a;border-color:#403828;}
-#bk-settings.dark-mode .bk-fsbtn.on{background:#c4a45a;color:#111;border-color:#a08030;}
-#bk-settings.dark-mode .bk-tog{background:#403828;}
-#bk-settings.dark-mode .bk-secs{color:#9a8a6a;border-top-color:#403828;}
-#bk-settings.dark-mode .bk-vcb{color:#9a8a6a;}
-#bk-settings.dark-mode .bk-reset{background:#2a2418;color:#9a8a6a;border-color:#403828;}
-
-/* ─── 밑줄 패널 다크 ─── */
-#bk-annot.dark-mode{background:#1c1810;border-color:#403828;}
-#bk-annot.dark-mode .bk-an-hd{color:#e8dfc8;border-bottom-color:#403828;}
-#bk-annot.dark-mode .bk-an-item{border-bottom-color:#302818;}
-#bk-annot.dark-mode .bk-an-item:hover{background:#2a2418;}
-#bk-annot.dark-mode .bk-an-text{color:#e8dfc8;}
-#bk-annot.dark-mode .bk-an-note{color:#9a8a6a;}
-#bk-annot.dark-mode .bk-an-empty{color:#9a8a6a;}
-.bible-tts-btn{background:none;border:1px solid var(--ac);color:var(--ac2);border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:6px;transition:all .12s}
-.bible-tts-btn:hover,.bible-tts-btn.playing{background:var(--ac);color:#fff}
-.bk-setup{text-align:center;padding:48px 24px;color:var(--pm);display:flex;flex-direction:column;align-items:center}
-.bk-setup h2{font-size:1.7em;color:var(--ac);margin-bottom:9px;font-family:Georgia,serif}
-.bk-setup>p{font-size:13px;line-height:1.7;max-width:380px;margin-bottom:18px}
-.bk-setup-card{background:var(--paper);border:1px solid var(--pbd);border-radius:10px;padding:20px 24px;max-width:420px;width:100%;text-align:left}
-.bk-setup-card h3{color:var(--pt);margin-bottom:11px;font-size:14px}
-.bk-go{width:100%;background:var(--ac);color:#fff;border:none;border-radius:7px;padding:9px;font-size:14px;font-weight:600;cursor:pointer;margin-top:7px}
-.bk-go:hover{background:var(--ac2)}
-.bk-spin{text-align:center;padding:48px;color:var(--pm);font-size:14px;line-height:2}
-#bk-prog{height:2px;background:var(--ac);position:fixed;top:0;left:0;z-index:999;transition:width .15s;pointer-events:none}
-
-/* ── 밑줄 패널 ── */
-#bk-annot{
-  position:fixed;top:96px;right:14px;background:var(--paper);
-  border:1px solid var(--pbd);border-radius:10px;width:310px;max-height:480px;
-  box-shadow:0 8px 28px rgba(0,0,0,.14);display:none;flex-direction:column;z-index:400;overflow:hidden;
+html[data-dark] #dark-toggle { background: var(--ui-accent); border-color: var(--ui-accent); }
+#dark-toggle::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
 }
-#bk-annot.open{display:flex}
-.bk-an-hd{padding:9px 13px;border-bottom:1px solid var(--pbd);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center;color:var(--pt)}
-.bk-an-close{cursor:pointer;color:var(--pm);font-size:15px}
-#bk-an-list{overflow-y:auto;flex:1;padding:6px 0}
-.bk-an-item{padding:8px 13px;border-bottom:1px solid var(--pbd);cursor:pointer;transition:background .1s}
-.bk-an-item:hover{background:rgba(196,164,90,.08)}
-.bk-an-bar{height:3px;border-radius:2px;margin-bottom:5px}
-.bk-an-text{font-size:13px;color:var(--pt);line-height:1.5;font-family:Georgia,serif}
-.bk-an-note{font-size:11px;color:var(--pm);margin-top:3px;font-style:italic}
-.bk-an-del{float:right;background:none;border:none;color:var(--pm);cursor:pointer;font-size:12px;padding:0 2px;margin-left:6px}
-.bk-an-del:hover{color:#d44}
-.bk-an-empty{padding:20px;text-align:center;color:var(--pm);font-size:13px}
-#book-wrap[data-dark] #bk-annot{background:var(--paper);border-color:#302818}
-#book-wrap[data-dark] .bk-an-hd{color:var(--pt);border-bottom-color:#302818}
-#book-wrap[data-dark] .bk-an-item{border-bottom-color:#302818}
-#book-wrap[data-dark] .bk-an-item:hover{background:rgba(196,164,90,.06)}
-#book-wrap[data-dark] .bk-an-text{color:var(--pt)}
+html[data-dark] #dark-toggle::after { left: 18px; }
+#dark-label { font-size: 11px; color: var(--ui-text2); }
 
-/* ─── 설정 패널 공통 CSS ─── */
-.bk-seth{padding:9px 13px;border-bottom:1px solid var(--pbd);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
-.bk-setc{cursor:pointer;color:var(--pm);font-size:15px}
-.bk-setb{padding:11px 13px}
-.bk-setr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.bk-setl{font-size:13px}
-.bk-tog{width:34px;height:19px;background:var(--pbd);border-radius:10px;cursor:pointer;position:relative;transition:background .2s}
-.bk-tog.on{background:var(--ac)}
-.bk-tog::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;background:#fff;border-radius:50%;transition:left .2s}
-.bk-tog.on::after{left:17px}
-.bk-fsb{display:flex;gap:3px}
-.bk-fsbtn{background:var(--pb);border:1px solid var(--pbd);border-radius:5px;padding:3px 7px;font-size:11px;cursor:pointer;color:var(--pm)}
-.bk-fsbtn.on{background:var(--ac);color:#fff;border-color:var(--ac2)}
-.bk-secs{font-size:11px;font-weight:700;color:var(--pm);text-transform:uppercase;letter-spacing:.7px;margin:10px 0 5px;border-top:1px solid var(--pbd);padding-top:10px}
-.bk-vcbs{display:flex;flex-wrap:wrap;gap:5px}
-.bk-vcb{font-size:12px;color:var(--pm);display:flex;align-items:center;gap:4px;cursor:pointer}
-.bk-vcb input{cursor:pointer;accent-color:var(--ac)}
-.bk-reset{width:100%;background:var(--pb);border:1px solid var(--pbd);border-radius:6px;padding:7px;font-size:12px;cursor:pointer;color:var(--pm);margin-top:10px}
-.bk-reset:hover{background:#d44;border-color:#d44;color:#fff}
+.panel { display: none; }
+.panel.on { display: block; }
 
-/* ═══ 기타 ═══ */
-#panel-etc{padding:28px 18px;max-width:540px;margin:0 auto}
-#panel-etc h2{font-size:15px;margin-bottom:18px;color:var(--accent)}
-.etc-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:15px;margin-bottom:9px;font-size:13px;color:var(--text2);line-height:1.7}
-.etc-card strong{color:var(--text)}
-.etc-card code{color:var(--accent);font-family:monospace;font-size:12px}
-.etc-card pre{margin-top:7px;font-size:11px;color:var(--text3);line-height:1.8;overflow-x:auto;font-family:monospace}
-.danger-btn{padding:7px 13px;background:var(--danger);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;margin-top:9px}
+/* ══ 토스트 ══ */
+#toast {
+  position: fixed; bottom: 22px; right: 22px;
+  background: var(--ui-bg2); border: 1px solid var(--ui-border);
+  border-radius: 8px; padding: 9px 15px; font-size: 13px; color: var(--ui-text);
+  box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  transform: translateY(80px); opacity: 0; transition: all .28s;
+  z-index: 9999; max-width: 300px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.ok  { border-color: var(--ui-accent3); color: var(--ui-accent3); }
+#toast.err { border-color: var(--ui-danger);  color: var(--ui-danger); }
+
+/* ══ 통합 설정 모달 ══ */
+#cfg-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.6); z-index: 500;
+  align-items: center; justify-content: center; padding: 18px;
+}
+#cfg-overlay.open { display: flex; }
+#cfg-box {
+  background: var(--ui-bg); border: 1px solid var(--ui-border);
+  border-radius: 14px; width: 100%; max-width: 480px;
+  box-shadow: 0 8px 36px rgba(0,0,0,.35); max-height: 92vh; display: flex; flex-direction: column;
+}
+#cfg-tabs { display: flex; border-bottom: 1px solid var(--ui-border); flex-shrink: 0; }
+.cfg-tab {
+  flex: 1; padding: 12px; text-align: center; font-size: 13px; font-weight: 600;
+  color: var(--ui-text2); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+}
+.cfg-tab.on { color: var(--ui-accent); border-bottom-color: var(--ui-accent); }
+.cfg-pane { display: none; overflow-y: auto; padding: 20px 24px; }
+.cfg-pane.on { display: block; }
+.cfg-label { display: block; font-size: 11px; color: var(--ui-text2); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .5px; }
+.cfg-input {
+  width: 100%; background: var(--ui-bg2); border: 1px solid var(--ui-border);
+  color: var(--ui-text); padding: 8px 11px; border-radius: 7px; font-size: 13px; font-family: monospace;
+}
+.cfg-input:focus { outline: none; border-color: var(--ui-accent2); }
+.cfg-hint { font-size: 11px; color: var(--ui-text3); margin-top: 5px; line-height: 1.5; }
+.cfg-row { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; flex-shrink: 0; padding: 0 24px 20px; }
+.btn-ok { padding: 8px 20px; background: var(--ui-accent); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-cancel { padding: 8px 14px; background: transparent; color: var(--ui-text2); border: 1px solid var(--ui-border); border-radius: 7px; font-size: 13px; cursor: pointer; }
+/* 설정 모달 내부 항목 스타일 */
+.cfg-setr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cfg-setl { font-size: 13px; color: var(--ui-text); }
+.cfg-tog {
+  width: 36px; height: 20px; border-radius: 10px; background: var(--ui-bg3);
+  border: 1px solid var(--ui-border); cursor: pointer; position: relative; transition: background .2s;
+}
+.cfg-tog.on { background: var(--ui-accent); border-color: var(--ui-accent); }
+.cfg-tog::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  background: #fff; border-radius: 50%; transition: left .2s;
+}
+.cfg-tog.on::after { left: 18px; }
+.cfg-fsb { display: flex; gap: 4px; }
+.cfg-fsbtn {
+  background: var(--ui-bg2); border: 1px solid var(--ui-border); border-radius: 5px;
+  padding: 4px 9px; font-size: 11px; cursor: pointer; color: var(--ui-text2);
+}
+.cfg-fsbtn.on { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+.cfg-secs { font-size: 11px; font-weight: 700; color: var(--ui-text2); text-transform: uppercase; letter-spacing: .7px; margin: 14px 0 6px; border-top: 1px solid var(--ui-border); padding-top: 12px; }
+.cfg-vcbs { display: flex; flex-wrap: wrap; gap: 6px; }
+.cfg-vcb { font-size: 12px; color: var(--ui-text2); display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.cfg-vcb input { cursor: pointer; accent-color: var(--ui-accent); }
+.cfg-reset { width: 100%; background: var(--ui-bg2); border: 1px solid var(--ui-border); border-radius: 7px; padding: 8px; font-size: 12px; cursor: pointer; color: var(--ui-text2); margin-top: 12px; }
+.cfg-reset:hover { background: var(--ui-danger); border-color: var(--ui-danger); color: #fff; }
+.cfg-divider { border: none; border-top: 1px solid var(--ui-border); margin: 16px 0; }
+.danger-btn { padding: 7px 13px; background: var(--ui-danger); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 9px; }
+
+/* ══════════════════════════════════════
+   책보기 패널
+══════════════════════════════════════ */
+#panel-book { height: calc(100vh - 48px); display: none; flex-direction: column; overflow: hidden; }
+#panel-book.on { display: flex; }
+#book-wrap {
+  flex: 1; overflow: hidden; display: flex; height: 100%;
+  background: var(--pb); color: var(--pt);
+  transition: background .2s, color .2s;
+}
+/* topbar */
+#bk-main-col { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100%; overflow: hidden; }
+#bk-topbar {
+  background: var(--paper); border-bottom: 1px solid var(--pbd);
+  padding: 0 10px; height: 44px; display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  transition: background .2s;
+}
+.bk-btn {
+  background: none; border: 1px solid var(--pbd); color: var(--pm);
+  border-radius: 5px; padding: 3px 8px; font-size: 12px; cursor: pointer;
+  white-space: nowrap; transition: all .12s; display: flex; align-items: center; gap: 3px;
+  font-family: -apple-system, sans-serif;
+}
+.bk-btn:hover { background: var(--pb); color: var(--pt); }
+.bk-btn.on { background: var(--ac); color: #fff; border-color: var(--ac2); }
+#bk-title { flex: 1; font-size: 12px; color: var(--pm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+#bk-title strong { color: var(--pt); }
+#bk-width-wrap { display: flex; align-items: center; gap: 5px; padding: 0 3px; }
+#bk-width-wrap label { font-size: 10px; color: var(--pm); white-space: nowrap; }
+#bk-width-sl { width: 64px; accent-color: var(--ac); cursor: pointer; }
+/* 사이드바 */
+#bk-sidebar {
+  width: 260px; min-width: 100px; max-width: 460px;
+  background: #1a1814; display: none; flex-direction: column;
+  height: 100%; overflow: hidden; flex-shrink: 0; border-right: 1px solid #2a2520;
+}
+#bk-sidebar.open { display: flex; }
+html[data-dark] #bk-sidebar { background: #0e0c08; border-right-color: #2a2520; }
+.bk-sbh { padding: 11px 11px 8px; border-bottom: 1px solid #2a2520; flex-shrink: 0; }
+.bk-sbh h1 { color: #c4a45a; font-size: 14px; font-weight: 600; }
+.bk-sbh p { color: #5a5040; font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-sbs { padding: 6px 10px; border-bottom: 1px solid #2a2520; flex-shrink: 0; }
+.bk-sbs input { width: 100%; background: #2a2520; border: 1px solid #3a3020; color: #c8c2b4; border-radius: 5px; padding: 4px 8px; font-size: 12px; outline: none; }
+#bk-ftree { flex: 1; overflow-y: auto; padding: 4px 0; }
+#bk-ftree::-webkit-scrollbar { width: 3px; }
+#bk-ftree::-webkit-scrollbar-thumb { background: #3a3020; }
+.bk-tf { cursor: pointer; padding: 5px 10px; color: #c4a45a; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; display: flex; align-items: center; gap: 5px; user-select: none; }
+.bk-tf:hover { background: #2a2520; }
+.bk-tf .arr { font-size: 9px; transition: transform .2s; color: #5a5040; }
+.bk-tf.open .arr { transform: rotate(90deg); }
+.bk-tc { display: none; } .bk-tc.open { display: block; }
+.bk-fi { padding: 4px 10px 4px 22px; color: #c8c2b4; font-size: 13px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background .1s; }
+.bk-fi:hover { background: #2a2520; } .bk-fi.active { background: #3d3528; color: #c4a45a; }
+.bk-sbf { padding: 7px 10px; border-top: 1px solid #2a2520; flex-shrink: 0; display: flex; gap: 5px; }
+.bk-sbb { flex: 1; background: #2a2520; border: 1px solid #3a3020; color: #c8c2b4; border-radius: 5px; padding: 5px; font-size: 11px; cursor: pointer; text-align: center; }
+.bk-sbb:hover { background: #3a3020; }
+/* splitter */
+.bk-spl { width: 4px; flex-shrink: 0; cursor: col-resize; background: transparent; transition: background .15s; user-select: none; }
+.bk-spl:hover, .bk-spl.drag { background: var(--ac); }
+/* content */
+#bk-content { flex: 1; display: flex; overflow: hidden; }
+#bk-rw { flex: 1; overflow-y: auto; padding: 28px 0; background: var(--pb); min-width: 180px; transition: background .2s; }
+#bk-rw::-webkit-scrollbar { width: 5px; }
+#bk-rw::-webkit-scrollbar-thumb { background: var(--ps); border-radius: 3px; }
+#bk-reader {
+  max-width: 740px; margin: 0 auto; background: var(--paper); border-radius: 4px;
+  box-shadow: 0 2px 20px rgba(0,0,0,.1); padding: 48px 60px;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.85; color: var(--pt); font-size: 17px;
+  word-break: normal; overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+  transition: background .2s, color .2s;
+}
+@media(max-width:820px) { #bk-reader { padding: 28px 16px; font-size: 16px; } }
+#bk-reader h1 { font-size: 2em; font-weight: 700; margin: 0 0 1em; border-bottom: 2px solid var(--ac); padding-bottom: .35em; color: var(--pt); }
+#bk-reader h2 { font-size: 1.4em; font-weight: 700; margin: 1.8em 0 .65em; color: var(--pt); }
+#bk-reader h3 { font-size: 1.15em; font-weight: 700; margin: 1.5em 0 .5em; color: var(--pt); }
+#bk-reader h4 { font-size: 1em; font-weight: 700; margin: 1.3em 0 .45em; color: var(--pm); }
+#bk-reader p { margin: 0 0 .95em; color: var(--pt); }
+#bk-reader ul, #bk-reader ol { margin: 0 0 .95em 1.4em; color: var(--pt); }
+#bk-reader li { margin: .2em 0; }
+#bk-reader blockquote { border-left: 3px solid var(--ac); padding: .5em 1em; color: var(--pm); margin: .9em 0; font-style: italic; background: rgba(196,164,90,.07); border-radius: 0 4px 4px 0; }
+#bk-reader code { background: rgba(128,100,50,.1); padding: 2px 5px; border-radius: 3px; font-size: .87em; font-family: monospace; color: var(--pt); }
+#bk-reader pre { background: rgba(128,100,50,.1); padding: 1em; border-radius: 6px; overflow-x: auto; margin: .9em 0; }
+#bk-reader pre code { background: none; padding: 0; }
+#bk-reader hr { border: none; border-top: 1px solid var(--pbd); margin: 1.6em 0; }
+#bk-reader a { color: var(--ac2); text-decoration: underline; }
+#bk-reader table { width: 100%; border-collapse: collapse; margin: .9em 0; font-size: .9em; }
+#bk-reader th { background: rgba(196,164,90,.1); padding: 7px 10px; border: 1px solid var(--pbd); font-weight: 600; text-align: left; color: var(--pt); }
+#bk-reader td { padding: 6px 10px; border: 1px solid var(--pbd); color: var(--pt); }
+.obs-callout { border-radius: 6px; margin: 1em 0; padding: 10px 14px; border-left: 4px solid; font-size: .93em; background: rgba(128,100,50,.06); }
+.obs-callout.note  { border-color: #4080ff; }
+.obs-callout.tip   { border-color: #40c870; }
+.obs-callout.warning { border-color: #ffa020; }
+.obs-callout.danger  { border-color: #ff3c3c; }
+.obs-callout.info    { border-color: #28b4c8; }
+.obs-callout.quote   { border-color: var(--ac); }
+.obs-callout-title { font-weight: 700; margin-bottom: 5px; font-size: .92em; display: flex; align-items: center; gap: 5px; color: var(--pt); }
+.obs-callout-body  { line-height: 1.7; color: var(--pt); }
+/* TOC */
+#bk-toc { background: var(--paper); border-left: 1px solid var(--pbd); overflow-y: auto; padding: 13px 9px; flex-shrink: 0; display: none; min-width: 100px; max-width: 340px; width: 190px; transition: background .2s; }
+#bk-toc.open { display: block; }
+#bk-toc h3 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--pm); margin-bottom: 8px; }
+.bk-ti { display: block; color: var(--pm); font-size: 11px; padding: 3px 0 3px 6px; cursor: pointer; line-height: 1.4; border-left: 2px solid transparent; margin-bottom: 1px; }
+.bk-ti:hover { color: var(--pt); border-color: var(--ac); }
+.bk-ti.h3 { padding-left: 14px; } .bk-ti.h4 { padding-left: 22px; }
+/* 하이라이트 */
+.hl { cursor: pointer; border-radius: 2px; }
+.hl-yellow { background: rgba(255,220,80,.5); }
+.hl-green  { background: rgba(100,200,120,.4); }
+.hl-blue   { background: rgba(80,160,255,.4); }
+.hl-pink   { background: rgba(255,100,150,.4); }
+/* 밑줄 팝업 — 텍스트 선택 시 즉시 표시 */
+#bk-hlpop {
+  position: fixed; background: var(--paper); border: 1px solid var(--pbd);
+  border-radius: 10px; padding: 8px 10px; box-shadow: 0 6px 22px rgba(0,0,0,.2);
+  display: none; z-index: 700; gap: 8px; align-items: center; flex-wrap: wrap;
+  min-width: 200px; max-width: 280px;
+}
+#bk-hlpop.show { display: flex; }
+.bk-hlpop-colors { display: flex; gap: 6px; align-items: center; }
+.bk-hlpop-c {
+  width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: transform .12s, border-color .12s;
+  flex-shrink: 0;
+}
+.bk-hlpop-c:hover { transform: scale(1.15); }
+.bk-hlpop-c.on { border-color: var(--pt); transform: scale(1.1); }
+.bk-hlpop-divider { width: 1px; height: 20px; background: var(--pbd); }
+.bk-hlpop-btn {
+  background: none; border: 1px solid var(--pbd); border-radius: 6px;
+  padding: 3px 9px; font-size: 11px; color: var(--pm); cursor: pointer;
+  white-space: nowrap; transition: all .12s;
+}
+.bk-hlpop-btn:hover { background: var(--pb); color: var(--pt); border-color: var(--pm); }
+.bk-hlpop-btn.hl-save { background: var(--ac); color: #fff; border-color: var(--ac2); }
+.bk-hlpop-btn.hl-save:hover { background: var(--ac2); }
+#bk-hlpop-note {
+  width: 100%; border: 1px solid var(--pbd); border-radius: 6px;
+  padding: 5px 8px; font-size: 12px; outline: none;
+  background: var(--pb); color: var(--pt); font-family: inherit;
+}
+/* 밑줄 패널 */
+#bk-annot {
+  position: fixed; top: 96px; right: 14px; background: var(--paper);
+  border: 1px solid var(--pbd); border-radius: 10px; width: 310px; max-height: 480px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.18); display: none; flex-direction: column; z-index: 400; overflow: hidden;
+  transition: background .2s;
+}
+#bk-annot.open { display: flex; }
+.bk-an-hd { padding: 9px 13px; border-bottom: 1px solid var(--pbd); font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; color: var(--pt); }
+.bk-an-close { cursor: pointer; color: var(--pm); font-size: 15px; }
+#bk-an-list { overflow-y: auto; flex: 1; padding: 6px 0; }
+.bk-an-item { padding: 8px 13px; border-bottom: 1px solid var(--pbd); cursor: pointer; transition: background .1s; }
+.bk-an-item:hover { background: rgba(196,164,90,.06); }
+.bk-an-bar { height: 3px; border-radius: 2px; margin-bottom: 5px; }
+.bk-an-text { font-size: 13px; color: var(--pt); line-height: 1.5; font-family: Georgia, serif; }
+.bk-an-note { font-size: 11px; color: var(--pm); margin-top: 3px; font-style: italic; }
+.bk-an-del { float: right; background: none; border: none; color: var(--pm); cursor: pointer; font-size: 12px; padding: 0 2px; margin-left: 6px; }
+.bk-an-del:hover { color: #d44; }
+.bk-an-empty { padding: 20px; text-align: center; color: var(--pm); font-size: 13px; line-height: 1.7; }
+/* 검색 오버레이 */
+#bk-search-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 399; }
+#bk-search-overlay.open { display: block; }
+#bk-search {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -54%);
+  background: var(--paper); border: 1px solid var(--pbd);
+  border-radius: 12px; width: min(480px, 92vw); max-height: 60vh;
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  display: none; flex-direction: column; z-index: 400; overflow: hidden;
+  transition: background .2s;
+}
+#bk-search.open { display: flex; }
+.bk-sw { display: flex; align-items: center; border-bottom: 1px solid var(--pbd); }
+.bk-si { padding: 0 10px; color: var(--pm); font-size: 14px; }
+#bk-sinp { flex: 1; border: none; padding: 12px 6px; font-size: 14px; outline: none; background: transparent; color: var(--pt); }
+.bk-sc { padding: 0 12px; color: var(--pm); cursor: pointer; font-size: 16px; }
+#bk-sres { overflow-y: auto; flex: 1; }
+.bk-sri { padding: 9px 14px; cursor: pointer; border-bottom: 1px solid var(--pbd); }
+.bk-sri:hover { background: var(--pb); }
+.bk-srt { font-weight: 600; font-size: 13px; color: var(--pt); }
+.bk-srp { font-size: 11px; color: var(--pm); }
+.bk-sre { font-size: 12px; color: var(--pm); margin-top: 3px; line-height: 1.4; }
+.bk-sre mark { background: rgba(255,220,80,.55); border-radius: 2px; color: #1e1608; }
+.bk-srs { padding: 18px; text-align: center; color: var(--pm); font-size: 13px; }
+/* 프로그레스 */
+#bk-prog { height: 2px; background: var(--ac); position: fixed; top: 0; left: 0; z-index: 999; transition: width .15s; pointer-events: none; }
+/* setup */
+.bk-setup { text-align: center; padding: 48px 24px; color: var(--pm); display: flex; flex-direction: column; align-items: center; }
+.bk-setup h2 { font-size: 1.7em; color: var(--ac); margin-bottom: 9px; font-family: Georgia, serif; }
+.bk-setup > p { font-size: 13px; line-height: 1.7; max-width: 380px; margin-bottom: 18px; }
+.bk-setup-card { background: var(--paper); border: 1px solid var(--pbd); border-radius: 10px; padding: 20px 24px; max-width: 420px; width: 100%; text-align: left; }
+.bk-setup-card h3 { color: var(--pt); margin-bottom: 11px; font-size: 14px; }
+.bk-go { width: 100%; background: var(--ac); color: #fff; border: none; border-radius: 7px; padding: 9px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 7px; }
+.bk-go:hover { background: var(--ac2); }
+.bk-spin { text-align: center; padding: 48px; color: var(--pm); font-size: 14px; line-height: 2; }
+/* TTS */
+.bible-tts-btn { background: none; border: 1px solid var(--ac); color: var(--ac2); border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; margin-left: 6px; transition: all .12s; }
+.bible-tts-btn:hover, .bible-tts-btn.playing { background: var(--ac); color: #fff; }
+
+/* ══════════════════════════════════════
+   단어공부 패널
+══════════════════════════════════════ */
+#study-toolbar { background: var(--ui-bg2); border-bottom: 1px solid var(--ui-border); padding: 9px 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tb-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.tb-label { font-size: 11px; color: var(--ui-text3); text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
+.tb-sel { background: var(--ui-bg3); border: 1px solid var(--ui-border); color: var(--ui-text); font-size: 12px; padding: 5px 9px; border-radius: 6px; cursor: pointer; min-width: 110px; }
+.tb-sel:focus { outline: none; border-color: var(--ui-accent); }
+.num-input { background: var(--ui-bg3); border: 1px solid var(--ui-border); color: var(--ui-text); font-size: 12px; padding: 4px 7px; border-radius: 6px; width: 56px; text-align: center; font-family: monospace; }
+.num-input:focus { outline: none; border-color: var(--ui-accent2); }
+.tb-icon-btn { background: var(--ui-bg3); border: 1px solid var(--ui-border); color: var(--ui-text2); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; transition: all .13s; white-space: nowrap; }
+.tb-icon-btn:hover { border-color: var(--ui-accent2); color: var(--ui-accent2); }
+#study-togglebar { background: var(--ui-bg); border-bottom: 1px solid var(--ui-border); padding: 7px 14px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.tog-btn { padding: 4px 13px; border-radius: 18px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--ui-border); background: var(--ui-bg3); color: var(--ui-text2); transition: all .13s; }
+.tog-btn.on { background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2); }
+.tog-btn:hover:not(.on) { border-color: var(--ui-text2); color: var(--ui-text); }
+.play-all-btn { padding: 4px 13px; border-radius: 18px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--ui-accent3); background: transparent; color: var(--ui-accent3); display: flex; align-items: center; gap: 4px; transition: all .13s; }
+.play-all-btn:hover { background: var(--ui-accent3); color: #fff; }
+#study-stats { background: var(--ui-bg2); border-bottom: 1px solid var(--ui-border); padding: 6px 14px; display: none; gap: 14px; font-size: 11px; color: var(--ui-text3); font-family: monospace; }
+#study-stats span { color: var(--ui-accent); }
+#study-words { padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+.s-card { background: var(--ui-bg2); border: 1px solid var(--ui-border); border-radius: var(--r); padding: 11px 13px; display: grid; grid-template-columns: 36px 1.6fr 1fr 1fr 1.2fr 96px; align-items: center; gap: 10px; transition: border-color .18s; }
+.s-card:hover { border-color: var(--ui-bg3); }
+.s-audio-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--ui-border); background: var(--ui-bg3); color: var(--ui-text2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: all .13s; flex-shrink: 0; }
+.s-audio-btn:hover { background: var(--ui-accent3); color: #000; border-color: var(--ui-accent3); }
+.s-audio-btn:disabled { opacity: .3; cursor: not-allowed; }
+.s-cell { min-width: 0; }
+.s-lao  { font-family: "Noto Sans Lao", Georgia, serif; font-size: 17px; color: var(--ui-accent); font-weight: 700; }
+.s-pron { font-size: 11px; color: var(--ui-text3); margin-top: 1px; }
+.s-eng  { font-size: 13px; color: var(--ui-accent2); }
+.s-kor  { font-size: 14px; color: var(--ui-text); }
+.s-opp  { font-size: 12px; color: var(--ui-text3); }
+.vis-hidden { filter: blur(5px); user-select: none; pointer-events: none; }
+.s-study-ctrl { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.s-count-display { font-size: 20px; font-weight: 700; color: var(--ui-accent); font-family: monospace; min-width: 36px; text-align: center; transition: transform .2s; line-height: 1; }
+.s-count-display.bump { transform: scale(1.6); }
+.s-count-btns { display: flex; gap: 3px; }
+.s-inc-btn, .s-dec-btn, .s-set-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--ui-border); background: var(--ui-bg3); color: var(--ui-text2); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all .13s; }
+.s-inc-btn:hover { background: var(--ui-accent3); color: #fff; border-color: var(--ui-accent3); }
+.s-dec-btn:hover { background: var(--ui-danger); color: #fff; border-color: var(--ui-danger); }
+.s-set-btn:hover { background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2); }
+.s-status { text-align: center; padding: 56px 18px; color: var(--ui-text3); }
+.s-icon { font-size: 38px; margin-bottom: 10px; }
+.s-status h3 { font-size: 14px; color: var(--ui-text2); font-weight: 400; margin-bottom: 6px; }
+.s-status p { font-size: 13px; line-height: 1.6; }
+.s-loader { width: 28px; height: 28px; border: 3px solid var(--ui-border); border-top-color: var(--ui-accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media(max-width:640px) {
+  .s-card { grid-template-columns: 32px 1fr 80px; grid-template-rows: auto auto; }
+  .s-cell:nth-child(4), .s-cell:nth-child(5) { grid-column: 2; }
+}
 </style>
 </head>
 <body>
@@ -387,117 +440,133 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
 <div id="bk-prog" style="width:0"></div>
 <div id="toast"></div>
 
-<!-- ══ 설정 모달 ══ -->
+<!-- ══ 통합 설정 모달 ══ -->
 <div id="cfg-overlay">
   <div id="cfg-box">
-    <h3>🔑 GitHub 저장소 설정</h3>
-    <label class="cfg-label">사용자명 (owner)</label>
-    <input class="cfg-input" id="cfg-user" placeholder="예: ki-ahn">
-    <label class="cfg-label">저장소 이름 (repo)</label>
-    <input class="cfg-input" id="cfg-repo" placeholder="예: Blog">
-    <label class="cfg-label">브랜치</label>
-    <input class="cfg-input" id="cfg-branch" value="main">
-    <label class="cfg-label">단어장 폴더 경로 <small style="color:var(--text3);text-transform:none">(비우면 전체 .md)</small></label>
-    <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
-    <label class="cfg-label">책보기 루트 폴더 <small style="color:var(--text3);text-transform:none">(선택)</small></label>
-    <input class="cfg-input" id="cfg-root" placeholder="예: Notes">
-    <label class="cfg-label">성경 데이터 폴더</label>
-    <input class="cfg-input" id="cfg-bible" value="Bible">
-    <label class="cfg-label">Personal Access Token <small style="color:var(--text3);text-transform:none">(쓰기 시 필요)</small></label>
-    <input class="cfg-input" id="cfg-token" type="password" placeholder="ghp_xxxx…">
-    <div class="cfg-hint">Settings → Developer Settings → Personal access tokens (repo 권한)</div>
+    <div id="cfg-tabs">
+      <div class="cfg-tab on" onclick="switchCfgTab('github',this)">🔑 GitHub</div>
+      <div class="cfg-tab" onclick="switchCfgTab('reader',this)">📖 책보기</div>
+      <div class="cfg-tab" onclick="switchCfgTab('study',this)">✏️ 단어공부</div>
+    </div>
+    <!-- GitHub 탭 -->
+    <div class="cfg-pane on" id="cfgp-github">
+      <label class="cfg-label">사용자명 (owner)</label>
+      <input class="cfg-input" id="cfg-user" placeholder="예: ki-ahn">
+      <label class="cfg-label">저장소 이름 (repo)</label>
+      <input class="cfg-input" id="cfg-repo" placeholder="예: Blog">
+      <label class="cfg-label">브랜치</label>
+      <input class="cfg-input" id="cfg-branch" value="main">
+      <label class="cfg-label">성경 데이터 폴더</label>
+      <input class="cfg-input" id="cfg-bible" value="Bible">
+      <label class="cfg-label">Personal Access Token <small style="text-transform:none;color:var(--ui-text3)">(쓰기 시 필요)</small></label>
+      <input class="cfg-input" id="cfg-token" type="password" placeholder="ghp_xxxx…">
+      <div class="cfg-hint">Settings → Developer Settings → Personal access tokens (repo 권한)<br>밑줄 GitHub 저장·공부횟수 업데이트에 필요합니다.</div>
+    </div>
+    <!-- 책보기 탭 -->
+    <div class="cfg-pane" id="cfgp-reader">
+      <label class="cfg-label">책보기 루트 폴더 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체)</small></label>
+      <input class="cfg-input" id="cfg-root" placeholder="예: Notes">
+      <hr class="cfg-divider">
+      <div class="cfg-setr">
+        <div class="cfg-setl">글자 크기</div>
+        <div class="cfg-fsb">
+          <button class="cfg-fsbtn"    onclick="bkFontSize(15,this)">S</button>
+          <button class="cfg-fsbtn on" onclick="bkFontSize(17,this)" id="cfg-fs-m">M</button>
+          <button class="cfg-fsbtn"    onclick="bkFontSize(19,this)">L</button>
+          <button class="cfg-fsbtn"    onclick="bkFontSize(21,this)">XL</button>
+        </div>
+      </div>
+      <div class="cfg-secs">성경 버전</div>
+      <div class="cfg-vcbs" id="bk-vcbs"></div>
+      <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
+    </div>
+    <!-- 단어공부 탭 -->
+    <div class="cfg-pane" id="cfgp-study">
+      <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
+      <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
+      <hr class="cfg-divider">
+      <div style="font-size:13px;color:var(--ui-text2);line-height:1.7">
+        공부횟수 저장:<br>
+        • <b style="color:var(--ui-accent2)">로컬</b>: 항상 브라우저에 즉시 저장<br>
+        • <b style="color:var(--ui-accent3)">GitHub</b>: 토큰 설정 시 .md 파일 업데이트
+      </div>
+      <hr class="cfg-divider">
+      <div style="font-size:13px;color:var(--ui-text2)">현재 저장소: <code id="etc-gh-label" style="color:var(--ui-accent)">미설정</code></div>
+      <button class="danger-btn" onclick="StudyModule.clearLocal()" style="margin-top:10px">로컬 공부횟수 삭제</button>
+    </div>
     <div class="cfg-row">
       <button class="btn-cancel" onclick="closeCfg()">취소</button>
-      <button class="btn-ok" onclick="saveCfg()">저장 &amp; 로드</button>
+      <button class="btn-ok"     onclick="saveCfg()">저장 &amp; 적용</button>
     </div>
   </div>
 </div>
 
+<!-- 밑줄 팝업 (텍스트 선택 즉시 표시) -->
+<div id="bk-hlpop">
+  <div class="bk-hlpop-colors">
+    <div class="bk-hlpop-c on" style="background:#ffdc50" title="노랑" onclick="bkHlColor('yellow',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#64c878" title="초록" onclick="bkHlColor('green',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#50a0ff" title="파랑" onclick="bkHlColor('blue',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#ff6496" title="분홍" onclick="bkHlColor('pink',this)"></div>
+  </div>
+  <div class="bk-hlpop-divider"></div>
+  <button class="bk-hlpop-btn hl-save" onclick="bkSaveHl()">밑줄</button>
+  <button class="bk-hlpop-btn" onclick="bkLookup()">사전</button>
+  <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()">메모</button>
+  <button class="bk-hlpop-btn" style="color:var(--ui-danger)" onclick="bkHideHlPop()">✕</button>
+  <input id="bk-hlpop-note" placeholder="메모 내용…" style="display:none" onkeydown="if(event.key==='Enter')bkSaveHl()">
+</div>
+
+<!-- 밑줄 패널 -->
+<div id="bk-annot">
+  <div class="bk-an-hd">🖊 밑줄 목록 <span class="bk-an-close" onclick="bkTogAnnot()">✕</span></div>
+  <div id="bk-an-list"><div class="bk-an-empty">밑줄이 없습니다</div></div>
+</div>
+
+<!-- 검색 오버레이 -->
+<div id="bk-search-overlay" onclick="bkTogSearch()"></div>
+<div id="bk-search">
+  <div class="bk-sw">
+    <span class="bk-si">🔍</span>
+    <input id="bk-sinp" placeholder="전체 검색… (Ctrl+K)" oninput="bkDoSearch(this.value)">
+    <span class="bk-sc" onclick="bkTogSearch()">✕</span>
+  </div>
+  <div id="bk-sres"><div class="bk-srs">검색어를 입력하세요</div></div>
+</div>
+
 <!-- ══ 1단 탭 ══ -->
 <nav id="main-tabs">
-  <div class="main-tab" id="tab-book"  onclick="switchTab('book')">📖 책보기</div>
-  <div class="main-tab on" id="tab-study" onclick="switchTab('study')">✏️ 단어공부</div>
-  <div class="main-tab" id="tab-etc"   onclick="switchTab('etc')">⚙️ 기타</div>
+  <div class="main-tab on" id="tab-book"  onclick="switchTab('book')">📖 책보기</div>
+  <div class="main-tab"    id="tab-study" onclick="switchTab('study')">✏️ 단어공부</div>
+  <div id="tabs-right">
+    <span id="dark-label">🌙</span>
+    <div id="dark-toggle" onclick="toggleDark()" title="다크모드"></div>
+    <button class="tab-icon-btn" onclick="openCfg()">⚙ 설정</button>
+  </div>
 </nav>
 
 <!-- ══ 책보기 패널 ══ -->
-<div class="panel" id="panel-book">
-  <!-- 밑줄 패널 -->
-  <div id="bk-annot">
-    <div class="bk-an-hd">🖊 밑줄 목록 <span class="bk-an-close" onclick="bkTogAnnot()">✕</span></div>
-    <div id="bk-an-list"><div class="bk-an-empty">밑줄이 없습니다</div></div>
-  </div>
-  <div id="bk-hlpop">
-    <div style="font-size:11px;color:var(--pm)">색상 선택</div>
-    <div class="bk-hpc">
-      <div class="bk-hpcol" style="background:#ffdc50" onclick="bkHlColor('yellow',this)"></div>
-      <div class="bk-hpcol" style="background:#64c878" onclick="bkHlColor('green',this)"></div>
-      <div class="bk-hpcol" style="background:#50a0ff" onclick="bkHlColor('blue',this)"></div>
-      <div class="bk-hpcol" style="background:#ff6496" onclick="bkHlColor('pink',this)"></div>
-    </div>
-    <input id="bk-hpnote" placeholder="메모 추가…">
-    <div class="bk-hpa">
-      <button class="bk-hpbtn save" onclick="bkSaveHl()">💾 저장</button>
-      <button class="bk-hpbtn del"  onclick="bkHideHlPop()">✕ 취소</button>
-    </div>
-  </div>
-  <!-- 검색 오버레이 배경 -->
-  <div id="bk-search-overlay" onclick="bkTogSearch()"></div>
-  <div id="bk-search">
-    <div class="bk-sw"><span class="bk-si">🔍</span>
-      <input id="bk-sinp" placeholder="전체 검색…" oninput="bkDoSearch(this.value)">
-      <span class="bk-sc" onclick="bkTogSearch()">✕</span>
-    </div>
-    <div id="bk-sres"><div class="bk-srs">검색어를 입력하세요</div></div>
-  </div>
-  <div id="bk-settings">
-    <div class="bk-seth">책보기 설정 <span class="bk-setc" onclick="bkTogSettings()">✕</span></div>
-    <div class="bk-setb">
-      <div class="bk-setr"><div class="bk-setl">글자 크기</div>
-        <div class="bk-fsb">
-          <button class="bk-fsbtn"    onclick="bkFontSize(15,this)">S</button>
-          <button class="bk-fsbtn on" onclick="bkFontSize(17,this)">M</button>
-          <button class="bk-fsbtn"    onclick="bkFontSize(19,this)">L</button>
-          <button class="bk-fsbtn"    onclick="bkFontSize(21,this)">XL</button>
-        </div>
-      </div>
-      <div class="bk-setr"><div class="bk-setl">다크 모드</div>
-        <div class="bk-tog" id="bk-darktog" onclick="bkTogDark()"></div>
-      </div>
-      <div class="bk-secs">성경 버전</div>
-      <div class="bk-vcbs" id="bk-vcbs"></div>
-      <button class="bk-reset" onclick="bkResetSettings()">⚠ 설정 초기화</button>
-    </div>
-  </div>
+<div class="panel on" id="panel-book">
   <div id="book-wrap">
     <div id="bk-main-col">
       <div id="bk-topbar">
         <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
-        <div id="bk-title">파일을 선택하세요</div>
+        <div id="bk-title"><span style="color:var(--pm)">파일 목록을 불러오는 중…</span></div>
         <div id="bk-width-wrap" title="본문 너비 조절">
           <label>너비</label>
-          <input id="bk-width-sl" type="range" min="400" max="1200" value="740" step="20"
-            oninput="bkSetWidth(this.value)">
+          <input id="bk-width-sl" type="range" min="400" max="1200" value="740" step="20" oninput="bkSetWidth(this.value)">
         </div>
         <button class="bk-btn" id="bk-tocbtn" onclick="bkTogToc()">목차</button>
-        <button class="bk-btn" id="bk-hlbtn" onclick="bkTogHlMode()">🖊</button>
-        <div class="bk-hl-colors" id="bk-hlcols" style="display:none">
-          <div class="bk-hc on" style="background:#ffdc50" onclick="bkHlColor('yellow',this)"></div>
-          <div class="bk-hc"    style="background:#64c878" onclick="bkHlColor('green',this)"></div>
-          <div class="bk-hc"    style="background:#50a0ff" onclick="bkHlColor('blue',this)"></div>
-          <div class="bk-hc"    style="background:#ff6496" onclick="bkHlColor('pink',this)"></div>
-        </div>
+        <button class="bk-btn" id="bk-annotbtn" onclick="bkTogAnnot()">🖊 밑줄</button>
         <button class="bk-btn" onclick="bkTogSearch()">🔍</button>
-        <button class="bk-btn" onclick="bkTogSettings()">⚙</button>
       </div>
       <div id="bk-content">
         <div id="bk-sidebar">
-          <div class="bk-sbh"><h1>📖 Obsidian Reader</h1><p id="bk-repo-lbl">저장소를 연결하세요</p></div>
+          <div class="bk-sbh"><h1>📖 Book Reader</h1><p id="bk-repo-lbl">저장소를 연결하세요</p></div>
           <div class="bk-sbs"><input placeholder="파일 필터…" oninput="bkFilterTree(this.value)"></div>
           <div id="bk-ftree"><div style="padding:16px;color:#5a5040;font-size:12px;text-align:center">저장소를 연결하세요</div></div>
           <div class="bk-sbf">
             <button class="bk-sbb" onclick="bkRefresh()">↺ 새로고침</button>
-            <button class="bk-sbb" onclick="bkShowAnnot()">🖊 밑줄</button>
           </div>
         </div>
         <div class="bk-spl" id="bk-spl-l" onmousedown="bkDragStart(event,'l')" style="display:none"></div>
@@ -510,7 +579,7 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
 </div>
 
 <!-- ══ 단어공부 패널 ══ -->
-<div class="panel on" id="panel-study">
+<div class="panel" id="panel-study">
   <div id="study-toolbar">
     <div class="tb-group">
       <span class="tb-label">📂 노트</span>
@@ -520,32 +589,28 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
     </div>
     <div class="tb-group">
       <span class="tb-label">🎯 공부횟수</span>
-      <input class="num-input" id="study-count-filter" type="number"
-        min="0" max="7" placeholder="전체"
-        style="width:62px"
-        oninput="StudyModule.onCountFilterChange()"
-        title="이 횟수 이하 단어만 표시 (비우면 전체)">
-      <span style="font-size:11px;color:var(--text3)">이하</span>
+      <input class="num-input" id="study-count-filter" type="number" min="0" max="7" placeholder="전체"
+        style="width:62px" oninput="StudyModule.onCountFilterChange()" title="이 횟수 이하만 표시 (비우면 전체)">
+      <span style="font-size:11px;color:var(--ui-text3)">이하</span>
     </div>
     <div class="tb-group">
       <span class="tb-label">📋 표시</span>
       <input class="num-input" id="study-display-count" type="number" min="1" max="100" value="20" onchange="StudyModule.renderWords()">
-      <span style="font-size:11px;color:var(--text3)">개</span>
+      <span style="font-size:11px;color:var(--ui-text3)">개</span>
     </div>
     <div class="tb-group" style="margin-left:auto">
-      <button class="tb-icon-btn" onclick="openCfg()">🔑 GitHub 설정</button>
       <button class="tb-icon-btn" onclick="StudyModule.loadNotebooks()">🔄 새로고침</button>
     </div>
   </div>
   <div id="study-togglebar">
     <button class="play-all-btn" onclick="StudyModule.playAll()">▶ 전체 재생</button>
-    <div style="width:1px;height:18px;background:var(--border);margin:0 3px"></div>
+    <div style="width:1px;height:18px;background:var(--ui-border);margin:0 3px"></div>
     <button class="tog-btn on" id="stog-lao" onclick="StudyModule.toggleCol('lao')">라오어</button>
     <button class="tog-btn on" id="stog-eng" onclick="StudyModule.toggleCol('eng')">영어</button>
     <button class="tog-btn on" id="stog-kor" onclick="StudyModule.toggleCol('kor')">한글</button>
     <button class="tog-btn on" id="stog-opp" onclick="StudyModule.toggleCol('opp')">반댓말</button>
     <div style="flex:1"></div>
-    <span id="st-range" style="font-size:11px;color:var(--text3)"></span>
+    <span id="st-range" style="font-size:11px;color:var(--ui-text3)"></span>
   </div>
   <div id="study-stats">
     전체&nbsp;<span id="st-total">0</span>개 ·
@@ -554,80 +619,56 @@ body{font-family:-apple-system,"Noto Sans KR",sans-serif;background:var(--bg);co
   </div>
   <div id="study-words">
     <div class="s-status">
-      <div class="s-icon">☝️</div>
-      <h3>GitHub 저장소를 설정하세요</h3>
-      <p>🔑 GitHub 설정 버튼을 눌러 저장소 정보를 입력하세요.</p>
+      <div class="s-icon">⚙️</div>
+      <h3>설정에서 GitHub 저장소를 입력하세요</h3>
+      <p>우측 상단 ⚙ 설정 버튼을 눌러 저장소를 연결하세요.</p>
     </div>
   </div>
 </div>
 
-<!-- ══ 기타 패널 ══ -->
-<div class="panel" id="panel-etc">
-  <h2>⚙️ 설정 및 정보</h2>
-  <div class="etc-card">
-    <strong>🔑 현재 GitHub 저장소</strong><br>
-    <code id="etc-gh-label">미설정</code><br><br>
-    <button class="tb-icon-btn" onclick="openCfg()" style="display:inline-flex">설정 열기</button>
-  </div>
-  <div class="etc-card">
-    <strong>💾 공부횟수 저장</strong><br><br>
-    • <strong style="color:var(--accent2)">로컬 저장</strong>: 항상 브라우저 localStorage에 즉시 저장<br>
-    • <strong style="color:var(--accent3)">GitHub 저장</strong>: 토큰 설정 시 .md 파일도 업데이트
-  </div>
-  <div class="etc-card">
-    <strong>📝 단어 데이터 형식</strong>
-    <pre>라오: ລູກຊາຍ
-발음: [룩-싸이 ↗]
-한글: 아들
-영어: son
-반대말: ລູກສາວ (딸)
-음성: luk_sai.mp3
-공부횟수: 0
----
-라오: ...</pre>
-  </div>
-  <div class="etc-card">
-    <strong>🎵 음성 파일</strong><br>
-    저장소 <code>audio/</code> 폴더에 mp3 파일.<br>예: <code>audio/luk_sai.mp3</code>
-  </div>
-  <div class="etc-card">
-    <strong>📁 파일 구조 (GitHub Pages)</strong>
-    <pre>ki-ahn.github.io/
-├── index.html   ← 이 파일
-├── github.js    ← GitHub API 모듈
-├── study.js     ← 단어공부 모듈
-└── bible.js     ← 성경 모듈</pre>
-  </div>
-  <div class="etc-card">
-    <strong>🗑️ 로컬 데이터 초기화</strong><br>
-    <button class="danger-btn" onclick="StudyModule.clearLocal()">로컬 공부횟수 삭제</button>
-  </div>
-</div>
-
-<!-- ══ app.js 인라인 — 탭 전환 + 책보기 + 초기화 ══ -->
 <script>
-/* ── AppToast ── */
+/* ══ AppToast ══ */
 const AppToast = {
   _t: null,
-  show(msg, type = '') {
+  show(msg, type='') {
     const el = document.getElementById('toast');
     el.textContent = msg;
-    el.className = 'toast show' + (type === 'success' ? ' ok' : type === 'error' ? ' err' : '');
+    el.className = 'toast show' + (type==='success' ? ' ok' : type==='error' ? ' err' : '');
     clearTimeout(this._t);
     this._t = setTimeout(() => el.classList.remove('show'), 3200);
   }
 };
 
-/* ── 탭 전환 ── */
+/* ══ 전역 다크모드 ══ */
+function applyDark(on) {
+  document.documentElement.dataset.dark = on ? '1' : '';
+  if (!on) delete document.documentElement.dataset.dark;
+  // bible 모듈에도 전달
+  if (window.BibleModule?.setDark) BibleModule.setDark(on);
+}
+function toggleDark() {
+  const isDark = !document.documentElement.hasAttribute('data-dark') ||
+                  document.documentElement.dataset.dark !== '1';
+  applyDark(isDark);
+  _bkS.dark = isDark;
+  bkSaveStore();
+}
+
+/* ══ 탭 전환 ══ */
 function switchTab(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
   document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('on'));
   document.getElementById('panel-' + name).classList.add('on');
   document.getElementById('tab-' + name).classList.add('on');
-  if (name === 'book' && !_bkInited) bkInit();
 }
 
-/* ── 설정 모달 ── */
+/* ══ 설정 모달 ══ */
+function switchCfgTab(name, el) {
+  document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.cfg-pane').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('cfgp-' + name).classList.add('on');
+}
 function openCfg() {
   const c = GitHubModule.get();
   document.getElementById('cfg-user').value   = c.user || '';
@@ -637,6 +678,7 @@ function openCfg() {
   document.getElementById('cfg-root').value   = c.rootFolder || '';
   document.getElementById('cfg-bible').value  = c.bibleFolder || 'Bible';
   document.getElementById('cfg-token').value  = c.token || '';
+  updateEtcLabel();
   document.getElementById('cfg-overlay').classList.add('open');
 }
 function closeCfg() { document.getElementById('cfg-overlay').classList.remove('open'); }
@@ -655,6 +697,10 @@ function saveCfg() {
   closeCfg();
   updateEtcLabel();
   bkSyncBible();
+  // 책보기 파일 목록 갱신
+  const c = GitHubModule.get();
+  document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
+  bkLoadFiles();
   StudyModule.loadNotebooks();
 }
 function updateEtcLabel() {
@@ -663,15 +709,14 @@ function updateEtcLabel() {
   if (el) el.textContent = c.user && c.repo ? `${c.user}/${c.repo}` : '미설정';
 }
 
-/* ════════════════════════════════
-   책보기 모듈 (book.js 역할)
-════════════════════════════════ */
+/* ══════════════════════════════════════
+   책보기 모듈
+══════════════════════════════════════ */
 const BIBLE_VERSIONS = ['개역개정', '새번역', 'ESV', 'NIV', 'LAO', 'Henry', 'Hokma'];
-const _bkS = { dark: false, fs: 17, vers: ['개역개정', 'ESV'] };
-let _bkInited = false;
+const _bkS = { dark: false, fs: 17, vers: ['개역개정', 'ESV'], readerW: 740 };
 let _bkFiles = [], _bkCur = null, _bkContent = '';
 let _bkHls = {}, _bkPos = {};
-let _bkHlMode = false, _bkHlCol = 'yellow', _bkSelR = null;
+let _bkHlCol = 'yellow', _bkSelR = null, _bkSelText = '';
 let _bkSrIdx = [], _bkSrReady = false;
 let _bkDrag = null;
 
@@ -687,24 +732,24 @@ function bkSaveStore() {
   localStorage.setItem('obr-hl',  JSON.stringify(_bkHls));
   localStorage.setItem('obr-pos', JSON.stringify(_bkPos));
 }
-function bkApply() {
-  const isDark = _bkS.dark;
-  document.getElementById('book-wrap').dataset.dark = isDark ? '1' : '';
-  document.getElementById('bk-darktog').classList.toggle('on', isDark);
-  document.getElementById('bk-reader').style.fontSize = _bkS.fs + 'px';
-  // fixed 패널들은 book-wrap 밖에 있으므로 직접 클래스 적용
-  ['bk-search','bk-settings','bk-annot'].forEach(id => {
-    document.getElementById(id)?.classList.toggle('dark-mode', isDark);
-  });
-  // 본문 너비 복원
-  if (_bkS.readerW) {
-    document.getElementById('bk-reader').style.maxWidth = _bkS.readerW + 'px';
-    const sl = document.getElementById('bk-width-sl');
-    if (sl) sl.value = _bkS.readerW;
-  }
-  document.getElementById('bk-vcbs').innerHTML = BIBLE_VERSIONS.map(v =>
-    `<label class="bk-vcb"><input type="checkbox" ${_bkS.vers.includes(v) ? 'checked' : ''} onchange="bkTogVer('${v}',this.checked)"> ${v}</label>`
+function bkApplyTheme() {
+  // 글꼴 크기
+  const r = document.getElementById('bk-reader');
+  if (r) r.style.fontSize = _bkS.fs + 'px';
+  // 너비
+  if (_bkS.readerW && r) r.style.maxWidth = _bkS.readerW + 'px';
+  const sl = document.getElementById('bk-width-sl');
+  if (sl && _bkS.readerW) sl.value = _bkS.readerW;
+  // 성경 버전 체크박스
+  const vcbs = document.getElementById('bk-vcbs');
+  if (vcbs) vcbs.innerHTML = BIBLE_VERSIONS.map(v =>
+    `<label class="cfg-vcb"><input type="checkbox" ${_bkS.vers.includes(v)?'checked':''} onchange="bkTogVer('${v}',this.checked)"> ${v}</label>`
   ).join('');
+  // 폰트 크기 버튼 active
+  document.querySelectorAll('.cfg-fsbtn').forEach(b => b.classList.remove('on'));
+  const sizes = [15,17,19,21];
+  const idx = sizes.indexOf(_bkS.fs);
+  document.querySelectorAll('.cfg-fsbtn')[idx >= 0 ? idx : 1]?.classList.add('on');
 }
 function bkTogVer(v, on) {
   if (on && !_bkS.vers.includes(v)) _bkS.vers.push(v);
@@ -719,37 +764,34 @@ function bkSyncBible() {
     enabledVersions: _bkS.vers,
   });
 }
-function bkInit() {
-  _bkInited = true;
-  bkLoadStore(); bkApply(); BibleModule.injectStyles();
-  const c = GitHubModule.get();
-  document.getElementById('bk-repo-lbl').textContent = c.user && c.repo ? `${c.user}/${c.repo}` : '저장소를 연결하세요';
-  bkSyncBible(); bkWelcome();
+function bkFontSize(sz, btn) {
+  _bkS.fs = sz;
+  const r = document.getElementById('bk-reader');
+  if (r) r.style.fontSize = sz + 'px';
+  bkSaveStore();
+  document.querySelectorAll('.cfg-fsbtn').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
 }
-function bkWelcome() {
-  const c = GitHubModule.get();
-  document.getElementById('bk-reader').innerHTML = `
-    <div class="bk-setup">
-      <h2>📖 Obsidian Reader</h2>
-      <p>GitHub Obsidian 노트를 읽고 성경 구절을 확인하세요.</p>
-      <div class="bk-setup-card">
-        <h3>GitHub 저장소 연결</h3>
-        <p style="font-size:13px;color:var(--pm);margin-bottom:12px;line-height:1.7">
-          현재: <strong style="color:var(--ac)">${c.user && c.repo ? c.user + '/' + c.repo : '미설정'}</strong>
-        </p>
-        ${c.user && c.repo ? `<button class="bk-go" onclick="bkLoadFiles()">📂 파일 목록 불러오기</button>` : ''}
-      </div>
-    </div>`;
+function bkResetSettings() {
+  if (!confirm('책보기 설정을 초기화하시겠습니까?')) return;
+  _bkS.dark = false; _bkS.fs = 17; _bkS.vers = ['개역개정','ESV']; _bkS.readerW = 740;
+  localStorage.removeItem('obr-cfg');
+  applyDark(false); bkApplyTheme();
 }
+
+/* 파일 목록 */
 async function bkLoadFiles() {
-  document.getElementById('bk-ftree').innerHTML = '<div class="bk-spin">🔍 로딩 중…</div>';
+  document.getElementById('bk-ftree').innerHTML = '<div class="bk-spin" style="padding:14px;font-size:12px">🔍 로딩 중…</div>';
   const c = GitHubModule.get();
-  if (!c.user || !c.repo) { AppToast.show('저장소를 먼저 설정하세요', 'error'); return; }
+  if (!c.user || !c.repo) {
+    document.getElementById('bk-ftree').innerHTML = '<div style="padding:16px;color:#5a5040;font-size:12px;text-align:center">저장소를 설정하세요</div>';
+    document.getElementById('bk-title').innerHTML = '<span style="color:var(--pm)">⚙ 설정에서 저장소를 연결하세요</span>';
+    return;
+  }
   try {
     const tree = await GitHubModule.fetchTree();
     _bkFiles = tree.tree
-      .filter(f => f.type === 'blob' && f.path.endsWith('.md'))
-      // 숨김 폴더(.Trash, .obsidian 등) 제외
+      .filter(f => f.type==='blob' && f.path.endsWith('.md'))
       .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
       .filter(f => !c.rootFolder  || f.path.startsWith(c.rootFolder + '/'))
       .filter(f => !c.bibleFolder || !f.path.startsWith(c.bibleFolder + '/'))
@@ -758,21 +800,25 @@ async function bkLoadFiles() {
     bkRenderTree(_bkFiles);
     AppToast.show(`📚 ${_bkFiles.length}개 파일 로드됨`);
     bkBuildSrIdx();
+    // 이전에 열었던 파일 자동 오픈
+    const last = localStorage.getItem('bk-last-file');
+    if (last && _bkFiles.includes(last)) {
+      bkOpen(last);
+    } else {
+      document.getElementById('bk-title').innerHTML = '<span style="color:var(--pm)">파일을 선택하세요</span>';
+    }
   } catch(e) {
     document.getElementById('bk-ftree').innerHTML = `<div style="padding:14px;color:#e66;font-size:12px;line-height:1.9">오류: ${e.message}</div>`;
     AppToast.show(e.message, 'error');
   }
 }
-function bkRefresh() {
-  if (GitHubModule.isReady()) bkLoadFiles();
-  else AppToast.show('저장소를 먼저 설정하세요', 'error');
-}
+function bkRefresh() { bkLoadFiles(); }
 function bkRenderTree(files) {
   const tree = {};
   files.forEach(path => {
     const parts = path.split('/'); let node = tree;
     parts.forEach((p, i) => {
-      if (i === parts.length - 1) { (node.__f__ = node.__f__ || []).push({ name: p, path }); }
+      if (i === parts.length - 1) { (node.__f__ = node.__f__ || []).push({name:p, path}); }
       else { node[p] = node[p] || {}; node = node[p]; }
     });
   });
@@ -781,11 +827,11 @@ function bkRenderTree(files) {
 function bkRNode(node, d) {
   let html = ''; const pad = 10 + d * 10;
   Object.keys(node).filter(k => k !== '__f__').sort().forEach(k => {
-    html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${bkRNode(node[k], d + 1)}</div>`;
+    html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${bkRNode(node[k], d+1)}</div>`;
   });
-  (node.__f__ || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(f => {
+  (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
     const name = f.name.replace(/\.md$/, '');
-    html += `<div class="bk-fi" style="padding-left:${pad + 12}px" data-path="${f.path}" onclick="bkOpen('${f.path}')" title="${f.path}">📄 ${name}</div>`;
+    html += `<div class="bk-fi" style="padding-left:${pad+12}px" data-path="${f.path}" onclick="bkOpen('${f.path}')" title="${f.path}">📄 ${name}</div>`;
   });
   return html;
 }
@@ -797,9 +843,10 @@ function bkFilterTree(q) {
 async function bkOpen(path) {
   document.querySelectorAll('.bk-fi').forEach(el => el.classList.remove('active'));
   const el = document.querySelector(`.bk-fi[data-path="${CSS.escape(path)}"]`);
-  if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); }
+  if (el) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
   if (_bkCur && _bkCur !== path) { _bkPos[_bkCur] = document.getElementById('bk-rw').scrollTop; bkSaveStore(); }
   _bkCur = path;
+  localStorage.setItem('bk-last-file', path);
   const fname = path.split('/').pop().replace(/\.md$/, '');
   document.getElementById('bk-title').innerHTML = `<strong>${fname}</strong>`;
   document.getElementById('bk-reader').innerHTML = '<div class="bk-spin">📖 불러오는 중…</div>';
@@ -816,64 +863,148 @@ function bkRender() {
   let md = _bkContent;
   md = md.replace(/^---[\s\S]*?---\n?/, '');
   md = md.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (_, p, a) => a ? a.slice(1) : p);
-  md = md.replace(/^(> \[!(\w+)\][^\n]*\n(?:>.*\n?)*)/gm, (m) => {
+  md = md.replace(/^(> \[!(\w+)\][^\n]*\n(?:>.*\n?)*)/gm, m => {
     const lines = m.split('\n');
     const tm = lines[0].match(/\[!(\w+)\](.*)/);
     const type = tm ? tm[1].toLowerCase() : 'note';
     const title = tm ? tm[2].trim() : '';
     const body = lines.slice(1).map(l => l.replace(/^> ?/, '')).join('\n').trim();
-    const icons = { note:'📝', tip:'💡', warning:'⚠️', danger:'🚨', info:'ℹ️', quote:'💬', important:'❗' };
+    const icons = {note:'📝',tip:'💡',warning:'⚠️',danger:'🚨',info:'ℹ️',quote:'💬',important:'❗'};
     return `\n\n<div class="obs-callout ${type}"><div class="obs-callout-title">${icons[type]||'📌'} ${title||type}</div><div class="obs-callout-body">${body}</div></div>\n\n`;
   });
   bkSyncBible();
   md = BibleModule.protectRefs(md);
   let html = '';
-  try { html = marked.parse(md, { gfm: true, breaks: false }); }
-  catch(e) { html = '<pre>' + md.replace(/</g, '&lt;') + '</pre>'; }
+  try { html = marked.parse(md, {gfm:true, breaks:false}); }
+  catch(e) { html = '<pre>' + md.replace(/</g,'&lt;') + '</pre>'; }
   html = BibleModule.restoreRefs(html);
   const reader = document.getElementById('bk-reader');
   reader.innerHTML = html;
   reader.style.fontSize = _bkS.fs + 'px';
+  if (_bkS.readerW) reader.style.maxWidth = _bkS.readerW + 'px';
   BibleModule.processDom(reader);
   bkApplyHls(); bkBuildToc(); bkTrackProg();
 }
-/* 하이라이트 */
-function bkTogHlMode() {
-  _bkHlMode = !_bkHlMode;
-  document.getElementById('bk-hlbtn').classList.toggle('on', _bkHlMode);
-  document.getElementById('bk-hlcols').style.display = _bkHlMode ? 'flex' : 'none';
-  document.getElementById('bk-reader').style.cursor = _bkHlMode ? 'text' : '';
-}
-function bkHlColor(col, btn) {
-  _bkHlCol = col;
-  btn?.closest('.bk-hl-colors,.bk-hpc')?.querySelectorAll('.bk-hc,.bk-hpcol').forEach(b => b.classList.remove('on'));
-  btn?.classList.add('on');
-}
+
+/* ── 밑줄 ── */
+// 텍스트 선택 → 즉시 팝업 (모드 버튼 없음)
 document.addEventListener('mouseup', e => {
-  if (!_bkHlMode) return;
+  // 팝업 자체 클릭 무시
+  if (e.target.closest('#bk-hlpop')) return;
   const sel = window.getSelection();
-  if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+  if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+    // 클릭이 팝업 밖이면 닫기
+    if (!e.target.closest('#bk-hlpop')) bkHideHlPop();
+    return;
+  }
   const range = sel.getRangeAt(0);
   if (!document.getElementById('bk-reader').contains(range.commonAncestorContainer)) return;
   _bkSelR = range.cloneRange();
+  _bkSelText = sel.toString().trim();
   const rect = range.getBoundingClientRect();
   const pop = document.getElementById('bk-hlpop');
-  pop.style.left = Math.min(rect.left, window.innerWidth - 210) + 'px';
-  pop.style.top  = Math.max(8, rect.top - 118) + 'px';
+  // 메모 입력창 초기화
+  const note = document.getElementById('bk-hlpop-note');
+  note.style.display = 'none'; note.value = '';
+  document.getElementById('bk-hlpop-memo-btn').textContent = '메모';
+  // 위치 결정
+  const pw = 280, ph = 46;
+  let left = rect.left + rect.width/2 - pw/2;
+  let top  = rect.top - ph - 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+  if (top < 8) top = rect.bottom + 8;
+  pop.style.left = left + 'px';
+  pop.style.top  = top + 'px';
   pop.classList.add('show');
-  document.getElementById('bk-hpnote').value = '';
 });
-function bkHideHlPop() { document.getElementById('bk-hlpop').classList.remove('show'); window.getSelection()?.removeAllRanges(); _bkSelR = null; }
-function bkSaveHl() {
+document.addEventListener('touchend', e => {
+  if (e.target.closest('#bk-hlpop')) return;
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+    const range = sel.getRangeAt(0);
+    if (!document.getElementById('bk-reader').contains(range.commonAncestorContainer)) return;
+    _bkSelR = range.cloneRange();
+    _bkSelText = sel.toString().trim();
+    const rect = range.getBoundingClientRect();
+    const pop = document.getElementById('bk-hlpop');
+    const note = document.getElementById('bk-hlpop-note');
+    note.style.display = 'none'; note.value = '';
+    document.getElementById('bk-hlpop-memo-btn').textContent = '메모';
+    let left = rect.left + rect.width/2 - 140;
+    let top  = rect.top - 54;
+    left = Math.max(8, Math.min(left, window.innerWidth - 288));
+    if (top < 8) top = rect.bottom + 8;
+    pop.style.left = left + 'px';
+    pop.style.top  = top + 'px';
+    pop.classList.add('show');
+  }, 100);
+});
+function bkHideHlPop() {
+  document.getElementById('bk-hlpop').classList.remove('show');
+  window.getSelection()?.removeAllRanges();
+  _bkSelR = null; _bkSelText = '';
+}
+function bkHlColor(col, btn) {
+  _bkHlCol = col;
+  document.querySelectorAll('.bk-hlpop-c').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
+}
+function bkTogMemo() {
+  const note = document.getElementById('bk-hlpop-note');
+  const btn  = document.getElementById('bk-hlpop-memo-btn');
+  if (note.style.display === 'none') {
+    note.style.display = 'block'; note.focus();
+    btn.textContent = '메모▲';
+  } else {
+    note.style.display = 'none';
+    btn.textContent = '메모';
+  }
+}
+function bkLookup() {
+  if (!_bkSelText) return;
+  const url = `https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`;
+  window.open(url, '_blank');
+  bkHideHlPop();
+}
+async function bkSaveHl() {
   if (!_bkSelR || !_bkCur) { bkHideHlPop(); return; }
-  const text = _bkSelR.toString().trim();
-  if (!text || text.length < 2) { AppToast.show('텍스트를 선택하세요'); return; }
-  const note = document.getElementById('bk-hpnote').value.trim();
+  const text = _bkSelText;
+  if (!text || text.length < 1) { AppToast.show('텍스트를 선택하세요'); return; }
+  const note = document.getElementById('bk-hlpop-note').value.trim();
   if (!_bkHls[_bkCur]) _bkHls[_bkCur] = [];
-  const id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
+  const id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
   _bkHls[_bkCur].push({ id, text, color: _bkHlCol, note, date: new Date().toISOString() });
-  bkSaveStore(); bkApplyHls(); bkHideHlPop();
+  bkSaveStore();
+  // GitHub 저장 (토큰 있으면)
+  await bkSaveHlToGitHub(_bkCur);
+  bkApplyHls();
+  bkHideHlPop();
   AppToast.show('✏️ 밑줄 저장됨');
+}
+async function bkSaveHlToGitHub(filePath) {
+  if (!GitHubModule.get().token) return;
+  try {
+    const hlPath = '_highlights/' + filePath.replace(/\//g, '_').replace(/\.md$/, '') + '_hl.json';
+    const data = JSON.stringify(_bkHls[filePath] || [], null, 2);
+    // writeFile은 파일이 없으면 생성, 있으면 업데이트
+    await GitHubModule.writeFile(hlPath, data, `밑줄 업데이트: ${filePath.split('/').pop()}`);
+  } catch(e) {
+    // GitHub 저장 실패해도 로컬은 이미 저장됨
+    console.warn('밑줄 GitHub 저장 실패:', e.message);
+  }
+}
+async function bkLoadHlFromGitHub(filePath) {
+  if (!GitHubModule.get().token) return;
+  try {
+    const hlPath = '_highlights/' + filePath.replace(/\//g, '_').replace(/\.md$/, '') + '_hl.json';
+    const text = await GitHubModule.readFile(hlPath);
+    const data = JSON.parse(text);
+    if (Array.isArray(data) && data.length > 0) {
+      _bkHls[filePath] = data;
+      bkSaveStore();
+    }
+  } catch(e) { /* 파일 없으면 무시 */ }
 }
 function bkApplyHls() {
   if (!_bkCur || !_bkHls[_bkCur]) return;
@@ -895,42 +1026,35 @@ function bkHlDom(el, text, color, id, note) {
     try { r.surroundContents(span); break; } catch(e) {}
   }
 }
+/* 밑줄 패널 */
 function bkShowAnnot() { bkTogAnnot(); }
 function bkTogAnnot() {
   const panel = document.getElementById('bk-annot');
   panel.classList.toggle('open');
-  if (panel.classList.contains('open')) {
-    panel.classList.toggle('dark-mode', _bkS.dark);
-    bkRenderAnnot();
-  }
+  document.getElementById('bk-annotbtn').classList.toggle('on', panel.classList.contains('open'));
+  if (panel.classList.contains('open')) bkRenderAnnot();
   document.getElementById('bk-search').classList.remove('open');
   document.getElementById('bk-search-overlay').classList.remove('open');
-  document.getElementById('bk-settings').classList.remove('open');
 }
 function bkRenderAnnot() {
   const list = document.getElementById('bk-an-list');
   const cmap = { yellow:'#ffdc50', green:'#64c878', blue:'#50a0ff', pink:'#ff6496' };
-
-  // 전체 파일의 밑줄 모아서 표시 (현재 파일 먼저)
   const entries = [];
-  const files = _bkCur ? [_bkCur, ...Object.keys(_bkHls).filter(f => f !== _bkCur)] : Object.keys(_bkHls);
-  files.forEach(file => {
-    (_bkHls[file] || []).forEach(h => entries.push({ ...h, file }));
-  });
-
+  const files = _bkCur
+    ? [_bkCur, ...Object.keys(_bkHls).filter(f => f !== _bkCur)]
+    : Object.keys(_bkHls);
+  files.forEach(file => { (_bkHls[file]||[]).forEach(h => entries.push({...h, file})); });
   if (!entries.length) {
-    list.innerHTML = '<div class="bk-an-empty">아직 밑줄이 없습니다.<br>🖊 버튼 켜고 텍스트 선택 후 저장하세요.</div>';
+    list.innerHTML = '<div class="bk-an-empty">아직 밑줄이 없습니다.<br>텍스트를 선택하면 팝업이 나타납니다.</div>';
     return;
   }
-
   list.innerHTML = entries.map(h => {
     const fname = h.file.split('/').pop().replace(/\.md$/, '');
-    return `
-    <div class="bk-an-item" onclick="bkOpenAnnot('${h.file}','${h.id}')">
+    return `<div class="bk-an-item" onclick="bkOpenAnnot('${h.file}','${h.id}')">
       <div class="bk-an-bar" style="background:${cmap[h.color]||'#ffdc50'}">
         <button class="bk-an-del" onclick="event.stopPropagation();bkDelAnnot('${h.file}','${h.id}')" title="삭제">✕</button>
       </div>
-      <div class="bk-an-text">${h.text.slice(0, 120)}${h.text.length > 120 ? '…' : ''}</div>
+      <div class="bk-an-text">${h.text.slice(0,120)}${h.text.length>120?'…':''}</div>
       ${h.note ? `<div class="bk-an-note">💬 ${h.note}</div>` : ''}
       <div style="font-size:10px;color:var(--pm);margin-top:3px">📄 ${fname}</div>
     </div>`;
@@ -938,29 +1062,23 @@ function bkRenderAnnot() {
 }
 async function bkOpenAnnot(file, id) {
   document.getElementById('bk-annot').classList.remove('open');
+  document.getElementById('bk-annotbtn').classList.remove('on');
   if (_bkCur !== file) await bkOpen(file);
   setTimeout(() => {
     const el = document.querySelector(`[data-hl-id="${id}"]`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (el) el.scrollIntoView({behavior:'smooth', block:'center'});
   }, 400);
 }
-function bkDelAnnot(file, id) {
+async function bkDelAnnot(file, id) {
   if (!_bkHls[file]) return;
   _bkHls[file] = _bkHls[file].filter(h => h.id !== id);
   if (!_bkHls[file].length) delete _bkHls[file];
   bkSaveStore();
+  await bkSaveHlToGitHub(file);
   bkRenderAnnot();
   if (_bkCur === file) bkRender();
 }
 
-/* 본문 너비 조절 */
-function bkSetWidth(val) {
-  document.getElementById('bk-rw').style.setProperty('--reader-w', val + 'px');
-  // bk-rw 자체가 아니라 내부 bk-reader에 적용
-  document.getElementById('bk-reader').style.maxWidth = val + 'px';
-  _bkS.readerW = parseInt(val);
-  bkSaveStore();
-}
 /* TOC */
 function bkBuildToc() {
   const hs = document.querySelectorAll('#bk-reader h1,#bk-reader h2,#bk-reader h3,#bk-reader h4');
@@ -981,20 +1099,20 @@ function bkTogSidebar() {
   const open = sb.classList.contains('open');
   document.getElementById('bk-spl-l').style.display = open ? 'block' : 'none';
   document.getElementById('bk-sbbtn').classList.toggle('on', open);
-  if (open && _bkFiles.length === 0) bkLoadFiles();
 }
+
 /* 검색 */
 async function bkBuildSrIdx() {
   _bkSrIdx = []; _bkSrReady = false;
-  const batch = 10;
+  const batch = 8;
   for (let i = 0; i < _bkFiles.length; i += batch) {
-    await Promise.all(_bkFiles.slice(i, i + batch).map(async path => {
+    await Promise.all(_bkFiles.slice(i, i+batch).map(async path => {
       try {
         const text = await GitHubModule.readFile(path);
-        _bkSrIdx.push({ path, title: path.split('/').pop().replace(/\.md$/, ''), content: text.replace(/---[\s\S]*?---/, '').replace(/[#*`[\]]/g, ' ') });
+        _bkSrIdx.push({ path, title: path.split('/').pop().replace(/\.md$/,''), content: text.replace(/---[\s\S]*?---/,'').replace(/[#*`[\]]/g,' ') });
       } catch(e) {}
     }));
-    await new Promise(r => setTimeout(r, 80));
+    await new Promise(r => setTimeout(r, 60));
   }
   _bkSrReady = true;
 }
@@ -1004,14 +1122,12 @@ function bkTogSearch() {
   const open = !p.classList.contains('open');
   p.classList.toggle('open', open);
   ov.classList.toggle('open', open);
-  document.getElementById('bk-settings').classList.remove('open');
   document.getElementById('bk-annot').classList.remove('open');
+  document.getElementById('bk-annotbtn').classList.remove('on');
   if (open) {
-    // 다크모드 클래스 동기화
-    p.classList.toggle('dark-mode', _bkS.dark);
     document.getElementById('bk-sinp').value = '';
     document.getElementById('bk-sinp').focus();
-    document.getElementById('bk-sres').innerHTML = `<div class="bk-srs">${_bkSrReady ? '검색어를 입력하세요' : '인덱싱 중…'}</div>`;
+    document.getElementById('bk-sres').innerHTML = `<div class="bk-srs">${_bkSrReady?'검색어를 입력하세요':'인덱싱 중…'}</div>`;
   }
 }
 function bkDoSearch(q) {
@@ -1024,80 +1140,89 @@ function bkDoSearch(q) {
   const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   res.innerHTML = hits.map(f => {
     const idx = f.content.toLowerCase().indexOf(low);
-    const ex = idx > -1 ? f.content.slice(Math.max(0, idx - 50), idx + 80).trim().replace(/\n/g, ' ') : '';
-    const hi = ex.replace(new RegExp(esc, 'gi'), m => `<mark>${m}</mark>`);
-    return `<div class="bk-sri" onclick="bkOpen('${f.path}');document.getElementById('bk-search').classList.remove('open')">
+    const ex  = idx > -1 ? f.content.slice(Math.max(0,idx-50), idx+80).trim().replace(/\n/g,' ') : '';
+    const hi  = ex.replace(new RegExp(esc,'gi'), m => `<mark>${m}</mark>`);
+    return `<div class="bk-sri" onclick="bkOpen('${f.path}');document.getElementById('bk-search').classList.remove('open');document.getElementById('bk-search-overlay').classList.remove('open')">
       <div class="bk-srt">${f.title}</div><div class="bk-srp">${f.path}</div>
       ${hi ? `<div class="bk-sre">${hi}…</div>` : ''}
     </div>`;
   }).join('');
 }
-function bkTogSettings() {
-  const p = document.getElementById('bk-settings');
-  p.classList.toggle('open');
-  if (p.classList.contains('open')) p.classList.toggle('dark-mode', _bkS.dark);
-  document.getElementById('bk-search').classList.remove('open');
-  document.getElementById('bk-search-overlay').classList.remove('open');
-  document.getElementById('bk-annot').classList.remove('open');
+
+/* 본문 너비 */
+function bkSetWidth(val) {
+  document.getElementById('bk-reader').style.maxWidth = val + 'px';
+  _bkS.readerW = parseInt(val);
+  bkSaveStore();
 }
-function bkTogDark() { _bkS.dark = !_bkS.dark; bkApply(); bkSaveStore(); }
-function bkFontSize(sz, btn) {
-  _bkS.fs = sz; document.getElementById('bk-reader').style.fontSize = sz + 'px'; bkSaveStore();
-  document.querySelectorAll('.bk-fsbtn').forEach(b => b.classList.remove('on')); btn?.classList.add('on');
-}
-function bkResetSettings() {
-  if (!confirm('설정을 초기화하시겠습니까?')) return;
-  _bkS.dark = false; _bkS.fs = 17; _bkS.vers = ['개역개정', 'ESV'];
-  localStorage.removeItem('obr-cfg'); bkApply(); bkTogSettings();
-}
+
+/* 프로그레스 */
 function bkTrackProg() {
   const wrap = document.getElementById('bk-rw'); let t = null;
   wrap.onscroll = () => {
     const tot = wrap.scrollHeight - wrap.clientHeight;
-    document.getElementById('bk-prog').style.width = (tot > 0 ? wrap.scrollTop / tot * 100 : 0) + '%';
+    document.getElementById('bk-prog').style.width = (tot>0 ? wrap.scrollTop/tot*100 : 0) + '%';
     if (t) clearTimeout(t);
     t = setTimeout(() => { if (_bkCur) { _bkPos[_bkCur] = wrap.scrollTop; bkSaveStore(); } }, 400);
   };
 }
+
 /* 드래그 리사이즈 */
 function bkDragStart(e, side) {
   e.preventDefault();
-  const splId = side === 'l' ? 'bk-spl-l' : 'bk-spl-r';
+  const splId = side==='l' ? 'bk-spl-l' : 'bk-spl-r';
   document.getElementById(splId).classList.add('drag');
   if (side === 'l') {
     const sb = document.getElementById('bk-sidebar');
     const sx = e.clientX, sw = sb.offsetWidth;
-    _bkDrag = { move(e) { sb.style.width = Math.max(80, Math.min(460, sw + (e.clientX - sx))) + 'px'; }, up() { document.getElementById(splId).classList.remove('drag'); _bkDrag = null; } };
+    _bkDrag = { move(e){sb.style.width=Math.max(80,Math.min(460,sw+(e.clientX-sx)))+'px';}, up(){document.getElementById(splId).classList.remove('drag');_bkDrag=null;} };
   } else {
     const toc = document.getElementById('bk-toc');
     const sx = e.clientX, sw = toc.offsetWidth;
-    _bkDrag = { move(e) { toc.style.width = Math.max(90, Math.min(380, sw - (e.clientX - sx))) + 'px'; }, up() { document.getElementById(splId).classList.remove('drag'); _bkDrag = null; } };
+    _bkDrag = { move(e){toc.style.width=Math.max(90,Math.min(380,sw-(e.clientX-sx)))+'px';}, up(){document.getElementById(splId).classList.remove('drag');_bkDrag=null;} };
   }
 }
 document.addEventListener('mousemove', e => { if (_bkDrag) _bkDrag.move(e); });
 document.addEventListener('mouseup',   e => { if (_bkDrag) _bkDrag.up(e); });
+
 /* 키보드 */
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     bkHideHlPop();
     document.getElementById('bk-search').classList.remove('open');
     document.getElementById('bk-search-overlay').classList.remove('open');
-    document.getElementById('bk-settings').classList.remove('open');
     document.getElementById('bk-annot').classList.remove('open');
+    document.getElementById('bk-annotbtn').classList.remove('on');
     document.getElementById('cfg-overlay').classList.remove('open');
   }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); bkTogSearch(); }
+  if ((e.metaKey||e.ctrlKey) && e.key==='k') { e.preventDefault(); bkTogSearch(); }
 });
 
-/* ════════════════════════════════
+/* ══════════════════════════════════════
    앱 초기화
-════════════════════════════════ */
+══════════════════════════════════════ */
 (function init() {
   GitHubModule.load();
   StudyModule.init();
-  updateEtcLabel();
+  // 저장된 설정 불러오기
   bkLoadStore();
-  if (GitHubModule.isReady()) StudyModule.loadNotebooks();
+  // 다크모드 복원
+  if (_bkS.dark) applyDark(true);
+  // 테마 적용
+  bkApplyTheme();
+  // 책보기 초기화 (첫 화면)
+  bkSyncBible();
+  BibleModule.injectStyles();
+  const c = GitHubModule.get();
+  if (c.user && c.repo) {
+    document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
+    bkTogSidebar();   // 사이드바 자동 열기
+    bkLoadFiles();    // 파일 목록 자동 로드
+    StudyModule.loadNotebooks();
+  } else {
+    document.getElementById('bk-title').innerHTML = '<span style="color:var(--pm)">⚙ 설정에서 저장소를 연결하세요</span>';
+  }
+  updateEtcLabel();
 })();
 </script>
 </body>

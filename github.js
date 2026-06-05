@@ -73,28 +73,26 @@ const GitHubModule = (() => {
     return decode64(data.content);
   }
 
-  /* ── 파일 쓰기 (토큰 필요) ── */
+  /* ── 파일 쓰기 (토큰 필요, 없으면 새 파일 생성) ── */
   async function writeFile(path, text, message) {
     if (!_cfg.token) throw new Error('GitHub 토큰이 필요합니다');
-    // 현재 SHA 가져오기
-    const meta = await fetchContents(path);
-    const sha = meta.sha;
-    // UTF-8 → base64 인코딩
     const bytes = new TextEncoder().encode(text);
     let binary = '';
     bytes.forEach(b => binary += String.fromCharCode(b));
     const encoded = btoa(binary);
-
     const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/contents/${path}`;
+    // SHA 조회 (파일 존재 시)
+    let sha;
+    try {
+      const meta = await fetchContents(path);
+      sha = meta.sha;
+    } catch(e) { /* 파일 없으면 sha 없이 생성 */ }
+    const body = { message: message || '앱에서 수정', content: encoded, branch: _cfg.branch };
+    if (sha) body.sha = sha;
     const r = await fetch(url, {
       method: 'PUT',
       headers: { ...headers(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: message || '앱에서 수정',
-        content: encoded,
-        sha: sha,
-        branch: _cfg.branch,
-      }),
+      body: JSON.stringify(body),
     });
     if (!r.ok) {
       const e = await r.json().catch(() => ({}));
