@@ -124,17 +124,38 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 #toast.ok  { border-color: var(--ui-accent3); color: var(--ui-accent3); }
 #toast.err { border-color: var(--ui-danger);  color: var(--ui-danger); }
 
+/* ══ #태그 색상 ══ */
+#bk-reader a[href^="#"],
+#bk-reader .tag,
+.bk-tag {
+  color: var(--ac2) !important;
+  background: rgba(196,164,90,.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: .88em;
+  text-decoration: none !important;
+  font-family: -apple-system, sans-serif;
+  white-space: nowrap;
+}
+/* Obsidian #태그 — #word 형태 텍스트 노드는 JS로 처리 */
+
 /* ══ 통합 설정 모달 ══ */
 #cfg-overlay {
   display: none; position: fixed; inset: 0;
   background: rgba(0,0,0,.6); z-index: 500;
-  align-items: center; justify-content: center; padding: 18px;
+  align-items: flex-start; justify-content: center;  /* flex-start: 키보드 올라와도 모달 위로 밀리지 않음 */
+  padding: 12px 12px 0;
+  overflow-y: auto;                                   /* 모달이 키보드에 가려질 때 스크롤 가능 */
+  -webkit-overflow-scrolling: touch;
 }
 #cfg-overlay.open { display: flex; }
 #cfg-box {
   background: var(--ui-bg); border: 1px solid var(--ui-border);
   border-radius: 14px; width: 100%; max-width: 480px;
-  box-shadow: 0 8px 36px rgba(0,0,0,.35); max-height: 92vh; display: flex; flex-direction: column;
+  box-shadow: 0 8px 36px rgba(0,0,0,.35);
+  display: flex; flex-direction: column;
+  margin: auto;                    /* 세로 중앙 정렬 유지 */
+  /* max-height 제거 → 키보드 올라와도 잘림 없음 */
 }
 #cfg-tabs { display: flex; border-bottom: 1px solid var(--ui-border); flex-shrink: 0; }
 .cfg-tab {
@@ -147,9 +168,15 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 .cfg-label { display: block; font-size: 11px; color: var(--ui-text2); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .5px; }
 .cfg-input {
   width: 100%; background: var(--ui-bg2); border: 1px solid var(--ui-border);
-  color: var(--ui-text); padding: 8px 11px; border-radius: 7px; font-size: 13px; font-family: monospace;
+  color: var(--ui-text); padding: 10px 11px; border-radius: 7px;
+  font-size: 16px;        /* 안드로이드: 16px 미만이면 자동 줌 발생 → 키보드 이슈 */
+  font-family: monospace;
+  -webkit-user-select: text; user-select: text;  /* 선택/입력 허용 */
+  touch-action: manipulation;                     /* 더블탭 줌 방지 */
+  cursor: text;
+  -webkit-appearance: none; appearance: none;     /* 브라우저 기본 스타일 제거 */
 }
-.cfg-input:focus { outline: none; border-color: var(--ui-accent2); }
+.cfg-input:focus { outline: 2px solid var(--ui-accent2); outline-offset: 0; border-color: var(--ui-accent2); }
 .cfg-hint { font-size: 11px; color: var(--ui-text3); margin-top: 5px; line-height: 1.5; }
 .cfg-row { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; flex-shrink: 0; padding: 0 24px 20px; }
 .btn-ok { padding: 8px 20px; background: var(--ui-accent); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -486,10 +513,10 @@ html[data-dark] #bk-sidebar {
       <div class="cfg-setr">
         <div class="cfg-setl">글자 크기</div>
         <div class="cfg-fsb">
-          <button class="cfg-fsbtn"    onclick="bkFontSize(15,this)">S</button>
-          <button class="cfg-fsbtn on" onclick="bkFontSize(17,this)" id="cfg-fs-m">M</button>
-          <button class="cfg-fsbtn"    onclick="bkFontSize(19,this)">L</button>
-          <button class="cfg-fsbtn"    onclick="bkFontSize(21,this)">XL</button>
+          <button class="cfg-fsbtn"    onclick="bkFontSize(17,this)">S</button>
+          <button class="cfg-fsbtn on" onclick="bkFontSize(19,this)" id="cfg-fs-m">M</button>
+          <button class="cfg-fsbtn"    onclick="bkFontSize(21,this)">L</button>
+          <button class="cfg-fsbtn"    onclick="bkFontSize(24,this)">XL</button>
         </div>
       </div>
       <div class="cfg-secs">성경 버전</div>
@@ -504,10 +531,10 @@ html[data-dark] #bk-sidebar {
       <div class="cfg-setr">
         <div class="cfg-setl">글자 크기</div>
         <div class="cfg-fsb">
-          <button class="cfg-fsbtn" onclick="studyFontSize(13,this)">S</button>
-          <button class="cfg-fsbtn on" onclick="studyFontSize(15,this)" id="sfs-m">M</button>
-          <button class="cfg-fsbtn" onclick="studyFontSize(17,this)">L</button>
-          <button class="cfg-fsbtn" onclick="studyFontSize(19,this)">XL</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(17,this)">S</button>
+          <button class="cfg-fsbtn on" onclick="studyFontSize(19,this)" id="sfs-m">M</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(21,this)">L</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(24,this)">XL</button>
         </div>
       </div>
       <hr class="cfg-divider">
@@ -692,7 +719,13 @@ function switchCfgTab(name, el) {
   document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('on'));
   document.querySelectorAll('.cfg-pane').forEach(p => p.classList.remove('on'));
   el.classList.add('on');
-  document.getElementById('cfgp-' + name).classList.add('on');
+  const pane = document.getElementById('cfgp-' + name);
+  pane.classList.add('on');
+  // 안드로이드: 탭 전환 후 첫 번째 input에 포커스 → 키보드 활성화 대기
+  setTimeout(() => {
+    const first = pane.querySelector('input.cfg-input');
+    if (first) first.focus();
+  }, 100);
 }
 function openCfg() {
   const c = GitHubModule.get();
@@ -742,9 +775,9 @@ function studyFontSize(sz, btn) {
   btn?.classList.add('on');
 }
 function studyFontSizeRestore() {
-  const sz = parseInt(localStorage.getItem('study-fs') || '15');
+  const sz = parseInt(localStorage.getItem('study-fs') || '19');
   document.getElementById('study-words').style.setProperty('--study-fs', sz + 'px');
-  const sizes = [13, 15, 17, 19];
+  const sizes = [17, 19, 21, 24];
   const idx = sizes.indexOf(sz);
   const btns = document.querySelectorAll('#cfgp-study .cfg-fsbtn');
   btns.forEach(b => b.classList.remove('on'));
@@ -755,7 +788,7 @@ function studyFontSizeRestore() {
    책보기 모듈
 ══════════════════════════════════════ */
 const BIBLE_VERSIONS = ['개역개정', '새번역', 'ESV', 'NIV', 'LAO', 'Henry', 'Hokma'];
-const _bkS = { dark: false, fs: 17, vers: ['개역개정', 'ESV'], readerW: 740 };
+const _bkS = { dark: false, fs: 19, vers: ['개역개정', 'ESV'], readerW: 740 };
 let _bkFiles = [], _bkCur = null, _bkContent = '';
 let _bkHls = {}, _bkPos = {};
 let _bkHlCol = 'yellow', _bkSelR = null, _bkSelText = '';
@@ -787,11 +820,11 @@ function bkApplyTheme() {
   if (vcbs) vcbs.innerHTML = BIBLE_VERSIONS.map(v =>
     `<label class="cfg-vcb"><input type="checkbox" ${_bkS.vers.includes(v)?'checked':''} onchange="bkTogVer('${v}',this.checked)"> ${v}</label>`
   ).join('');
-  // 폰트 크기 버튼 active
-  document.querySelectorAll('.cfg-fsbtn').forEach(b => b.classList.remove('on'));
-  const sizes = [15,17,19,21];
+  // 폰트 크기 버튼 active — 책보기 탭 버튼만 대상
+  document.querySelectorAll('#cfgp-reader .cfg-fsbtn').forEach(b => b.classList.remove('on'));
+  const sizes = [17, 19, 21, 24];
   const idx = sizes.indexOf(_bkS.fs);
-  document.querySelectorAll('.cfg-fsbtn')[idx >= 0 ? idx : 1]?.classList.add('on');
+  document.querySelectorAll('#cfgp-reader .cfg-fsbtn')[idx >= 0 ? idx : 1]?.classList.add('on');
 }
 function bkTogVer(v, on) {
   if (on && !_bkS.vers.includes(v)) _bkS.vers.push(v);
@@ -926,6 +959,7 @@ function bkRender() {
   if (_bkS.readerW) reader.style.maxWidth = _bkS.readerW + 'px';
   BibleModule.processDom(reader);
   bkApplyHls(); bkBuildToc(); bkTrackProg();
+  bkColorTags(reader);  // #태그 색상
 }
 
 /* ── 밑줄 ── */
@@ -982,7 +1016,36 @@ document.addEventListener('touchend', e => {
     pop.classList.add('show');
   }, 100);
 });
-/* ── 밑줄 팝업 ── */
+/* ── #태그 색상 처리 ── */
+function bkColorTags(el) {
+  // 이미 처리된 태그 span 안은 건너뜀
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentNode;
+      if (p.closest('.hl, .bk-tag, code, pre, .bible-callout')) return NodeFilter.FILTER_REJECT;
+      return /#[^\s#\u200b.,!?;:'"()\[\]{}<>]{1,40}/.test(node.textContent)
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+    }
+  }, false);
+  const nodes = [];
+  let n;
+  while (n = walker.nextNode()) nodes.push(n);
+  nodes.forEach(tn => {
+    const frag = document.createDocumentFragment();
+    const parts = tn.textContent.split(/(#[^\s#\u200b.,!?;:'"()\[\]{}<>]{1,40})/g);
+    parts.forEach(part => {
+      if (/^#[^\s]{1,40}$/.test(part)) {
+        const span = document.createElement('span');
+        span.className = 'bk-tag';
+        span.textContent = part;
+        frag.appendChild(span);
+      } else {
+        frag.appendChild(document.createTextNode(part));
+      }
+    });
+    tn.parentNode.replaceChild(frag, tn);
+  });
+}
 function bkHideHlPop() {
   document.getElementById('bk-hlpop').classList.remove('show');
   window.getSelection()?.removeAllRanges();
