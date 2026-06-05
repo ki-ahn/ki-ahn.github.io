@@ -212,32 +212,48 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 #bk-width-wrap { display: flex; align-items: center; gap: 5px; padding: 0 3px; }
 #bk-width-wrap label { font-size: 10px; color: var(--pm); white-space: nowrap; }
 #bk-width-sl { width: 64px; accent-color: var(--ac); cursor: pointer; }
-/* 사이드바 */
+/* ── 사이드바 : 라이트/다크 모두 대응 ── */
 #bk-sidebar {
   width: 260px; min-width: 100px; max-width: 460px;
-  background: #1a1814; display: none; flex-direction: column;
-  height: 100%; overflow: hidden; flex-shrink: 0; border-right: 1px solid #2a2520;
+  --sb-bg:    #2c2820; --sb-bg2:   #3a3428; --sb-bg3:   #484038;
+  --sb-text:  #c8c2b4; --sb-text2: #8a7a5a; --sb-acc:   #c4a45a;
+  --sb-bdr:   #3a3428;
+  background: var(--sb-bg); display: none; flex-direction: column;
+  height: 100%; overflow: hidden; flex-shrink: 0;
+  border-right: 1px solid var(--sb-bdr);
+}
+/* 라이트모드 사이드바 */
+html:not([data-dark]) #bk-sidebar {
+  --sb-bg:    #2c2416; --sb-bg2:   #3a3020; --sb-bg3:   #4a3e2a;
+  --sb-text:  #d4c8a8; --sb-text2: #8a7050; --sb-acc:   #c4a45a;
+  --sb-bdr:   #3a3020;
+}
+/* 다크모드 사이드바 */
+html[data-dark] #bk-sidebar {
+  --sb-bg:    #0e0c08; --sb-bg2:   #1a1610; --sb-bg3:   #252018;
+  --sb-text:  #c8c2b4; --sb-text2: #6a5a40; --sb-acc:   #c4a45a;
+  --sb-bdr:   #1e1a12;
 }
 #bk-sidebar.open { display: flex; }
-html[data-dark] #bk-sidebar { background: #0e0c08; border-right-color: #2a2520; }
-.bk-sbh { padding: 11px 11px 8px; border-bottom: 1px solid #2a2520; flex-shrink: 0; }
-.bk-sbh h1 { color: #c4a45a; font-size: 14px; font-weight: 600; }
-.bk-sbh p { color: #5a5040; font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bk-sbs { padding: 6px 10px; border-bottom: 1px solid #2a2520; flex-shrink: 0; }
-.bk-sbs input { width: 100%; background: #2a2520; border: 1px solid #3a3020; color: #c8c2b4; border-radius: 5px; padding: 4px 8px; font-size: 12px; outline: none; }
+.bk-sbh { padding: 11px 11px 8px; border-bottom: 1px solid var(--sb-bdr); flex-shrink: 0; }
+.bk-sbh h1 { color: var(--sb-acc); font-size: 14px; font-weight: 600; }
+.bk-sbh p  { color: var(--sb-text2); font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-sbs { padding: 6px 10px; border-bottom: 1px solid var(--sb-bdr); flex-shrink: 0; }
+.bk-sbs input { width: 100%; background: var(--sb-bg2); border: 1px solid var(--sb-bg3); color: var(--sb-text); border-radius: 5px; padding: 4px 8px; font-size: 12px; outline: none; }
 #bk-ftree { flex: 1; overflow-y: auto; padding: 4px 0; }
 #bk-ftree::-webkit-scrollbar { width: 3px; }
-#bk-ftree::-webkit-scrollbar-thumb { background: #3a3020; }
-.bk-tf { cursor: pointer; padding: 5px 10px; color: #c4a45a; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; display: flex; align-items: center; gap: 5px; user-select: none; }
-.bk-tf:hover { background: #2a2520; }
-.bk-tf .arr { font-size: 9px; transition: transform .2s; color: #5a5040; }
+#bk-ftree::-webkit-scrollbar-thumb { background: var(--sb-bg3); }
+.bk-tf { cursor: pointer; padding: 5px 10px; color: var(--sb-acc); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; display: flex; align-items: center; gap: 5px; user-select: none; }
+.bk-tf:hover { background: var(--sb-bg2); }
+.bk-tf .arr { font-size: 9px; transition: transform .2s; color: var(--sb-text2); }
 .bk-tf.open .arr { transform: rotate(90deg); }
 .bk-tc { display: none; } .bk-tc.open { display: block; }
-.bk-fi { padding: 4px 10px 4px 22px; color: #c8c2b4; font-size: 13px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background .1s; }
-.bk-fi:hover { background: #2a2520; } .bk-fi.active { background: #3d3528; color: #c4a45a; }
-.bk-sbf { padding: 7px 10px; border-top: 1px solid #2a2520; flex-shrink: 0; display: flex; gap: 5px; }
-.bk-sbb { flex: 1; background: #2a2520; border: 1px solid #3a3020; color: #c8c2b4; border-radius: 5px; padding: 5px; font-size: 11px; cursor: pointer; text-align: center; }
-.bk-sbb:hover { background: #3a3020; }
+.bk-fi { padding: 4px 10px 4px 22px; color: var(--sb-text); font-size: 13px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background .1s; }
+.bk-fi:hover { background: var(--sb-bg2); }
+.bk-fi.active { background: var(--sb-bg3); color: var(--sb-acc); }
+.bk-sbf { padding: 7px 10px; border-top: 1px solid var(--sb-bdr); flex-shrink: 0; display: flex; gap: 5px; }
+.bk-sbb { flex: 1; background: var(--sb-bg2); border: 1px solid var(--sb-bg3); color: var(--sb-text); border-radius: 5px; padding: 5px; font-size: 11px; cursor: pointer; text-align: center; }
+.bk-sbb:hover { background: var(--sb-bg3); }
 /* splitter */
 .bk-spl { width: 4px; flex-shrink: 0; cursor: col-resize; background: transparent; transition: background .15s; user-select: none; }
 .bk-spl:hover, .bk-spl.drag { background: var(--ac); }
@@ -402,18 +418,18 @@ html[data-dark] #bk-sidebar { background: #0e0c08; border-right-color: #2a2520; 
 .play-all-btn:hover { background: var(--ui-accent3); color: #fff; }
 #study-stats { background: var(--ui-bg2); border-bottom: 1px solid var(--ui-border); padding: 6px 14px; display: none; gap: 14px; font-size: 11px; color: var(--ui-text3); font-family: monospace; }
 #study-stats span { color: var(--ui-accent); }
-#study-words { padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+#study-words { padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; --study-fs: 15px; }
 .s-card { background: var(--ui-bg2); border: 1px solid var(--ui-border); border-radius: var(--r); padding: 11px 13px; display: grid; grid-template-columns: 36px 1.6fr 1fr 1fr 1.2fr 96px; align-items: center; gap: 10px; transition: border-color .18s; }
 .s-card:hover { border-color: var(--ui-bg3); }
 .s-audio-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--ui-border); background: var(--ui-bg3); color: var(--ui-text2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: all .13s; flex-shrink: 0; }
 .s-audio-btn:hover { background: var(--ui-accent3); color: #000; border-color: var(--ui-accent3); }
 .s-audio-btn:disabled { opacity: .3; cursor: not-allowed; }
 .s-cell { min-width: 0; }
-.s-lao  { font-family: "Noto Sans Lao", Georgia, serif; font-size: 17px; color: var(--ui-accent); font-weight: 700; }
-.s-pron { font-size: 11px; color: var(--ui-text3); margin-top: 1px; }
-.s-eng  { font-size: 13px; color: var(--ui-accent2); }
-.s-kor  { font-size: 14px; color: var(--ui-text); }
-.s-opp  { font-size: 12px; color: var(--ui-text3); }
+.s-lao  { font-family: "Noto Sans Lao", Georgia, serif; font-size: calc(var(--study-fs) + 2px); color: var(--ui-accent); font-weight: 700; }
+.s-pron { font-size: calc(var(--study-fs) - 4px); color: var(--ui-text3); margin-top: 1px; }
+.s-eng  { font-size: var(--study-fs); color: var(--ui-accent2); }
+.s-kor  { font-size: var(--study-fs); color: var(--ui-text); }
+.s-opp  { font-size: calc(var(--study-fs) - 2px); color: var(--ui-text3); }
 .vis-hidden { filter: blur(5px); user-select: none; pointer-events: none; }
 .s-study-ctrl { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .s-count-display { font-size: 20px; font-weight: 700; color: var(--ui-accent); font-family: monospace; min-width: 36px; text-align: center; transition: transform .2s; line-height: 1; }
@@ -485,6 +501,16 @@ html[data-dark] #bk-sidebar { background: #0e0c08; border-right-color: #2a2520; 
       <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
       <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
       <hr class="cfg-divider">
+      <div class="cfg-setr">
+        <div class="cfg-setl">글자 크기</div>
+        <div class="cfg-fsb">
+          <button class="cfg-fsbtn" onclick="studyFontSize(13,this)">S</button>
+          <button class="cfg-fsbtn on" onclick="studyFontSize(15,this)" id="sfs-m">M</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(17,this)">L</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(19,this)">XL</button>
+        </div>
+      </div>
+      <hr class="cfg-divider">
       <div style="font-size:13px;color:var(--ui-text2);line-height:1.7">
         공부횟수 저장:<br>
         • <b style="color:var(--ui-accent2)">로컬</b>: 항상 브라우저에 즉시 저장<br>
@@ -501,20 +527,19 @@ html[data-dark] #bk-sidebar { background: #0e0c08; border-right-color: #2a2520; 
   </div>
 </div>
 
-<!-- 밑줄 팝업 (텍스트 선택 즉시 표시) -->
+<!-- 밑줄 팝업: 색상 클릭 → 즉시 저장 / 사전 / 메모(선택) -->
 <div id="bk-hlpop">
   <div class="bk-hlpop-colors">
-    <div class="bk-hlpop-c on" style="background:#ffdc50" title="노랑" onclick="bkHlColor('yellow',this)"></div>
-    <div class="bk-hlpop-c"    style="background:#64c878" title="초록" onclick="bkHlColor('green',this)"></div>
-    <div class="bk-hlpop-c"    style="background:#50a0ff" title="파랑" onclick="bkHlColor('blue',this)"></div>
-    <div class="bk-hlpop-c"    style="background:#ff6496" title="분홍" onclick="bkHlColor('pink',this)"></div>
+    <div class="bk-hlpop-c on" style="background:#ffdc50" title="노랑 밑줄" onclick="bkSaveHlColor('yellow',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#64c878" title="초록 밑줄" onclick="bkSaveHlColor('green',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#50a0ff" title="파랑 밑줄" onclick="bkSaveHlColor('blue',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#ff6496" title="분홍 밑줄" onclick="bkSaveHlColor('pink',this)"></div>
   </div>
   <div class="bk-hlpop-divider"></div>
-  <button class="bk-hlpop-btn hl-save" onclick="bkSaveHl()">밑줄</button>
-  <button class="bk-hlpop-btn" onclick="bkLookup()">사전</button>
-  <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()">메모</button>
-  <button class="bk-hlpop-btn" style="color:var(--ui-danger)" onclick="bkHideHlPop()">✕</button>
-  <input id="bk-hlpop-note" placeholder="메모 내용…" style="display:none" onkeydown="if(event.key==='Enter')bkSaveHl()">
+  <button class="bk-hlpop-btn" onclick="bkLookup()" title="네이버 사전 검색">사전</button>
+  <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()" title="메모 추가">메모</button>
+  <input id="bk-hlpop-note" placeholder="메모 후 Enter…" style="display:none"
+    onkeydown="if(event.key==='Enter'){bkSaveHlWithMemo();} if(event.key==='Escape'){bkHideHlPop();}">
 </div>
 
 <!-- 밑줄 패널 -->
@@ -707,6 +732,23 @@ function updateEtcLabel() {
   const c = GitHubModule.get();
   const el = document.getElementById('etc-gh-label');
   if (el) el.textContent = c.user && c.repo ? `${c.user}/${c.repo}` : '미설정';
+}
+
+/* ── 단어공부 글자크기 ── */
+function studyFontSize(sz, btn) {
+  document.getElementById('study-words').style.setProperty('--study-fs', sz + 'px');
+  localStorage.setItem('study-fs', sz);
+  document.querySelectorAll('#cfgp-study .cfg-fsbtn').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
+}
+function studyFontSizeRestore() {
+  const sz = parseInt(localStorage.getItem('study-fs') || '15');
+  document.getElementById('study-words').style.setProperty('--study-fs', sz + 'px');
+  const sizes = [13, 15, 17, 19];
+  const idx = sizes.indexOf(sz);
+  const btns = document.querySelectorAll('#cfgp-study .cfg-fsbtn');
+  btns.forEach(b => b.classList.remove('on'));
+  if (btns[idx >= 0 ? idx : 1]) btns[idx >= 0 ? idx : 1].classList.add('on');
 }
 
 /* ══════════════════════════════════════
@@ -940,47 +982,65 @@ document.addEventListener('touchend', e => {
     pop.classList.add('show');
   }, 100);
 });
+/* ── 밑줄 팝업 ── */
 function bkHideHlPop() {
   document.getElementById('bk-hlpop').classList.remove('show');
   window.getSelection()?.removeAllRanges();
   _bkSelR = null; _bkSelText = '';
 }
+
+// 색상 클릭 → 즉시 밑줄 저장
+async function bkSaveHlColor(col, btn) {
+  // 색상 active 표시
+  document.querySelectorAll('.bk-hlpop-c').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
+  _bkHlCol = col;
+  await bkDoSaveHl('');
+}
+
+// 메모 Enter → 현재 색상으로 저장
+async function bkSaveHlWithMemo() {
+  const note = document.getElementById('bk-hlpop-note').value.trim();
+  await bkDoSaveHl(note);
+}
+
+// 실제 저장 로직 (색상·메모 공통)
+async function bkDoSaveHl(note) {
+  if (!_bkSelR || !_bkCur || !_bkSelText) { bkHideHlPop(); return; }
+  if (!_bkHls[_bkCur]) _bkHls[_bkCur] = [];
+  const id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+  _bkHls[_bkCur].push({ id, text: _bkSelText, color: _bkHlCol, note, date: new Date().toISOString() });
+  bkSaveStore();
+  await bkSaveHlToGitHub(_bkCur);
+  bkApplyHls();
+  bkHideHlPop();
+  AppToast.show(note ? `✏️ 밑줄+메모 저장됨` : `✏️ 밑줄 저장됨`);
+}
+
 function bkHlColor(col, btn) {
   _bkHlCol = col;
   document.querySelectorAll('.bk-hlpop-c').forEach(b => b.classList.remove('on'));
   btn?.classList.add('on');
 }
+
 function bkTogMemo() {
   const note = document.getElementById('bk-hlpop-note');
   const btn  = document.getElementById('bk-hlpop-memo-btn');
   if (note.style.display === 'none') {
-    note.style.display = 'block'; note.focus();
+    note.style.display = 'block';
+    note.value = '';
+    note.focus();
     btn.textContent = '메모▲';
   } else {
     note.style.display = 'none';
     btn.textContent = '메모';
   }
 }
+
 function bkLookup() {
   if (!_bkSelText) return;
-  const url = `https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`;
-  window.open(url, '_blank');
+  window.open(`https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`, '_blank');
   bkHideHlPop();
-}
-async function bkSaveHl() {
-  if (!_bkSelR || !_bkCur) { bkHideHlPop(); return; }
-  const text = _bkSelText;
-  if (!text || text.length < 1) { AppToast.show('텍스트를 선택하세요'); return; }
-  const note = document.getElementById('bk-hlpop-note').value.trim();
-  if (!_bkHls[_bkCur]) _bkHls[_bkCur] = [];
-  const id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
-  _bkHls[_bkCur].push({ id, text, color: _bkHlCol, note, date: new Date().toISOString() });
-  bkSaveStore();
-  // GitHub 저장 (토큰 있으면)
-  await bkSaveHlToGitHub(_bkCur);
-  bkApplyHls();
-  bkHideHlPop();
-  AppToast.show('✏️ 밑줄 저장됨');
 }
 async function bkSaveHlToGitHub(filePath) {
   if (!GitHubModule.get().token) return;
@@ -1204,20 +1264,17 @@ document.addEventListener('keydown', e => {
 (function init() {
   GitHubModule.load();
   StudyModule.init();
-  // 저장된 설정 불러오기
   bkLoadStore();
-  // 다크모드 복원
   if (_bkS.dark) applyDark(true);
-  // 테마 적용
   bkApplyTheme();
-  // 책보기 초기화 (첫 화면)
+  studyFontSizeRestore();   // ← 단어공부 글자크기 복원
   bkSyncBible();
   BibleModule.injectStyles();
   const c = GitHubModule.get();
   if (c.user && c.repo) {
     document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
-    bkTogSidebar();   // 사이드바 자동 열기
-    bkLoadFiles();    // 파일 목록 자동 로드
+    bkTogSidebar();
+    bkLoadFiles();
     StudyModule.loadNotebooks();
   } else {
     document.getElementById('bk-title').innerHTML = '<span style="color:var(--pm)">⚙ 설정에서 저장소를 연결하세요</span>';
