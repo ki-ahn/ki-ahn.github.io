@@ -634,64 +634,84 @@ const BibleModule = (() => {
   }
 
   /* ══════════════════════════════════════════
-     TTS — 성경 읽기 (Web Speech API)
-     안드로이드/크롬/사파리 대응
+     TTS — 성경 읽기
+     안드로이드: 절 단위 큐 방식 (끊김 방지)
+     데스크탑/iOS: 단일 utterance
   ══════════════════════════════════════════ */
-  let _ttsUtt  = null;
-  let _ttsBtn  = null;
-  let _ttsTimer = null;
-
-  // 안드로이드 감지
   const _isAndroid = /android/i.test(navigator.userAgent);
   const _isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-  // 크롬 데스크탑 버그: ~14초마다 멈춤 → pause/resume으로 우회
-  // 안드로이드는 이 패턴이 오히려 끊김 유발 → 사용 안 함
-  function _keepAlive() {
-    if (_isAndroid || _isIOS) return;  // 모바일은 keepAlive 불필요
-    _ttsTimer = setInterval(() => {
-      if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      }
-    }, 12000);
-  }
-
-  function _stopKeepAlive() {
-    if (_ttsTimer) { clearInterval(_ttsTimer); _ttsTimer = null; }
-  }
+  let _ttsBtn    = null;
+  let _ttsActive = false;
+  let _ttsQueue  = [];
+  let _ttsTimer  = null;
+  let _ttsUtt    = null;
 
   function _resetBtn() {
-    _ttsUtt = null;
-    _stopKeepAlive();
-    if (_ttsBtn) {
-      _ttsBtn.textContent = '▶ 듣기';
-      _ttsBtn.classList.remove('playing');
-      _ttsBtn = null;
-    }
+    _ttsActive = false;
+    _ttsQueue  = [];
+    _ttsUtt    = null;
+    if (_ttsTimer) { clearTimeout(_ttsTimer); _ttsTimer = null; }
     document.querySelectorAll('.bible-tts-btn')
       .forEach(b => { b.textContent = '▶ 듣기'; b.classList.remove('playing'); });
+    _ttsBtn = null;
   }
 
-  // 목소리 선택: 언어·성별 기준으로 최적 선택
-  function _pickVoice(voices, lang) {
-    const isKo = lang.startsWith('ko');
-    const isEn = lang.startsWith('en');
+  // 텍스트 → 짧은 청크 배열 (안드로이드 끊김 방지)
+  function _toChunks(text, maxLen) {
+    const parts = text.split(/(?<=[.!?。,，])\s*/g).filter(s => s.trim());
+    const chunks = [];
+    let cur = '';
+    for (const p of parts) {
+      if (cur.length + p.length > maxLen && cur) {
+        chunks.push(cur.trim());
+        cur = p;
+      } else {
+        cur += (cur ? ' ' : '') + p;
+      }
+    }
+    if (cur.trim()) chunks.push(cur.trim());
+    return chunks.length ? chunks : [text];
+  }
 
-    if (isKo) {
-      // 한국어 남성 목소리 우선
-      return voices.find(v => v.lang.startsWith('ko') && /male|남|남성|man/i.test(v.name))
+  // 안드로이드: 큐에서 하나씩 재생 (청크 간 150ms 간격)
+  function _playQueue(voice, lang, rate) {
+    if (!_ttsActive || _ttsQueue.length === 0) {
+      if (_ttsActive) _resetBtn();
+      return;
+    }
+    const chunk = _ttsQueue.shift();
+    window.speechSynthesis.cancel();
+    _ttsTimer = setTimeout(() => {
+      if (!_ttsActive) return;
+      const utt = new SpeechSynthesisUtterance(chunk);
+      utt.lang  = lang;
+      utt.rate  = rate;
+      utt.pitch = 1.0;
+      if (voice) utt.voice = voice;
+      utt.onend = () => { if (_ttsActive) _playQueue(voice, lang, rate); };
+      utt.onerror = (e) => {
+        if (e.error === 'interrupted' || e.error === 'canceled') return;
+        _resetBtn();
+      };
+      _ttsUtt = utt;
+      window.speechSynthesis.speak(utt);
+    }, 150);
+  }
+
+  // 목소리 선택
+  function _pickVoice(voices, lang) {
+    if (lang.startsWith('ko')) {
+      return voices.find(v => v.lang.startsWith('ko') && /male|남|man/i.test(v.name))
           || voices.find(v => v.lang === 'ko-KR')
           || voices.find(v => v.lang.startsWith('ko'))
           || null;
     }
-    if (isEn) {
-      // 영어 남성 목소리 우선 (Daniel=macOS남성, Google UK English Male, en-GB)
-      return voices.find(v => v.name === 'Daniel')                              // macOS/iOS 남성
-          || voices.find(v => /google uk english male/i.test(v.name))           // 안드로이드 남성
-          || voices.find(v => /male/i.test(v.name) && v.lang.startsWith('en'))  // 기타 영어 남성
+    if (lang.startsWith('en')) {
+      return voices.find(v => v.name === 'Daniel')
+          || voices.find(v => /google uk english male/i.test(v.name))
+          || voices.find(v => /male/i.test(v.name) && v.lang.startsWith('en'))
           || voices.find(v => v.lang === 'en-GB')
-          || voices.find(v => v.lang === 'en-US')
           || voices.find(v => v.lang.startsWith('en'))
           || null;
     }
@@ -700,102 +720,80 @@ const BibleModule = (() => {
 
   function tts(btn) {
     if (!window.speechSynthesis) {
-      if (window.AppToast) AppToast.show('이 브라우저는 TTS를 지원하지 않습니다.', 'error');
+      if (window.AppToast) AppToast.show('TTS를 지원하지 않는 브라우저입니다.', 'error');
       return;
     }
-
-    // 재생 중이면 정지
-    if (_ttsUtt || window.speechSynthesis.speaking) {
+    // 재생 중 → 정지
+    if (_ttsActive) {
       window.speechSynthesis.cancel();
       _resetBtn();
       return;
     }
-
     const content = btn.closest('.bible-content');
     if (!content) return;
-    const lines = [];
-    content.querySelectorAll('.bible-verse-txt').forEach(el => lines.push(el.textContent.trim()));
-    const text = lines.filter(Boolean).join(' ');
-    if (!text) return;
+    const verses = [];
+    content.querySelectorAll('.bible-verse-txt').forEach(el => {
+      const t = el.textContent.trim();
+      if (t) verses.push(t);
+    });
+    if (!verses.length) return;
 
-    _ttsBtn = btn;
-    btn.textContent = '■ 정지';
-    btn.classList.add('playing');
-
-    // 버전에 따라 언어 결정
     const ver = content.dataset.version || '';
     const isEngVer = ['ESV','NIV','Henry','KJV','NASB','LAO'].some(v => ver.includes(v));
     const lang = isEngVer ? 'en-US' : 'ko-KR';
+    const rate = 0.88;
 
-    function _speak(voice) {
+    _ttsBtn = btn;
+    _ttsActive = true;
+    btn.textContent = '■ 정지';
+    btn.classList.add('playing');
+
+    function start(voice) {
       window.speechSynthesis.cancel();
-
-      // 안드로이드: cancel 후 딜레이 필요 (200ms)
-      const delay = _isAndroid ? 200 : 80;
-
-      setTimeout(() => {
-        // 안드로이드 긴 텍스트 분할 (500자 단위) — 안드로이드는 긴 utterance를 중간에 끊음
-        const chunks = _isAndroid ? _splitText(text, 400) : [text];
-        let idx = 0;
-
-        function speakNext() {
-          if (idx >= chunks.length) { _resetBtn(); return; }
-          const utt = new SpeechSynthesisUtterance(chunks[idx++]);
-          utt.lang  = lang;
-          utt.rate  = _isAndroid ? 0.92 : 0.88;  // 안드로이드는 약간 빠르게 (끊김 줄임)
-          utt.pitch = 1.0;
-          if (voice) utt.voice = voice;
-          utt.onend   = speakNext;
-          utt.onerror = (e) => {
-            // 'interrupted'는 다음 청크 시작 시 정상 발생 — 무시
-            if (e.error !== 'interrupted') _resetBtn();
-          };
-          _ttsUtt = utt;
-          window.speechSynthesis.speak(utt);
-        }
-
-        speakNext();
-        _keepAlive();  // 안드로이드/iOS에서는 내부적으로 skip됨
-      }, delay);
-    }
-
-    // 목소리 로드
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      _speak(_pickVoice(voices, lang));
-    } else {
-      let fallbackFired = false;
-      window.speechSynthesis.onvoiceschanged = () => {
-        if (fallbackFired) return;
-        fallbackFired = true;
-        window.speechSynthesis.onvoiceschanged = null;
-        _speak(_pickVoice(window.speechSynthesis.getVoices(), lang));
-      };
-      setTimeout(() => {
-        if (!fallbackFired && !_ttsUtt) {
-          fallbackFired = true;
-          _speak(_pickVoice(window.speechSynthesis.getVoices(), lang));
-        }
-      }, 1000);
-    }
-  }
-
-  // 텍스트를 문장 단위로 분할 (안드로이드 긴 텍스트 끊김 방지)
-  function _splitText(text, maxLen) {
-    const chunks = [];
-    // 문장 구분자로 나누기
-    const sentences = text.split(/(?<=[.!?。])\s+/);
-    let cur = '';
-    for (const s of sentences) {
-      if ((cur + ' ' + s).trim().length > maxLen) {
-        if (cur) chunks.push(cur.trim());
-        cur = s;
+      if (_isAndroid) {
+        // 안드로이드: 절 하나씩 → 청크 큐 방식
+        _ttsQueue = [];
+        verses.forEach(v => _toChunks(v, 100).forEach(c => _ttsQueue.push(c)));
+        setTimeout(() => _playQueue(voice, lang, rate), 300);
       } else {
-        cur = cur ? cur + ' ' + s : s;
+        // 데스크탑/iOS: 전체 텍스트 단일 utterance
+        const fullText = verses.join(' ');
+        const utt = new SpeechSynthesisUtterance(fullText);
+        utt.lang  = lang;
+        utt.rate  = rate;
+        utt.pitch = 1.0;
+        if (voice) utt.voice = voice;
+        utt.onend   = _resetBtn;
+        utt.onerror = (e) => { if (e.error !== 'interrupted') _resetBtn(); };
+        _ttsUtt = utt;
+        // 데스크탑 크롬 keepAlive (iOS는 불필요)
+        if (!_isIOS) {
+          const ka = setInterval(() => {
+            if (!_ttsActive) { clearInterval(ka); return; }
+            if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+              window.speechSynthesis.pause();
+              window.speechSynthesis.resume();
+            }
+          }, 12000);
+        }
+        window.speechSynthesis.speak(utt);
       }
     }
-    if (cur) chunks.push(cur.trim());
-    return chunks.filter(Boolean);
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      start(_pickVoice(voices, lang));
+    } else {
+      let done = false;
+      window.speechSynthesis.onvoiceschanged = () => {
+        if (done) return; done = true;
+        window.speechSynthesis.onvoiceschanged = null;
+        start(_pickVoice(window.speechSynthesis.getVoices(), lang));
+      };
+      setTimeout(() => {
+        if (!done) { done = true; start(_pickVoice(window.speechSynthesis.getVoices(), lang)); }
+      }, 1200);
+    }
   }
 
   /* ══════════════════════════════════════════
