@@ -412,10 +412,7 @@ const BibleModule = (() => {
     bodyEl.innerHTML = '<div class="bible-loading">📖 불러오는 중…</div>';
     try {
       const bookData = await _loadBook(version, parsed.book);
-      const isEnglish = /^[A-Za-z]/.test(version) || ['ESV','NIV','KJV','LAO','Henry','Hokma'].includes(version);
-      const ttsBtn = isEnglish
-        ? `<button class="bible-tts-btn" onclick="BibleModule.tts(this)" title="읽기">▶ 듣기</button>`
-        : '';
+      const ttsBtn = `<button class="bible-tts-btn" onclick="BibleModule.tts(this)" title="읽기">▶ 듣기</button>`;
       bodyEl.innerHTML =
         `<div class="bible-content" data-version="${version}">${_groupsHtml(parsed.verseGroups, bookData, parsed.chapter)}${ttsBtn}</div>`;
     } catch (e) {
@@ -434,10 +431,7 @@ const BibleModule = (() => {
       const v = _cfg.enabledVersions[i];
       if (r.status === 'fulfilled') {
         const { data } = r.value;
-        const isEnglish = /^[A-Za-z]/.test(v) || ['ESV','NIV','KJV','LAO','Henry','Hokma'].includes(v);
-        const ttsBtn = isEnglish
-          ? `<button class="bible-tts-btn" onclick="BibleModule.tts(this)" title="읽기">▶ 듣기</button>`
-          : '';
+        const ttsBtn = `<button class="bible-tts-btn" onclick="BibleModule.tts(this)" title="읽기">▶ 듣기</button>`;
         html +=
           `<div class="bible-all-block">` +
           `<div class="bible-content" data-version="${v}">${_groupsHtml(parsed.verseGroups, data, parsed.chapter)}${ttsBtn}</div>` +
@@ -641,20 +635,26 @@ const BibleModule = (() => {
 
   /* ══════════════════════════════════════════
      TTS — 성경 읽기 (Web Speech API)
-     크롬/사파리/안드로이드 모두 대응
+     안드로이드/크롬/사파리 대응
   ══════════════════════════════════════════ */
-  let _ttsUtt = null;
-  let _ttsBtn = null;
+  let _ttsUtt  = null;
+  let _ttsBtn  = null;
   let _ttsTimer = null;
 
-  // 크롬은 약 14초마다 speechSynthesis가 멈추는 버그가 있음 → 주기적으로 resume()
+  // 안드로이드 감지
+  const _isAndroid = /android/i.test(navigator.userAgent);
+  const _isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  // 크롬 데스크탑 버그: ~14초마다 멈춤 → pause/resume으로 우회
+  // 안드로이드는 이 패턴이 오히려 끊김 유발 → 사용 안 함
   function _keepAlive() {
+    if (_isAndroid || _isIOS) return;  // 모바일은 keepAlive 불필요
     _ttsTimer = setInterval(() => {
-      if (window.speechSynthesis.speaking) {
+      if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
         window.speechSynthesis.pause();
         window.speechSynthesis.resume();
       }
-    }, 10000);
+    }, 12000);
   }
 
   function _stopKeepAlive() {
@@ -669,15 +669,38 @@ const BibleModule = (() => {
       _ttsBtn.classList.remove('playing');
       _ttsBtn = null;
     }
-    // 다른 버튼도 초기화
     document.querySelectorAll('.bible-tts-btn')
       .forEach(b => { b.textContent = '▶ 듣기'; b.classList.remove('playing'); });
   }
 
+  // 목소리 선택: 언어·성별 기준으로 최적 선택
+  function _pickVoice(voices, lang) {
+    const isKo = lang.startsWith('ko');
+    const isEn = lang.startsWith('en');
+
+    if (isKo) {
+      // 한국어 남성 목소리 우선
+      return voices.find(v => v.lang.startsWith('ko') && /male|남|남성|man/i.test(v.name))
+          || voices.find(v => v.lang === 'ko-KR')
+          || voices.find(v => v.lang.startsWith('ko'))
+          || null;
+    }
+    if (isEn) {
+      // 영어 남성 목소리 우선 (Daniel=macOS남성, Google UK English Male, en-GB)
+      return voices.find(v => v.name === 'Daniel')                              // macOS/iOS 남성
+          || voices.find(v => /google uk english male/i.test(v.name))           // 안드로이드 남성
+          || voices.find(v => /male/i.test(v.name) && v.lang.startsWith('en'))  // 기타 영어 남성
+          || voices.find(v => v.lang === 'en-GB')
+          || voices.find(v => v.lang === 'en-US')
+          || voices.find(v => v.lang.startsWith('en'))
+          || null;
+    }
+    return null;
+  }
+
   function tts(btn) {
-    // TTS 미지원 브라우저
     if (!window.speechSynthesis) {
-      AppToast.show('이 브라우저는 TTS를 지원하지 않습니다.', 'error');
+      if (window.AppToast) AppToast.show('이 브라우저는 TTS를 지원하지 않습니다.', 'error');
       return;
     }
 
@@ -692,55 +715,87 @@ const BibleModule = (() => {
     if (!content) return;
     const lines = [];
     content.querySelectorAll('.bible-verse-txt').forEach(el => lines.push(el.textContent.trim()));
-    const text = lines.join(' ');
+    const text = lines.filter(Boolean).join(' ');
     if (!text) return;
 
     _ttsBtn = btn;
     btn.textContent = '■ 정지';
     btn.classList.add('playing');
 
+    // 버전에 따라 언어 결정
+    const ver = content.dataset.version || '';
+    const isEngVer = ['ESV','NIV','Henry','KJV','NASB','LAO'].some(v => ver.includes(v));
+    const lang = isEngVer ? 'en-US' : 'ko-KR';
+
     function _speak(voice) {
       window.speechSynthesis.cancel();
+
+      // 안드로이드: cancel 후 딜레이 필요 (200ms)
+      const delay = _isAndroid ? 200 : 80;
+
       setTimeout(() => {
-        const utt = new SpeechSynthesisUtterance(text);
-        utt.lang  = 'ko-KR'; // 한국어 구절이 섞여있을 수 있으므로 기본 한국어
-        utt.rate  = 0.88;
-        utt.pitch = 1.0;
-        // 영어 버전(ESV, NIV, Henry 등)이면 영어 목소리 선택
-        const ver = content.dataset.version || '';
-        const isEng = ['ESV','NIV','Henry','KJV','NASB'].some(v => ver.includes(v));
-        if (isEng) {
-          utt.lang = 'en-US';
+        // 안드로이드 긴 텍스트 분할 (500자 단위) — 안드로이드는 긴 utterance를 중간에 끊음
+        const chunks = _isAndroid ? _splitText(text, 400) : [text];
+        let idx = 0;
+
+        function speakNext() {
+          if (idx >= chunks.length) { _resetBtn(); return; }
+          const utt = new SpeechSynthesisUtterance(chunks[idx++]);
+          utt.lang  = lang;
+          utt.rate  = _isAndroid ? 0.92 : 0.88;  // 안드로이드는 약간 빠르게 (끊김 줄임)
+          utt.pitch = 1.0;
           if (voice) utt.voice = voice;
+          utt.onend   = speakNext;
+          utt.onerror = (e) => {
+            // 'interrupted'는 다음 청크 시작 시 정상 발생 — 무시
+            if (e.error !== 'interrupted') _resetBtn();
+          };
+          _ttsUtt = utt;
+          window.speechSynthesis.speak(utt);
         }
-        utt.onend   = _resetBtn;
-        utt.onerror = _resetBtn;
-        _ttsUtt = utt;
-        window.speechSynthesis.speak(utt);
-        _keepAlive(); // 크롬 버그 우회
-      }, 100);
+
+        speakNext();
+        _keepAlive();  // 안드로이드/iOS에서는 내부적으로 skip됨
+      }, delay);
     }
 
-    // 목소리 선택: 영어 우선 Daniel(macOS) > en-GB > en-US
-    const pick = (list) => {
-      return list.find(v => v.name.includes('Daniel'))
-          || list.find(v => v.lang === 'en-GB')
-          || list.find(v => v.lang.startsWith('en-'))
-          || null;
-    };
-
-    // 크롬은 getVoices() 동기, Safari/Android는 비동기
+    // 목소리 로드
     const voices = window.speechSynthesis.getVoices();
     if (voices.length > 0) {
-      _speak(pick(voices));
+      _speak(_pickVoice(voices, lang));
     } else {
+      let fallbackFired = false;
       window.speechSynthesis.onvoiceschanged = () => {
+        if (fallbackFired) return;
+        fallbackFired = true;
         window.speechSynthesis.onvoiceschanged = null;
-        _speak(pick(window.speechSynthesis.getVoices()));
+        _speak(_pickVoice(window.speechSynthesis.getVoices(), lang));
       };
-      // 800ms 후에도 목소리 로드 안되면 기본값
-      setTimeout(() => { if (!_ttsUtt) _speak(null); }, 800);
+      setTimeout(() => {
+        if (!fallbackFired && !_ttsUtt) {
+          fallbackFired = true;
+          _speak(_pickVoice(window.speechSynthesis.getVoices(), lang));
+        }
+      }, 1000);
     }
+  }
+
+  // 텍스트를 문장 단위로 분할 (안드로이드 긴 텍스트 끊김 방지)
+  function _splitText(text, maxLen) {
+    const chunks = [];
+    // 문장 구분자로 나누기
+    const sentences = text.split(/(?<=[.!?。])\s+/);
+    let cur = '';
+    for (const s of sentences) {
+      if ((cur + ' ' + s).trim().length > maxLen) {
+        if (cur) chunks.push(cur.trim());
+        cur = s;
+      } else {
+        cur = cur ? cur + ' ' + s : s;
+      }
+    }
+    if (cur) chunks.push(cur.trim());
+    return chunks.filter(Boolean);
   }
 
   /* ══════════════════════════════════════════
