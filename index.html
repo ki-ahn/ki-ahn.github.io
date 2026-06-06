@@ -124,20 +124,22 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 #toast.ok  { border-color: var(--ui-accent3); color: var(--ui-accent3); }
 #toast.err { border-color: var(--ui-danger);  color: var(--ui-danger); }
 
-/* ══ #태그 색상 ══ */
-#bk-reader a[href^="#"],
-#bk-reader .tag,
+/* ══ #태그 색상 — 옵시디언 스타일 ══ */
 .bk-tag {
-  color: var(--ac2) !important;
-  background: rgba(196,164,90,.12);
+  color: #7c6cfc !important;           /* 옵시디언 태그 보라 */
+  background: rgba(124,108,252,.10);
   border-radius: 4px;
   padding: 1px 5px;
   font-size: .88em;
   text-decoration: none !important;
   font-family: -apple-system, sans-serif;
   white-space: nowrap;
+  cursor: default;
 }
-/* Obsidian #태그 — #word 형태 텍스트 노드는 JS로 처리 */
+html[data-dark] .bk-tag {
+  color: #a99cff !important;           /* 다크모드: 더 밝은 라벤더 */
+  background: rgba(124,108,252,.15);
+}
 
 /* ══ 통합 설정 모달 ══ */
 #cfg-overlay {
