@@ -428,8 +428,45 @@ html[data-dark] #bk-sidebar {
 .bible-tts-btn:hover, .bible-tts-btn.playing { background: var(--ac); color: #fff; }
 
 /* ══════════════════════════════════════
-   단어공부 패널
+   PDF 패널
 ══════════════════════════════════════ */
+#panel-pdf { height: calc(100vh - 48px); display: none; flex-direction: column; overflow: hidden; }
+#panel-pdf.on { display: flex; }
+#pdf-wrap {
+  flex: 1; display: flex; overflow: hidden; height: 100%;
+  background: var(--ui-bg); color: var(--ui-text);
+}
+/* 사이드바는 책보기와 동일한 .bk-sbh 등 스타일 재사용 */
+#pdf-sidebar {
+  width: 240px; min-width: 80px; max-width: 400px;
+  --sb-bg: #2c2820; --sb-bg2: #3a3428; --sb-bg3: #484038;
+  --sb-text: #c8c2b4; --sb-text2: #8a7a5a; --sb-acc: #c4a45a; --sb-bdr: #3a3428;
+  background: var(--sb-bg); display: flex; flex-direction: column;
+  height: 100%; overflow: hidden; flex-shrink: 0; border-right: 1px solid var(--sb-bdr);
+}
+html:not([data-dark]) #pdf-sidebar {
+  --sb-bg: #f0ece4; --sb-bg2: #e4dfd5; --sb-bg3: #d8d0c4;
+  --sb-text: #2c2010; --sb-text2: #7a6a50; --sb-acc: #8a6010; --sb-bdr: #d0c8b8;
+}
+html[data-dark] #pdf-sidebar {
+  --sb-bg: #0e0c08; --sb-bg2: #1a1610; --sb-bg3: #252018;
+  --sb-text: #c8c2b4; --sb-text2: #6a5a40; --sb-acc: #c4a45a; --sb-bdr: #1e1a12;
+}
+#pdf-ftree { flex: 1; overflow-y: auto; padding: 4px 0; }
+#pdf-ftree::-webkit-scrollbar { width: 3px; }
+#pdf-ftree::-webkit-scrollbar-thumb { background: var(--sb-bg3); }
+/* PDF 뷰어 컬럼 */
+#pdf-viewer-col { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+#pdf-topbar {
+  background: var(--paper); border-bottom: 1px solid var(--pbd);
+  padding: 0 10px; height: 44px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  transition: background .2s;
+}
+#pdf-title { flex: 1; font-size: 12px; color: var(--pm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pdf-title strong { color: var(--pt); }
+#pdf-viewer-wrap { flex: 1; overflow: hidden; position: relative; background: var(--ui-bg2); }
+#pdf-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ui-text3); text-align: center; padding: 24px; }
+#pdf-iframe { width: 100%; height: 100%; border: none; display: none; background: var(--ui-bg); }
 #study-toolbar { background: var(--ui-bg2); border-bottom: 1px solid var(--ui-border); padding: 9px 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .tb-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .tb-label { font-size: 11px; color: var(--ui-text3); text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; }
@@ -591,6 +628,7 @@ html[data-dark] #bk-sidebar {
 <!-- ══ 1단 탭 ══ -->
 <nav id="main-tabs">
   <div class="main-tab on" id="tab-book"  onclick="switchTab('book')">📖 책보기</div>
+  <div class="main-tab"    id="tab-pdf"   onclick="switchTab('pdf')">📄 PDF</div>
   <div class="main-tab"    id="tab-study" onclick="switchTab('study')">✏️ 단어공부</div>
   <div id="tabs-right">
     <span id="dark-label">🌙</span>
@@ -627,6 +665,42 @@ html[data-dark] #bk-sidebar {
         <div id="bk-rw"><div id="bk-reader"></div></div>
         <div class="bk-spl" id="bk-spl-r" onmousedown="bkDragStart(event,'r')" style="display:none"></div>
         <div id="bk-toc"><h3>목차</h3><div id="bk-toclist"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PDF 패널 ══ -->
+<div class="panel" id="panel-pdf">
+  <div id="pdf-wrap">
+    <!-- 사이드바 -->
+    <div id="pdf-sidebar">
+      <div class="bk-sbh"><h1>📄 PDF 보기</h1><p id="pdf-repo-lbl">저장소를 연결하세요</p></div>
+      <div class="bk-sbs"><input placeholder="파일 필터…" oninput="pdfFilterTree(this.value)"></div>
+      <div id="pdf-ftree"><div style="padding:16px;color:#5a5040;font-size:12px;text-align:center">저장소를 연결하세요</div></div>
+      <div class="bk-sbf">
+        <button class="bk-sbb" onclick="pdfRefresh()">↺ 새로고침</button>
+        <button class="bk-sbb" onclick="pdfOpenExternal()" id="pdf-ext-btn" style="display:none">↗ 외부</button>
+      </div>
+    </div>
+    <div class="bk-spl" id="pdf-spl" onmousedown="pdfDragStart(event)" style="display:block"></div>
+    <!-- 뷰어 영역 -->
+    <div id="pdf-viewer-col">
+      <div id="pdf-topbar">
+        <button class="bk-btn" id="pdf-sbbtn" onclick="pdfTogSidebar()">☰</button>
+        <div id="pdf-title"><span style="color:var(--pm)">PDF를 선택하세요</span></div>
+        <button class="bk-btn" onclick="pdfOpenExternal()" id="pdf-newwin-btn" style="display:none" title="새 탭에서 열기">↗ 새 탭</button>
+      </div>
+      <div id="pdf-viewer-wrap">
+        <div id="pdf-placeholder">
+          <div style="font-size:48px;margin-bottom:16px">📄</div>
+          <div style="font-size:15px;color:var(--pm)">좌측 목록에서 PDF를 선택하세요</div>
+          <div style="font-size:12px;color:var(--pm);margin-top:8px;line-height:1.7">
+            • 브라우저 내장 PDF 뷰어로 표시됩니다<br>
+            • 안드로이드에서는 외부 앱으로 열립니다
+          </div>
+        </div>
+        <iframe id="pdf-iframe" src="" style="display:none"></iframe>
       </div>
     </div>
   </div>
@@ -867,16 +941,19 @@ async function bkLoadFiles() {
   }
   try {
     const tree = await GitHubModule.fetchTree();
-    _bkFiles = tree.tree
-      .filter(f => f.type==='blob' && f.path.endsWith('.md'))
+    const allFiles = tree.tree
+      .filter(f => f.type==='blob' && (f.path.endsWith('.md') || f.path.endsWith('.pdf')))
       .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
       .filter(f => !c.rootFolder  || f.path.startsWith(c.rootFolder + '/'))
       .filter(f => !c.bibleFolder || !f.path.startsWith(c.bibleFolder + '/'))
       .filter(f => !c.wordsFolder || !f.path.startsWith(c.wordsFolder + '/'))
       .map(f => f.path);
+    _bkFiles = allFiles;  // md + pdf 모두 포함
     bkRenderTree(_bkFiles);
-    AppToast.show(`📚 ${_bkFiles.length}개 파일 로드됨`);
+    AppToast.show(`📚 ${_bkFiles.filter(f=>f.endsWith('.md')).length}개 노트, ${_bkFiles.filter(f=>f.endsWith('.pdf')).length}개 PDF 로드됨`);
     bkBuildSrIdx();
+    // PDF 패널 파일 목록도 동기화
+    pdfSyncFiles(allFiles);
     // 이전에 열었던 파일 자동 오픈
     const last = localStorage.getItem('bk-last-file');
     if (last && _bkFiles.includes(last)) {
@@ -907,8 +984,13 @@ function bkRNode(node, d) {
     html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${bkRNode(node[k], d+1)}</div>`;
   });
   (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
-    const name = f.name.replace(/\.md$/, '');
-    html += `<div class="bk-fi" style="padding-left:${pad+12}px" data-path="${f.path}" onclick="bkOpen('${f.path}')" title="${f.path}">📄 ${name}</div>`;
+    const isPdf = f.path.endsWith('.pdf');
+    const name  = f.name.replace(/\.(md|pdf)$/, '');
+    const icon  = isPdf ? '📄' : '📝';
+    const click = isPdf
+      ? `switchTab('pdf');pdfOpenFile('${f.path}')`
+      : `bkOpen('${f.path}')`;
+    html += `<div class="bk-fi" style="padding-left:${pad+12}px" data-path="${f.path}" onclick="${click}" title="${f.path}">${icon} ${name}</div>`;
   });
   return html;
 }
@@ -1319,8 +1401,14 @@ function bkDragStart(e, side) {
     _bkDrag = { move(e){toc.style.width=Math.max(90,Math.min(380,sw-(e.clientX-sx)))+'px';}, up(){document.getElementById(splId).classList.remove('drag');_bkDrag=null;} };
   }
 }
-document.addEventListener('mousemove', e => { if (_bkDrag) _bkDrag.move(e); });
-document.addEventListener('mouseup',   e => { if (_bkDrag) _bkDrag.up(e); });
+document.addEventListener('mousemove', e => {
+  if (_bkDrag)  _bkDrag.move(e);
+  if (_pdfDrag) _pdfDrag.move(e);
+});
+document.addEventListener('mouseup', e => {
+  if (_bkDrag)  _bkDrag.up(e);
+  if (_pdfDrag) _pdfDrag.up(e);
+});
 
 /* 키보드 */
 document.addEventListener('keydown', e => {
@@ -1336,8 +1424,143 @@ document.addEventListener('keydown', e => {
 });
 
 /* ══════════════════════════════════════
-   앱 초기화
+   PDF 모듈
 ══════════════════════════════════════ */
+let _pdfFiles   = [];   // pdf 파일 목록
+let _pdfCurPath = null; // 현재 열린 pdf 경로
+let _pdfDrag    = null;
+
+function pdfSyncFiles(allFiles) {
+  // 책보기에서 로드한 전체 파일에서 pdf만 추출
+  _pdfFiles = allFiles.filter(f => f.endsWith('.pdf'));
+  pdfRenderTree(_pdfFiles);
+  const lbl = document.getElementById('pdf-repo-lbl');
+  const c   = GitHubModule.get();
+  if (lbl && c.user && c.repo) lbl.textContent = `${c.user}/${c.repo}`;
+}
+
+async function pdfRefresh() {
+  const c = GitHubModule.get();
+  if (!c.user || !c.repo) { AppToast.show('저장소를 먼저 설정하세요', 'error'); return; }
+  try {
+    const tree = await GitHubModule.fetchTree();
+    const allFiles = tree.tree
+      .filter(f => f.type === 'blob' && f.path.endsWith('.pdf'))
+      .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
+      .map(f => f.path);
+    _pdfFiles = allFiles;
+    pdfRenderTree(_pdfFiles);
+    AppToast.show(`📄 ${_pdfFiles.length}개 PDF 로드됨`);
+  } catch(e) {
+    AppToast.show(e.message, 'error');
+  }
+}
+
+function pdfRenderTree(files) {
+  const tree = {};
+  files.forEach(path => {
+    const parts = path.split('/'); let node = tree;
+    parts.forEach((p, i) => {
+      if (i === parts.length - 1) { (node.__f__ = node.__f__ || []).push({name:p, path}); }
+      else { node[p] = node[p] || {}; node = node[p]; }
+    });
+  });
+  const el = document.getElementById('pdf-ftree');
+  if (!el) return;
+  if (!files.length) {
+    el.innerHTML = '<div style="padding:14px;color:var(--sb-text2);font-size:12px;text-align:center">PDF 파일이 없습니다</div>';
+    return;
+  }
+  el.innerHTML = pdfRNode(tree, 0);
+}
+
+function pdfRNode(node, d) {
+  let html = ''; const pad = 10 + d * 10;
+  Object.keys(node).filter(k => k !== '__f__').sort().forEach(k => {
+    html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${pdfRNode(node[k], d+1)}</div>`;
+  });
+  (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
+    const name = f.name.replace(/\.pdf$/, '');
+    html += `<div class="bk-fi" style="padding-left:${pad+12}px" data-path="${f.path}" onclick="pdfOpenFile('${f.path}')" title="${f.path}">📄 ${name}</div>`;
+  });
+  return html;
+}
+
+function pdfFilterTree(q) {
+  q = q.toLowerCase();
+  if (!q) { pdfRenderTree(_pdfFiles); return; }
+  pdfRenderTree(_pdfFiles.filter(p => p.toLowerCase().includes(q)));
+}
+
+function pdfTogSidebar() {
+  const sb   = document.getElementById('pdf-sidebar');
+  const spl  = document.getElementById('pdf-spl');
+  const open = sb.style.display !== 'none' && sb.offsetWidth > 0;
+  if (open) {
+    sb.style.display = 'none';
+    spl.style.display = 'none';
+  } else {
+    sb.style.display = 'flex';
+    spl.style.display = 'block';
+  }
+  document.getElementById('pdf-sbbtn').classList.toggle('on', !open);
+}
+
+function pdfOpenFile(path) {
+  _pdfCurPath = path;
+  localStorage.setItem('pdf-last-file', path);
+  // 활성 표시
+  document.querySelectorAll('#pdf-ftree .bk-fi').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`#pdf-ftree .bk-fi[data-path="${CSS.escape(path)}"]`);
+  if (el) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+
+  const fname = path.split('/').pop().replace(/\.pdf$/, '');
+  document.getElementById('pdf-title').innerHTML = `<strong>📄 ${fname}</strong>`;
+
+  const c       = GitHubModule.get();
+  const rawUrl  = `https://raw.githubusercontent.com/${c.user}/${c.repo}/${c.branch || 'main'}/${path}`;
+
+  // 안드로이드: 내장 뷰어 없음 → 외부 앱/Google Docs 뷰어로
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const iframe  = document.getElementById('pdf-iframe');
+  const ph      = document.getElementById('pdf-placeholder');
+  const extBtn  = document.getElementById('pdf-newwin-btn');
+
+  extBtn.style.display = 'flex';
+  extBtn.onclick = () => pdfOpenExternal();
+
+  if (isAndroid) {
+    // 안드로이드: Google Docs PDF 뷰어 사용
+    const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(rawUrl)}&embedded=true`;
+    iframe.src = viewerUrl;
+    iframe.style.display = 'block';
+    ph.style.display = 'none';
+    AppToast.show('📄 Google Docs 뷰어로 표시 중…');
+  } else {
+    // 데스크탑/iOS: 브라우저 내장 PDF 뷰어
+    iframe.src = rawUrl;
+    iframe.style.display = 'block';
+    ph.style.display = 'none';
+  }
+}
+
+function pdfOpenExternal() {
+  if (!_pdfCurPath) return;
+  const c = GitHubModule.get();
+  const rawUrl = `https://raw.githubusercontent.com/${c.user}/${c.repo}/${c.branch || 'main'}/${_pdfCurPath}`;
+  window.open(rawUrl, '_blank');
+}
+
+// PDF 사이드바 드래그 리사이즈
+function pdfDragStart(e) {
+  e.preventDefault();
+  const sb = document.getElementById('pdf-sidebar');
+  const sx = e.clientX, sw = sb.offsetWidth;
+  _pdfDrag = {
+    move(e) { sb.style.width = Math.max(80, Math.min(400, sw + (e.clientX - sx))) + 'px'; },
+    up()    { _pdfDrag = null; }
+  };
+}
 (function init() {
   GitHubModule.load();
   StudyModule.init();
@@ -1350,6 +1573,8 @@ document.addEventListener('keydown', e => {
   const c = GitHubModule.get();
   if (c.user && c.repo) {
     document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
+    if (document.getElementById('pdf-repo-lbl'))
+      document.getElementById('pdf-repo-lbl').textContent = `${c.user}/${c.repo}`;
     bkTogSidebar();
     bkLoadFiles();
     StudyModule.loadNotebooks();
