@@ -741,7 +741,6 @@ const BibleModule = (() => {
     const ver = content.dataset.version || '';
     const isEngVer = ['ESV','NIV','Henry','KJV','NASB','LAO'].some(v => ver.includes(v));
     const lang = isEngVer ? 'en-US' : 'ko-KR';
-    const rate = 0.88;
 
     _ttsBtn = btn;
     _ttsActive = true;
@@ -750,23 +749,61 @@ const BibleModule = (() => {
 
     function start(voice) {
       window.speechSynthesis.cancel();
+
       if (_isAndroid) {
-        // 안드로이드: 절 하나씩 → 청크 큐 방식
-        _ttsQueue = [];
-        verses.forEach(v => _toChunks(v, 100).forEach(c => _ttsQueue.push(c)));
-        setTimeout(() => _playQueue(voice, lang, rate), 300);
+        // ── 안드로이드: 절(verse) 단위로 큐 구성 ──
+        // 안드로이드 Web Speech는 utterance 하나당 ~15초 이상이면 끊김
+        // → 절 하나씩(짧게) + cancel→setTimeout→speak 패턴으로 우회
+        _ttsQueue = [...verses];  // 절 단위 그대로 (청크 추가 분할 없음)
+
+        function nextVerse() {
+          if (!_ttsActive || _ttsQueue.length === 0) {
+            if (_ttsActive) _resetBtn();
+            return;
+          }
+          const verseText = _ttsQueue.shift();
+          // cancel → 충분한 딜레이 → speak
+          window.speechSynthesis.cancel();
+          _ttsTimer = setTimeout(() => {
+            if (!_ttsActive) return;
+            const utt = new SpeechSynthesisUtterance(verseText);
+            utt.lang  = lang;
+            utt.rate  = 1.0;   // 안드로이드: 1.0이 가장 안정적
+            utt.pitch = 1.0;
+            utt.volume = 1.0;
+            if (voice) utt.voice = voice;
+            utt.onend = () => {
+              // onend 후 바로 speak하면 안드로이드가 씹음 → 200ms 후 다음 절
+              _ttsTimer = setTimeout(nextVerse, 200);
+            };
+            utt.onerror = (e) => {
+              if (e.error === 'interrupted' || e.error === 'canceled') {
+                // cancel로 인한 것이면 무시 (이미 _resetBtn 호출됨)
+                return;
+              }
+              // 실제 오류면 다음 절로 넘어가기 (한 절 건너뛰기)
+              _ttsTimer = setTimeout(nextVerse, 300);
+            };
+            _ttsUtt = utt;
+            window.speechSynthesis.speak(utt);
+          }, 250);  // cancel 후 250ms 대기 — 안드로이드 정리 시간
+        }
+
+        // 첫 절 시작 전 500ms 대기 (초기 voices 로드 완료 보장)
+        _ttsTimer = setTimeout(nextVerse, 500);
+
       } else {
-        // 데스크탑/iOS: 전체 텍스트 단일 utterance
+        // ── 데스크탑/iOS: 전체 텍스트 단일 utterance ──
         const fullText = verses.join(' ');
         const utt = new SpeechSynthesisUtterance(fullText);
         utt.lang  = lang;
-        utt.rate  = rate;
+        utt.rate  = 0.88;
         utt.pitch = 1.0;
         if (voice) utt.voice = voice;
         utt.onend   = _resetBtn;
         utt.onerror = (e) => { if (e.error !== 'interrupted') _resetBtn(); };
         _ttsUtt = utt;
-        // 데스크탑 크롬 keepAlive (iOS는 불필요)
+        // 데스크탑 크롬 keepAlive
         if (!_isIOS) {
           const ka = setInterval(() => {
             if (!_ttsActive) { clearInterval(ka); return; }
