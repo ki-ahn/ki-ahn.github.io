@@ -786,7 +786,7 @@ const BibleModule = (() => {
             };
             _ttsUtt = utt;
             window.speechSynthesis.speak(utt);
-          }, 250);  // cancel 후 250ms 대기 — 안드로이드 정리 시간
+          }, 200);  // cancel 후 250ms 대기 — 안드로이드 정리 시간
         }
 
         // 첫 절 시작 전 500ms 대기 (초기 voices 로드 완료 보장)
