@@ -502,19 +502,22 @@ html[data-dark] #pdf-sidebar {
 .s-eng  { font-size: var(--study-fs); color: var(--ui-accent2); }
 .s-kor  { font-size: var(--study-fs); color: var(--ui-text); }
 .s-opp  { font-size: calc(var(--study-fs) - 2px); color: var(--ui-text3); }
-.vis-hidden { filter: blur(5px); user-select: none; pointer-events: none; }
-/* 개별 클릭 가능한 셀 */
+.vis-hidden { filter: blur(5px); user-select: none; }
+/* 개별 클릭 가능한 셀 — 가려진 상태에서도 항상 클릭 가능 */
 .s-cell-click {
   cursor: pointer;
   border-radius: 6px;
-  padding: 2px 4px;
-  margin: -2px -4px;
-  transition: background .12s;
+  padding: 3px 5px;
+  margin: -3px -5px;
+  transition: background .12s, filter .15s;
+  pointer-events: auto !important;  /* vis-hidden 상태에서도 클릭 허용 */
 }
-.s-cell-click:hover { background: rgba(128,128,128,.08); }
-/* 가려진 상태에서는 클릭으로 보이게 */
-.s-cell-click.vis-hidden { pointer-events: auto; cursor: pointer; }
-.s-cell-click.vis-hidden:hover { filter: blur(3px); }
+.s-cell-click:not(.vis-hidden):hover {
+  background: rgba(128,128,128,.09);
+}
+.s-cell-click.vis-hidden:hover {
+  filter: blur(2px);  /* hover 시 살짝 덜 블러 → 클릭 유도 */
+}
 .s-study-ctrl { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .s-count-display { font-size: 20px; font-weight: 700; color: var(--ui-accent); font-family: monospace; min-width: 36px; text-align: center; transition: transform .2s; line-height: 1; }
 .s-count-display.bump { transform: scale(1.6); }
@@ -754,7 +757,7 @@ html[data-dark] #pdf-sidebar {
     <button class="tog-btn on" id="stog-lao"  onclick="StudyModule.toggleCol('lao')">라오어</button>
     <button class="tog-btn on" id="stog-eng"  onclick="StudyModule.toggleCol('eng')">영어</button>
     <button class="tog-btn on" id="stog-kor"  onclick="StudyModule.toggleCol('kor')">한글</button>
-    <button class="tog-btn on" id="stog-pron" onclick="StudyModule.toggleCol('pron')">발음</button>
+    <button class="tog-btn on" id="stog-opp"  onclick="StudyModule.toggleCol('opp')">반댓말</button>
     <div style="flex:1"></div>
     <span id="st-range" style="font-size:11px;color:var(--ui-text3)"></span>
   </div>
