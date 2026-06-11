@@ -9,7 +9,7 @@ const StudyModule = (() => {
   let currentFile = null;
   let localCounts = {};
   let selectedStudyCount = null; // null = 전체
-  let colVis = { lao: true, eng: true, kor: true, opp: true };
+  let colVis = { lao: true, eng: true, kor: true, pron: true };
   let currentAudio = null;
   let notebookFiles = [];
 
@@ -189,27 +189,29 @@ const StudyModule = (() => {
     const lk = `${w._file}::${w._idx}`;
     const lkSafe = lk.replace(/[^a-zA-Z0-9]/g, '_');
     const cnt = w.studyCount || 0;
-    const hide = col => colVis[col] ? '' : 'vis-hidden';
+    // 전체 토글 상태: hidden이면 블러
+    const cls = col => colVis[col] ? 's-cell' : 's-cell vis-hidden';
+    // 셀 클릭 → 개별 토글 (해당 카드의 해당 열만)
+    const clickCls = 's-cell-click';
     return `
     <div class="s-card" id="sc_${lkSafe}">
       <button class="s-audio-btn" onclick="StudyModule.playAudio('${w.audio||''}','${lk}')"
         ${!w.audio ? 'disabled' : ''} title="발음 듣기">🔊</button>
 
-      <div class="s-cell ${hide('lao')}">
+      <div class="${cls('lao')} ${clickCls}" onclick="StudyModule.toggleCell(this)" title="클릭하여 가리기/보기">
         <div class="s-lao">${esc(w.lao||'—')}</div>
-        <div class="s-pron">${esc(w.pron||'')}</div>
       </div>
 
-      <div class="s-cell ${hide('eng')}">
+      <div class="${cls('eng')} ${clickCls}" onclick="StudyModule.toggleCell(this)" title="클릭하여 가리기/보기">
         <div class="s-eng">${esc(w.eng||'—')}</div>
       </div>
 
-      <div class="s-cell ${hide('kor')}">
+      <div class="${cls('kor')} ${clickCls}" onclick="StudyModule.toggleCell(this)" title="클릭하여 가리기/보기">
         <div class="s-kor">${esc(w.kor||'—')}</div>
       </div>
 
-      <div class="s-cell ${hide('opp')}">
-        <div class="s-opp">${esc(w.opp||'—')}</div>
+      <div class="${cls('pron')} ${clickCls}" onclick="StudyModule.toggleCell(this)" title="클릭하여 가리기/보기">
+        <div class="s-pron" style="font-size:calc(var(--study-fs, 15px) - 2px)">${esc(w.pron||'—')}</div>
       </div>
 
       <div class="s-study-ctrl">
@@ -227,11 +229,30 @@ const StudyModule = (() => {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  /* ── 토글 ── */
+  /* ── 전체 토글 (3단 버튼) ── */
   function toggleCol(col) {
     colVis[col] = !colVis[col];
     document.getElementById('stog-' + col).classList.toggle('on', colVis[col]);
-    renderWords();
+    // 모든 카드의 해당 열 일괄 적용
+    // col 순서: lao=2번째, eng=3번째, kor=4번째, pron=5번째 s-cell
+    const colIdx = { lao: 0, eng: 1, kor: 2, pron: 3 };
+    const idx = colIdx[col];
+    document.querySelectorAll('#study-words .s-card').forEach(card => {
+      const cells = card.querySelectorAll('.s-cell');
+      if (cells[idx]) {
+        cells[idx].classList.toggle('vis-hidden', !colVis[col]);
+        // 전체 토글 시 개별 토글 상태 초기화
+        cells[idx].dataset.hidden = '';
+      }
+    });
+  }
+
+  /* ── 개별 셀 클릭 토글 ── */
+  function toggleCell(cellEl) {
+    // vis-hidden 토글
+    const isHidden = cellEl.classList.contains('vis-hidden');
+    cellEl.classList.toggle('vis-hidden', !isHidden);
+    cellEl.dataset.hidden = isHidden ? '' : '1';
   }
 
   /* ── 음성 ── */
@@ -394,7 +415,7 @@ const StudyModule = (() => {
 
   return {
     init, loadNotebooks, loadCurrentNotebook, renderWords,
-    onCountFilterChange, toggleCol, playAudio, playAll,
+    onCountFilterChange, toggleCol, toggleCell, playAudio, playAll,
     changeCount, setCountInline, confirmInline, cancelInline, clearLocal,
   };
 })();
