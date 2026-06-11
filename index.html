@@ -531,7 +531,31 @@ html[data-dark] #pdf-sidebar {
 .s-status h3 { font-size: 14px; color: var(--ui-text2); font-weight: 400; margin-bottom: 6px; }
 .s-status p { font-size: 13px; line-height: 1.6; }
 .s-loader { width: 28px; height: 28px; border: 3px solid var(--ui-border); border-top-color: var(--ui-accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* ── 페이지네이션 ── */
+#study-pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; padding: 14px 12px 20px; flex-wrap: wrap;
+}
+.pg-btn {
+  min-width: 36px; height: 36px; padding: 0 10px;
+  border-radius: 8px; border: 1px solid var(--ui-border);
+  background: var(--ui-bg2); color: var(--ui-text2);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: all .13s; font-family: monospace;
+  display: flex; align-items: center; justify-content: center;
+}
+.pg-btn:hover:not(:disabled):not(.active) {
+  border-color: var(--ui-accent); color: var(--ui-accent);
+}
+.pg-btn.active {
+  background: var(--ui-accent); color: #fff;
+  border-color: var(--ui-accent); font-weight: 700;
+}
+.pg-btn:disabled { opacity: .35; cursor: not-allowed; }
+.pg-ellipsis {
+  color: var(--ui-text3); font-size: 14px;
+  padding: 0 4px; line-height: 36px;
+}
 @media(max-width:640px) {
   .s-card { grid-template-columns: 32px 1fr 80px; grid-template-rows: auto auto; }
   .s-cell:nth-child(4), .s-cell:nth-child(5) { grid-column: 2; }
@@ -744,7 +768,8 @@ html[data-dark] #pdf-sidebar {
     </div>
     <div class="tb-group">
       <span class="tb-label">📋 표시</span>
-      <input class="num-input" id="study-display-count" type="number" min="1" max="100" value="20" onchange="StudyModule.renderWords()">
+      <input class="num-input" id="study-display-count" type="number" min="1" max="100" value="20"
+        onchange="StudyModule.goPage(1)">
       <span style="font-size:11px;color:var(--ui-text3)">개</span>
     </div>
     <div class="tb-group" style="margin-left:auto">
@@ -773,6 +798,8 @@ html[data-dark] #pdf-sidebar {
       <p>우측 상단 ⚙ 설정 버튼을 눌러 저장소를 연결하세요.</p>
     </div>
   </div>
+  <!-- 페이지네이션 -->
+  <div id="study-pagination"></div>
 </div>
 
 <script>

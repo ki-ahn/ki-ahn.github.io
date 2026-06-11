@@ -80,7 +80,7 @@ const StudyModule = (() => {
       allWords = parseWords(text, path);
       buildCountInput();
       selectedStudyCount = null;
-      // 필터 입력 초기화
+      currentPage = 1;  // 새 노트 로드 시 첫 페이지
       const inp = document.getElementById('study-count-filter');
       if (inp) inp.value = '';
       renderWords();
@@ -131,10 +131,10 @@ const StudyModule = (() => {
     return words;
   }
 
+  let currentPage = 1;  // 현재 페이지
+
   /* ── 공부횟수 필터 — 숫자 입력 (max 7) ── */
-  function buildCountInput() {
-    // 이미 있으면 그대로 (동적 생성 불필요, HTML에서 고정)
-  }
+  function buildCountInput() {}
 
   function getStudyFilter() {
     const inp = document.getElementById('study-count-filter');
@@ -144,6 +144,7 @@ const StudyModule = (() => {
 
   function onCountFilterChange() {
     selectedStudyCount = getStudyFilter();
+    currentPage = 1;  // 필터 변경 시 첫 페이지로
     renderWords();
   }
 
@@ -152,25 +153,43 @@ const StudyModule = (() => {
     return Math.min(100, Math.max(1, parseInt(document.getElementById('study-display-count').value) || 20));
   }
 
+  /* ── 페이지 이동 ── */
+  function goPage(p) {
+    currentPage = p;
+    renderWords();
+    // 단어 목록 맨 위로 스크롤
+    const area = document.getElementById('study-words');
+    if (area) area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   /* ── 렌더링 ── */
   function renderWords() {
     selectedStudyCount = getStudyFilter();
 
-    let filtered = selectedStudyCount === null
+    // 필터 적용
+    const filtered = selectedStudyCount === null
       ? [...allWords]
       : allWords.filter(w => (w.studyCount || 0) <= selectedStudyCount);
 
-    const n = getDisplayCount();
-    const shown = filtered.slice(0, n);
+    const pageSize  = getDisplayCount();
+    const totalPage = Math.max(1, Math.ceil(filtered.length / pageSize));
+
+    // 페이지 범위 보정
+    if (currentPage < 1) currentPage = 1;
+    if (currentPage > totalPage) currentPage = totalPage;
+
+    const start = (currentPage - 1) * pageSize;
+    const shown = filtered.slice(start, start + pageSize);
 
     // 통계
     const sb = document.getElementById('study-stats');
     if (allWords.length) {
       sb.style.display = 'flex';
       document.getElementById('st-total').textContent   = allWords.length;
-      document.getElementById('st-shown').textContent   = shown.length;
+      document.getElementById('st-shown').textContent   = filtered.length;
       document.getElementById('st-studied').textContent = allWords.filter(w => (w.studyCount||0) > 0).length;
-      document.getElementById('st-range').textContent   = `${shown.length} / ${filtered.length}개 표시`;
+      document.getElementById('st-range').textContent   =
+        `${start + 1}–${Math.min(start + pageSize, filtered.length)} / ${filtered.length}개`;
     } else {
       sb.style.display = 'none';
     }
@@ -180,9 +199,47 @@ const StudyModule = (() => {
       area.innerHTML = `<div class="s-status"><div class="s-icon">🔍</div>
         <h3>표시할 단어가 없습니다</h3>
         <p>공부횟수 필터나 표시 개수를 조정해 보세요.</p></div>`;
+      renderPagination(0, 1, 1);
       return;
     }
+
     area.innerHTML = shown.map(w => cardHTML(w)).join('');
+    renderPagination(filtered.length, pageSize, totalPage);
+  }
+
+  /* ── 페이지네이션 버튼 렌더링 ── */
+  function renderPagination(total, pageSize, totalPage) {
+    const bar = document.getElementById('study-pagination');
+    if (!bar) return;
+    if (totalPage <= 1) { bar.innerHTML = ''; return; }
+
+    // 표시할 페이지 번호 범위 계산 (현재 기준 앞뒤 2페이지)
+    const delta = 2;
+    const pages = [];
+    for (let i = 1; i <= totalPage; i++) {
+      if (i === 1 || i === totalPage ||
+          (i >= currentPage - delta && i <= currentPage + delta)) {
+        pages.push(i);
+      }
+    }
+
+    let html = `<button class="pg-btn" onclick="StudyModule.goPage(${currentPage - 1})"
+      ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
+    let prev = null;
+    pages.forEach(p => {
+      if (prev !== null && p - prev > 1) {
+        html += `<span class="pg-ellipsis">…</span>`;
+      }
+      html += `<button class="pg-btn ${p === currentPage ? 'active' : ''}"
+        onclick="StudyModule.goPage(${p})">${p}</button>`;
+      prev = p;
+    });
+
+    html += `<button class="pg-btn" onclick="StudyModule.goPage(${currentPage + 1})"
+      ${currentPage === totalPage ? 'disabled' : ''}>›</button>`;
+
+    bar.innerHTML = html;
   }
 
   function cardHTML(w) {
@@ -414,7 +471,7 @@ const StudyModule = (() => {
   function init() { loadLocalCounts(); }
 
   return {
-    init, loadNotebooks, loadCurrentNotebook, renderWords,
+    init, loadNotebooks, loadCurrentNotebook, renderWords, goPage,
     onCountFilterChange, toggleCol, toggleCell, playAudio, playAll,
     changeCount, setCountInline, confirmInline, cancelInline, clearLocal,
   };
