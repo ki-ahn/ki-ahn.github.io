@@ -7,22 +7,16 @@ const StudyModule = (() => {
   /* ── 상태 ── */
   let allWords = [];
   let currentFile = null;
-  //let localCounts = {};
-  let selectedStudyCount = null; // null = 전체
+  let selectedStudyCount = null;
   let colVis = { lao: true, eng: true, kor: true, opp: true };
   let currentAudio = null;
   let notebookFiles = [];
 
-  //const LOCAL_KEY = 'study_counts';
   const MAX_STUDY = 7;
 
-  /* ── 로컬 카운트 ── */
-  function loadLocalCounts() {
-    try { localCounts = JSON.parse(localStorage.getItem(LOCAL_KEY) || '{}'); } catch(e) {}
-  }
-  function saveLocalCounts() {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(localCounts));
-  }
+  /* ── 로컬 카운트: 사용 안 함 — 원본 .md 파일 기준 ── */
+  function loadLocalCounts() {}
+  function saveLocalCounts() {}
 
   /* ── 노트북 목록 로드 ── */
   async function loadNotebooks() {
@@ -123,9 +117,6 @@ const StudyModule = (() => {
         if (k === '음성')     w.audio = v;
         if (k === '공부횟수') w.studyCount = Math.min(MAX_STUDY, parseInt(v) || 0);
       });
-      // 로컬 카운트 우선
-      // const lk = `${filePath}::${idx}`;
-      // if (localCounts[lk] !== undefined) w.studyCount = localCounts[lk];
       if (w.lao || w.kor || w.eng) words.push(w);
     });
     return words;
@@ -376,9 +367,7 @@ const StudyModule = (() => {
   async function changeCount(lk, delta) {
     const word = findWord(lk);
     if (!word) return;
-    word.studyCount = Math.min(MAX_STUDY, Math.max(0, (word.studyCount || 0) + delta));
-    // localCounts[lk] = word.studyCount;
-    /* saveLocalCounts(); */
+    word.studyCount = Math.min(MAX_STUDY, Math.max(0, (word.studyCount !== undefined ? word.studyCount : 0) + delta));
     updateCardCount(lk, word.studyCount);
     await trySaveGitHub(word);
   }
@@ -411,9 +400,6 @@ const StudyModule = (() => {
     const word = findWord(lk);
     if (!word) return;
     word.studyCount = n;
-    // localCounts[lk] = n;
-    /* saveLocalCounts(); */
-    // 컨트롤 복원
     restoreCtrl(id, lk, n);
     await trySaveGitHub(word);
   }
@@ -486,14 +472,17 @@ const StudyModule = (() => {
   function toast(msg, type) { AppToast.show(msg, type); }
 
   function clearLocal() {
-    if (!confirm('로컬 공부횟수 데이터를 모두 삭제하시겠습니까?')) return;
-    localStorage.removeItem(LOCAL_KEY);
-    localCounts = {};
+    // 로컬 저장 방식 제거됨 — 원본 .md 파일 기준으로만 동작
+    // 기존 로컬 데이터가 남아있다면 정리
+    try { localStorage.removeItem('study_counts'); } catch(e) {}
     if (currentFile) loadCurrentNotebook();
-    toast('로컬 데이터 삭제 완료', '');
+    toast('노트를 새로 불러왔습니다', '');
   }
 
-  function init() { /* loadLocalCounts(); */ }
+  function init() {
+    // 기존에 로컬에 저장된 공부횟수 데이터 자동 정리
+    try { localStorage.removeItem('study_counts'); } catch(e) {}
+  }
 
   return {
     init, loadNotebooks, loadCurrentNotebook, renderWords, goPage,
