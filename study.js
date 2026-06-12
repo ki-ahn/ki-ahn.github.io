@@ -7,13 +7,13 @@ const StudyModule = (() => {
   /* ── 상태 ── */
   let allWords = [];
   let currentFile = null;
-  let localCounts = {};
+  //let localCounts = {};
   let selectedStudyCount = null; // null = 전체
   let colVis = { lao: true, eng: true, kor: true, opp: true };
   let currentAudio = null;
   let notebookFiles = [];
 
-  const LOCAL_KEY = 'study_counts';
+  //const LOCAL_KEY = 'study_counts';
   const MAX_STUDY = 7;
 
   /* ── 로컬 카운트 ── */
@@ -124,8 +124,8 @@ const StudyModule = (() => {
         if (k === '공부횟수') w.studyCount = Math.min(MAX_STUDY, parseInt(v) || 0);
       });
       // 로컬 카운트 우선
-      const lk = `${filePath}::${idx}`;
-      if (localCounts[lk] !== undefined) w.studyCount = localCounts[lk];
+      // const lk = `${filePath}::${idx}`;
+      // if (localCounts[lk] !== undefined) w.studyCount = localCounts[lk];
       if (w.lao || w.kor || w.eng) words.push(w);
     });
     return words;
@@ -377,8 +377,8 @@ const StudyModule = (() => {
     const word = findWord(lk);
     if (!word) return;
     word.studyCount = Math.min(MAX_STUDY, Math.max(0, (word.studyCount || 0) + delta));
-    localCounts[lk] = word.studyCount;
-    saveLocalCounts();
+    // localCounts[lk] = word.studyCount;
+    /* saveLocalCounts(); */
     updateCardCount(lk, word.studyCount);
     await trySaveGitHub(word);
   }
@@ -411,8 +411,8 @@ const StudyModule = (() => {
     const word = findWord(lk);
     if (!word) return;
     word.studyCount = n;
-    localCounts[lk] = n;
-    saveLocalCounts();
+    // localCounts[lk] = n;
+    /* saveLocalCounts(); */
     // 컨트롤 복원
     restoreCtrl(id, lk, n);
     await trySaveGitHub(word);
@@ -493,7 +493,7 @@ const StudyModule = (() => {
     toast('로컬 데이터 삭제 완료', '');
   }
 
-  function init() { loadLocalCounts(); }
+  function init() { /* loadLocalCounts(); */ }
 
   return {
     init, loadNotebooks, loadCurrentNotebook, renderWords, goPage,
