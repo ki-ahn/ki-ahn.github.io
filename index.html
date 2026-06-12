@@ -476,6 +476,26 @@ html[data-dark] #pdf-sidebar {
 .num-input:focus { outline: none; border-color: var(--ui-accent2); }
 .tb-icon-btn { background: var(--ui-bg3); border: 1px solid var(--ui-border); color: var(--ui-text2); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; transition: all .13s; white-space: nowrap; }
 .tb-icon-btn:hover { border-color: var(--ui-accent2); color: var(--ui-accent2); }
+/* 스테퍼 (－ 값 ＋) */
+.tb-stepper {
+  display: flex; align-items: center;
+  border: 1px solid var(--ui-border); border-radius: 8px;
+  overflow: hidden; background: var(--ui-bg3);
+}
+.tb-stepper button {
+  width: 30px; height: 30px; border: none; background: none;
+  color: var(--ui-text2); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s; flex-shrink: 0;
+  touch-action: manipulation;
+}
+.tb-stepper button:hover { background: var(--ui-border); color: var(--ui-text); }
+.tb-stepper button:active { background: var(--ui-accent); color: #fff; }
+.tb-stepper span {
+  min-width: 38px; text-align: center; font-size: 13px;
+  font-family: monospace; color: var(--ui-text); font-weight: 600;
+  padding: 0 2px; user-select: none;
+}
 #study-togglebar { background: var(--ui-bg); border-bottom: 1px solid var(--ui-border); padding: 7px 14px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .tog-btn { padding: 4px 13px; border-radius: 18px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--ui-border); background: var(--ui-bg3); color: var(--ui-text2); transition: all .13s; }
 .tog-btn.on { background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2); }
@@ -762,14 +782,20 @@ html[data-dark] #pdf-sidebar {
     </div>
     <div class="tb-group">
       <span class="tb-label">🎯 공부횟수</span>
-      <input class="num-input" id="study-count-filter" type="number" min="0" max="7" placeholder="전체"
-        style="width:62px" oninput="StudyModule.onCountFilterChange()" title="이 횟수 이하만 표시 (비우면 전체)">
+      <div class="tb-stepper">
+        <button onclick="StudyModule.stepFilter(-1)">－</button>
+        <span id="study-count-filter-display">전체</span>
+        <button onclick="StudyModule.stepFilter(1)">＋</button>
+      </div>
       <span style="font-size:11px;color:var(--ui-text3)">이하</span>
     </div>
     <div class="tb-group">
       <span class="tb-label">📋 표시</span>
-      <input class="num-input" id="study-display-count" type="number" min="1" max="100" value="20"
-        onchange="StudyModule.goPage(1)">
+      <div class="tb-stepper">
+        <button onclick="StudyModule.stepDisplay(-1)">－</button>
+        <span id="study-display-count-display">20</span>
+        <button onclick="StudyModule.stepDisplay(1)">＋</button>
+      </div>
       <span style="font-size:11px;color:var(--ui-text3)">개</span>
     </div>
     <div class="tb-group" style="margin-left:auto">

@@ -133,24 +133,50 @@ const StudyModule = (() => {
 
   let currentPage = 1;  // 현재 페이지
 
-  /* ── 공부횟수 필터 — 숫자 입력 (max 7) ── */
+  /* ── 공부횟수 필터 상태 ── */
+  let _filterVal   = null;  // null=전체, 0~7
+  let _displayVal  = 20;    // 표시갯수
+
   function buildCountInput() {}
 
-  function getStudyFilter() {
-    const inp = document.getElementById('study-count-filter');
-    if (!inp || inp.value === '') return null;
-    return Math.min(MAX_STUDY, Math.max(0, parseInt(inp.value) || 0));
-  }
+  function getStudyFilter() { return _filterVal; }
 
-  function onCountFilterChange() {
-    selectedStudyCount = getStudyFilter();
-    currentPage = 1;  // 필터 변경 시 첫 페이지로
+  function getDisplayCount() { return _displayVal; }
+
+  /* 공부횟수 스테퍼 */
+  function stepFilter(delta) {
+    if (_filterVal === null) {
+      // 전체 상태에서 + → 0부터, - → 최대값(MAX_STUDY)부터
+      _filterVal = delta > 0 ? 0 : MAX_STUDY;
+    } else {
+      _filterVal += delta;
+      if (_filterVal < 0) _filterVal = null;       // 0에서 - → 전체
+      if (_filterVal > MAX_STUDY) _filterVal = MAX_STUDY;
+    }
+    _updateFilterDisplay();
+    selectedStudyCount = _filterVal;
+    currentPage = 1;
     renderWords();
   }
 
-  /* ── 표시갯수 ── */
-  function getDisplayCount() {
-    return Math.min(100, Math.max(1, parseInt(document.getElementById('study-display-count').value) || 20));
+  function _updateFilterDisplay() {
+    const el = document.getElementById('study-count-filter-display');
+    if (el) el.textContent = _filterVal === null ? '전체' : String(_filterVal);
+  }
+
+  /* 표시갯수 스테퍼 — 5씩 증감, 1~100 */
+  function stepDisplay(delta) {
+    _displayVal = Math.min(100, Math.max(1, _displayVal + delta * 5));
+    const el = document.getElementById('study-display-count-display');
+    if (el) el.textContent = String(_displayVal);
+    currentPage = 1;
+    renderWords();
+  }
+
+  function onCountFilterChange() {
+    selectedStudyCount = _filterVal;
+    currentPage = 1;
+    renderWords();
   }
 
   /* ── 페이지 이동 ── */
@@ -472,7 +498,8 @@ const StudyModule = (() => {
 
   return {
     init, loadNotebooks, loadCurrentNotebook, renderWords, goPage,
-    onCountFilterChange, toggleCol, toggleCell, playAudio, playAll,
+    onCountFilterChange, stepFilter, stepDisplay,
+    toggleCol, toggleCell, playAudio, playAll,
     changeCount, setCountInline, confirmInline, cancelInline, clearLocal,
   };
 })();
