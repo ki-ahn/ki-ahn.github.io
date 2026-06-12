@@ -436,40 +436,82 @@ const StudyModule = (() => {
   }
 
   /* ── GitHub 저장 ── */
-  /* ── GitHub 저장 (SHA 직접 전달로 중복 API 호출 제거) ── */
-  let _saveQueue = Promise.resolve();  // 저장 큐 — 연속 클릭 시 순서 보장
+  /* ── GitHub 저장 ── */
+  let _saveQueue = Promise.resolve();
 
   async function trySaveGitHub(word) {
-    if (!GitHubModule.get().token || !currentFile) return;
-
-    // 큐에 추가하여 순서대로 실행 (이전 저장 완료 후 다음 실행)
+    if (!GitHubModule.get().token || !currentFile) {
+      if (!GitHubModule.get().token) toast('토큰을 설정하면 GitHub에 저장됩니다', '');
+      return;
+    }
     _saveQueue = _saveQueue.then(async () => {
       try {
-        // 파일 읽기 + SHA 한 번에
         const { text, sha } = await GitHubModule.readFileWithSha(currentFile);
         const updated = updateCountInText(text, word);
-        // SHA 직접 전달 → writeFile 내부에서 추가 fetchContents 호출 안 함
+        if (updated === text) {
+          toast('⚠ 해당 단어를 찾지 못했습니다', 'error');
+          return;
+        }
         await GitHubModule.writeFile(
           currentFile, updated,
           `공부횟수: ${word.lao||''} → ${word.studyCount}회`,
           sha
         );
-        toast(`✓ GitHub 저장 (${word.studyCount}회)`, 'success');
+        toast(`✓ 저장 완료 (${word.studyCount}회)`, 'success');
       } catch(e) {
-        toast('GitHub 저장 오류: ' + e.message, 'error');
+        toast('저장 오류: ' + e.message, 'error');
       }
     });
-
     return _saveQueue;
   }
 
+  /* 블록 단위로 해당 단어 찾아서 공부횟수만 교체 */
   function updateCountInText(text, word) {
     if (!word.lao) return text;
-    const laoEsc = word.lao.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const re = new RegExp(
-      `(라오\\s*[：:]\\s*${laoEsc}[\\s\\S]*?공부횟수\\s*[：:]\\s*)\\d+`, 'g'
-    );
-    return text.replace(re, `$1${word.studyCount}`);
+
+    // "---" 구분자로 블록 분리
+    const lines = text.split('\n');
+    const result = [];
+    let inTargetBlock = false;
+    let blockLines = [];
+    let found = false;
+
+    function flushBlock(isTarget) {
+      if (isTarget && !found) {
+        // 이 블록에서 공부횟수 줄 교체
+        const replaced = blockLines.map(l => {
+          if (/^공부횟수\s*[：:]/.test(l.trim())) {
+            return l.replace(/(\s*공부횟수\s*[：:]\s*)\d+/, `$1${word.studyCount}`);
+          }
+          return l;
+        });
+        result.push(...replaced);
+        found = true;
+      } else {
+        result.push(...blockLines);
+      }
+      blockLines = [];
+    }
+
+    for (const line of lines) {
+      if (/^\s*---\s*$/.test(line)) {
+        // 블록 끝 — 현재 블록이 대상인지 확인
+        const blockText = blockLines.join('\n');
+        const isTarget = blockText.includes(word.lao) && !found;
+        flushBlock(isTarget);
+        result.push(line);
+      } else {
+        blockLines.push(line);
+      }
+    }
+    // 마지막 블록 처리
+    if (blockLines.length) {
+      const blockText = blockLines.join('\n');
+      const isTarget = blockText.includes(word.lao) && !found;
+      flushBlock(isTarget);
+    }
+
+    return result.join('\n');
   }
 
   /* ── UI 헬퍼 ── */
