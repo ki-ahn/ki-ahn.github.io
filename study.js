@@ -436,16 +436,31 @@ const StudyModule = (() => {
   }
 
   /* ── GitHub 저장 ── */
+  /* ── GitHub 저장 (SHA 직접 전달로 중복 API 호출 제거) ── */
+  let _saveQueue = Promise.resolve();  // 저장 큐 — 연속 클릭 시 순서 보장
+
   async function trySaveGitHub(word) {
     if (!GitHubModule.get().token || !currentFile) return;
-    try {
-      const text = await GitHubModule.readFile(currentFile);
-      const updated = updateCountInText(text, word);
-      await GitHubModule.writeFile(currentFile, updated, `공부횟수: ${word.lao||''} → ${word.studyCount}회`);
-      toast(`✓ GitHub 저장 (${word.studyCount}회)`, 'success');
-    } catch(e) {
-      toast('로컬 저장됨 (GitHub 오류: ' + e.message + ')', '');
-    }
+
+    // 큐에 추가하여 순서대로 실행 (이전 저장 완료 후 다음 실행)
+    _saveQueue = _saveQueue.then(async () => {
+      try {
+        // 파일 읽기 + SHA 한 번에
+        const { text, sha } = await GitHubModule.readFileWithSha(currentFile);
+        const updated = updateCountInText(text, word);
+        // SHA 직접 전달 → writeFile 내부에서 추가 fetchContents 호출 안 함
+        await GitHubModule.writeFile(
+          currentFile, updated,
+          `공부횟수: ${word.lao||''} → ${word.studyCount}회`,
+          sha
+        );
+        toast(`✓ GitHub 저장 (${word.studyCount}회)`, 'success');
+      } catch(e) {
+        toast('GitHub 저장 오류: ' + e.message, 'error');
+      }
+    });
+
+    return _saveQueue;
   }
 
   function updateCountInText(text, word) {

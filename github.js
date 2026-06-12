@@ -73,22 +73,34 @@ const GitHubModule = (() => {
     return decode64(data.content);
   }
 
-  /* ── 파일 쓰기 (토큰 필요, 없으면 새 파일 생성) ── */
-  async function writeFile(path, text, message) {
+  /* ── 파일 텍스트 + SHA 함께 읽기 ── */
+  async function readFileWithSha(path) {
+    const data = await fetchContents(path);
+    if (!data.content) throw new Error('파일 내용 없음: ' + path);
+    return { text: decode64(data.content), sha: data.sha };
+  }
+
+  /* ── 파일 쓰기 (sha 직접 전달 시 추가 API 호출 없음) ── */
+  async function writeFile(path, text, message, sha) {
     if (!_cfg.token) throw new Error('GitHub 토큰이 필요합니다');
     const bytes = new TextEncoder().encode(text);
     let binary = '';
     bytes.forEach(b => binary += String.fromCharCode(b));
     const encoded = btoa(binary);
     const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/contents/${path}`;
-    // SHA 조회 (파일 존재 시)
-    let sha;
-    try {
-      const meta = await fetchContents(path);
-      sha = meta.sha;
-    } catch(e) { /* 파일 없으면 sha 없이 생성 */ }
+
+    // sha가 없으면 조회 (신규 파일 생성 시)
+    let fileSha = sha;
+    if (!fileSha) {
+      try {
+        const meta = await fetchContents(path);
+        fileSha = meta.sha;
+      } catch(e) { /* 파일 없으면 sha 없이 생성 */ }
+    }
+
     const body = { message: message || '앱에서 수정', content: encoded, branch: _cfg.branch };
-    if (sha) body.sha = sha;
+    if (fileSha) body.sha = fileSha;
+
     const r = await fetch(url, {
       method: 'PUT',
       headers: { ...headers(), 'Content-Type': 'application/json' },
@@ -98,8 +110,9 @@ const GitHubModule = (() => {
       const e = await r.json().catch(() => ({}));
       throw new Error(e.message || `HTTP ${r.status}`);
     }
-    return r.json();
+    const result = await r.json();
+    return result;
   }
 
-  return { save, load, configure, get, isReady, fetchContents, fetchTree, readFile, writeFile, decode64 };
+  return { save, load, configure, get, isReady, fetchContents, fetchTree, readFile, readFileWithSha, writeFile, decode64 };
 })();
