@@ -146,22 +146,20 @@ const StudyModule = (() => {
   /* 공부횟수 스테퍼 */
   function stepFilter(delta) {
     if (_filterVal === null) {
-      // 전체 상태에서 + → 0부터, - → 최대값(MAX_STUDY)부터
       _filterVal = delta > 0 ? 0 : MAX_STUDY;
     } else {
       _filterVal += delta;
-      if (_filterVal < 0) _filterVal = null;       // 0에서 - → 전체
-      if (_filterVal > MAX_STUDY) _filterVal = MAX_STUDY;
+      if (_filterVal < 0)          _filterVal = null;
+      if (_filterVal > MAX_STUDY)  _filterVal = MAX_STUDY;
     }
     _updateFilterDisplay();
-    selectedStudyCount = _filterVal;
     currentPage = 1;
     renderWords();
   }
 
   function _updateFilterDisplay() {
     const el = document.getElementById('study-count-filter-display');
-    if (el) el.textContent = _filterVal === null ? '전체' : String(_filterVal);
+    if (el) el.textContent = (_filterVal === null || _filterVal === undefined) ? '전체' : String(_filterVal);
   }
 
   /* 표시갯수 스테퍼 — 5씩 증감, 1~100 */
@@ -174,7 +172,6 @@ const StudyModule = (() => {
   }
 
   function onCountFilterChange() {
-    selectedStudyCount = _filterVal;
     currentPage = 1;
     renderWords();
   }
@@ -190,12 +187,13 @@ const StudyModule = (() => {
 
   /* ── 렌더링 ── */
   function renderWords() {
-    selectedStudyCount = getStudyFilter();
+    // _filterVal 직접 사용 (getStudyFilter() 재호출로 인한 혼동 방지)
+    const filterVal = _filterVal;
 
-    // 필터 적용
-    const filtered = selectedStudyCount === null
+    // 필터 적용 — 0도 유효한 값이므로 null 여부를 엄격하게 체크
+    const filtered = (filterVal === null || filterVal === undefined)
       ? [...allWords]
-      : allWords.filter(w => (w.studyCount || 0) <= selectedStudyCount);
+      : allWords.filter(w => (w.studyCount !== undefined ? w.studyCount : 0) <= filterVal);
 
     const pageSize  = getDisplayCount();
     const totalPage = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -215,6 +213,7 @@ const StudyModule = (() => {
       document.getElementById('st-shown').textContent   = filtered.length;
       document.getElementById('st-studied').textContent = allWords.filter(w => (w.studyCount||0) > 0).length;
       document.getElementById('st-range').textContent   =
+        filtered.length === 0 ? '0개' :
         `${start + 1}–${Math.min(start + pageSize, filtered.length)} / ${filtered.length}개`;
     } else {
       sb.style.display = 'none';
@@ -367,9 +366,9 @@ const StudyModule = (() => {
   }
 
   function getCurrentShown() {
-    const filtered = selectedStudyCount === null
+    const filtered = (_filterVal === null || _filterVal === undefined)
       ? [...allWords]
-      : allWords.filter(w => (w.studyCount||0) <= selectedStudyCount);
+      : allWords.filter(w => (w.studyCount !== undefined ? w.studyCount : 0) <= _filterVal);
     return filtered.slice(0, getDisplayCount());
   }
 
