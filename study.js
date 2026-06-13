@@ -66,6 +66,12 @@ const StudyModule = (() => {
     const sel = document.getElementById('study-notebook-sel');
     const path = sel.value;
     if (!path) return;
+
+    // 다른 노트로 이동 전 미저장 데이터 먼저 저장
+    if (_isDirty && currentFile && currentFile !== path) {
+      await _doSave();
+    }
+
     currentFile = path;
     localStorage.setItem('study_last_file', path);
     showLoading();
@@ -369,7 +375,10 @@ const StudyModule = (() => {
     if (!word) return;
     word.studyCount = Math.min(MAX_STUDY, Math.max(0, (word.studyCount !== undefined ? word.studyCount : 0) + delta));
     updateCardCount(lk, word.studyCount);
-    await trySaveGitHub(word);
+    if (GitHubModule.get().token) {
+      toast(`${word.studyCount}회 — 3초 후 저장`, '');
+      await trySaveGitHub(word);
+    }
   }
 
   /* 카드 내 인라인 숫자 입력으로 직접 설정 */
@@ -436,80 +445,79 @@ const StudyModule = (() => {
   }
 
   /* ── GitHub 저장 ── */
-  /* ── GitHub 저장 ── */
-  let _saveQueue = Promise.resolve();
+  /* ── GitHub 저장 — 디바운스 방식 ──
+     공부횟수 변경 시 메모리만 업데이트,
+     마지막 변경 후 3초 경과 or 탭 이동 시 전체 파일 한 번만 저장
+  ── */
+  let _saveTimer  = null;
+  let _isDirty    = false;  // 저장 필요 여부
 
-  async function trySaveGitHub(word) {
-    if (!GitHubModule.get().token || !currentFile) {
-      if (!GitHubModule.get().token) toast('토큰을 설정하면 GitHub에 저장됩니다', '');
-      return;
-    }
-    _saveQueue = _saveQueue.then(async () => {
-      try {
-        const { text, sha } = await GitHubModule.readFileWithSha(currentFile);
-        const updated = updateCountInText(text, word);
-        if (updated === text) {
-          toast('⚠ 해당 단어를 찾지 못했습니다', 'error');
-          return;
-        }
-        await GitHubModule.writeFile(
-          currentFile, updated,
-          `공부횟수: ${word.lao||''} → ${word.studyCount}회`,
-          sha
-        );
-        toast(`✓ 저장 완료 (${word.studyCount}회)`, 'success');
-      } catch(e) {
-        toast('저장 오류: ' + e.message, 'error');
-      }
-    });
-    return _saveQueue;
+  function _scheduleSave() {
+    _isDirty = true;
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => _doSave(), 3000);
   }
 
-  /* 블록 단위로 해당 단어 찾아서 공부횟수만 교체 */
-  function updateCountInText(text, word) {
-    if (!word.lao) return text;
+  async function _doSave() {
+    if (!_isDirty) return;
+    if (!GitHubModule.get().token || !currentFile) return;
+    _isDirty = false;
+    clearTimeout(_saveTimer);
 
-    // "---" 구분자로 블록 분리
+    try {
+      // 현재 메모리의 allWords 전체를 반영한 텍스트 생성
+      const { text, sha } = await GitHubModule.readFileWithSha(currentFile);
+      const updated = updateAllCounts(text);
+      if (updated === text) return; // 변경 없으면 스킵
+      await GitHubModule.writeFile(
+        currentFile, updated, '공부횟수 업데이트', sha
+      );
+      toast('✓ 저장 완료', 'success');
+    } catch(e) {
+      _isDirty = true; // 실패 시 재시도 가능하도록
+      toast('저장 오류: ' + e.message, 'error');
+    }
+  }
+
+  async function trySaveGitHub(word) {
+    // 화면만 즉시 업데이트, 저장은 디바운스
+    _scheduleSave();
+  }
+
+  /* 메모리의 모든 단어 공부횟수를 텍스트에 반영 */
+  function updateAllCounts(text) {
     const lines = text.split('\n');
     const result = [];
-    let inTargetBlock = false;
     let blockLines = [];
-    let found = false;
+    let blockIdx = 0;  // 현재 블록 인덱스
 
-    function flushBlock(isTarget) {
-      if (isTarget && !found) {
-        // 이 블록에서 공부횟수 줄 교체
+    function flushBlock() {
+      // 이 블록에 해당하는 단어 찾기
+      const word = allWords.find(w => w._idx === blockIdx);
+      if (word !== undefined) {
         const replaced = blockLines.map(l => {
-          if (/^공부횟수\s*[：:]/.test(l.trim())) {
-            return l.replace(/(\s*공부횟수\s*[：:]\s*)\d+/, `$1${word.studyCount}`);
+          if (/^\s*공부횟수\s*[：:]/.test(l)) {
+            return l.replace(/(\s*공부횟수\s*[：:]\s*)\d+/, `$1${word.studyCount || 0}`);
           }
           return l;
         });
         result.push(...replaced);
-        found = true;
       } else {
         result.push(...blockLines);
       }
       blockLines = [];
+      blockIdx++;
     }
 
     for (const line of lines) {
       if (/^\s*---\s*$/.test(line)) {
-        // 블록 끝 — 현재 블록이 대상인지 확인
-        const blockText = blockLines.join('\n');
-        const isTarget = blockText.includes(word.lao) && !found;
-        flushBlock(isTarget);
+        flushBlock();
         result.push(line);
       } else {
         blockLines.push(line);
       }
     }
-    // 마지막 블록 처리
-    if (blockLines.length) {
-      const blockText = blockLines.join('\n');
-      const isTarget = blockText.includes(word.lao) && !found;
-      flushBlock(isTarget);
-    }
+    if (blockLines.length) flushBlock();
 
     return result.join('\n');
   }
@@ -537,8 +545,16 @@ const StudyModule = (() => {
   }
 
   function init() {
-    // 기존에 로컬에 저장된 공부횟수 데이터 자동 정리
+    // 기존 로컬 공부횟수 데이터 정리
     try { localStorage.removeItem('study_counts'); } catch(e) {}
+
+    // 탭 비활성화 or 앱 종료 시 저장
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && _isDirty) _doSave();
+    });
+    window.addEventListener('beforeunload', () => {
+      if (_isDirty) _doSave();
+    });
   }
 
   return {
