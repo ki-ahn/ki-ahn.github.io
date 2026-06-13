@@ -67,9 +67,9 @@ const StudyModule = (() => {
     const path = sel.value;
     if (!path) return;
 
-    // 다른 노트로 이동 전 미저장 데이터 먼저 저장
+    // 다른 노트로 이동 전 미저장 데이터 GitHub에 저장
     if (_isDirty && currentFile && currentFile !== path) {
-      await _doSave();
+      await _doSave('notebook-change');
     }
 
     currentFile = path;
@@ -78,13 +78,16 @@ const StudyModule = (() => {
     try {
       const text = await GitHubModule.readFile(path);
       allWords = parseWords(text, path);
+      // 로컬에 미저장 데이터 있으면 복원
+      const hadPending = _restoreLocal();
       buildCountInput();
       selectedStudyCount = null;
-      currentPage = 1;  // 새 노트 로드 시 첫 페이지
+      currentPage = 1;
       const inp = document.getElementById('study-count-filter');
       if (inp) inp.value = '';
       renderWords();
-      toast(`${allWords.length}개 단어 로드 완료`, 'success');
+      if (hadPending) toast('⚠ 미저장 공부횟수 복원됨 — 탭 이동 or 10분 후 자동 저장', '');
+      else toast(`${allWords.length}개 단어 로드 완료`, 'success');
     } catch(e) {
       showStatus('❌', '파일 로드 실패', e.message);
       toast(e.message, 'error');
@@ -375,10 +378,7 @@ const StudyModule = (() => {
     if (!word) return;
     word.studyCount = Math.min(MAX_STUDY, Math.max(0, (word.studyCount !== undefined ? word.studyCount : 0) + delta));
     updateCardCount(lk, word.studyCount);
-    if (GitHubModule.get().token) {
-      toast(`${word.studyCount}회 — 3초 후 저장`, '');
-      await trySaveGitHub(word);
-    }
+    await trySaveGitHub(word);
   }
 
   /* 카드 내 인라인 숫자 입력으로 직접 설정 */
@@ -445,43 +445,72 @@ const StudyModule = (() => {
   }
 
   /* ── GitHub 저장 ── */
-  /* ── GitHub 저장 — 디바운스 방식 ──
-     공부횟수 변경 시 메모리만 업데이트,
-     마지막 변경 후 3초 경과 or 탭 이동 시 전체 파일 한 번만 저장
+  /* ── 저장 전략 ──
+     - ＋/－ 클릭 시: 메모리 + localStorage에 즉시 저장
+     - 마지막 변경 후 10분 경과 (idle): GitHub에 저장
+     - 탭 비활성 / 앱 종료 시: GitHub에 저장
+     - 앱 시작 시: localStorage에 미저장 데이터 있으면 복원
   ── */
-  let _saveTimer  = null;
-  let _isDirty    = false;  // 저장 필요 여부
+  const SAVE_KEY   = 'study_pending';  // 미저장 공부횟수 로컬 백업
+  const IDLE_MS    = 10 * 60 * 1000;  // 10분
+  let   _saveTimer = null;
+  let   _isDirty   = false;
 
-  function _scheduleSave() {
-    _isDirty = true;
-    clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(() => _doSave(), 3000);
+  /* 로컬 백업 저장 */
+  function _saveLocal() {
+    if (!currentFile) return;
+    const counts = {};
+    allWords.forEach(w => { counts[w._idx] = w.studyCount || 0; });
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ file: currentFile, counts, ts: Date.now() }));
+    } catch(e) {}
   }
 
-  async function _doSave() {
+  /* 로컬 백업 불러오기 — 같은 파일이면 메모리에 반영, 복원 여부 반환 */
+  function _restoreLocal() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      const { file, counts } = JSON.parse(raw);
+      if (file !== currentFile) return false;
+      allWords.forEach(w => {
+        if (counts[w._idx] !== undefined) w.studyCount = counts[w._idx];
+      });
+      _isDirty = true;   // 복원된 데이터는 아직 GitHub에 저장 안 된 상태
+      _resetIdleTimer(); // idle 타이머 시작
+      return true;
+    } catch(e) { return false; }
+  }
+
+  /* idle 타이머 재시작 */
+  function _resetIdleTimer() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => _doSave('idle'), IDLE_MS);
+  }
+
+  /* 실제 GitHub 저장 */
+  async function _doSave(reason) {
     if (!_isDirty) return;
     if (!GitHubModule.get().token || !currentFile) return;
     _isDirty = false;
     clearTimeout(_saveTimer);
-
     try {
-      // 현재 메모리의 allWords 전체를 반영한 텍스트 생성
       const { text, sha } = await GitHubModule.readFileWithSha(currentFile);
       const updated = updateAllCounts(text);
-      if (updated === text) return; // 변경 없으면 스킵
-      await GitHubModule.writeFile(
-        currentFile, updated, '공부횟수 업데이트', sha
-      );
-      toast('✓ 저장 완료', 'success');
+      if (updated === text) { localStorage.removeItem(SAVE_KEY); return; }
+      await GitHubModule.writeFile(currentFile, updated, '공부횟수 업데이트', sha);
+      localStorage.removeItem(SAVE_KEY);  // 저장 성공 시 로컬 백업 삭제
+      toast('✓ GitHub 저장 완료', 'success');
     } catch(e) {
-      _isDirty = true; // 실패 시 재시도 가능하도록
-      toast('저장 오류: ' + e.message, 'error');
+      _isDirty = true;  // 실패 시 재시도 가능
+      toast('저장 오류 (로컬 보관 중): ' + e.message, 'error');
     }
   }
 
   async function trySaveGitHub(word) {
-    // 화면만 즉시 업데이트, 저장은 디바운스
-    _scheduleSave();
+    _isDirty = true;
+    _saveLocal();        // 즉시 로컬 백업
+    _resetIdleTimer();   // idle 타이머 재시작
   }
 
   /* 메모리의 모든 단어 공부횟수를 텍스트에 반영 */
@@ -489,10 +518,9 @@ const StudyModule = (() => {
     const lines = text.split('\n');
     const result = [];
     let blockLines = [];
-    let blockIdx = 0;  // 현재 블록 인덱스
+    let blockIdx = 0;
 
     function flushBlock() {
-      // 이 블록에 해당하는 단어 찾기
       const word = allWords.find(w => w._idx === blockIdx);
       if (word !== undefined) {
         const replaced = blockLines.map(l => {
@@ -518,7 +546,6 @@ const StudyModule = (() => {
       }
     }
     if (blockLines.length) flushBlock();
-
     return result.join('\n');
   }
 
@@ -545,15 +572,12 @@ const StudyModule = (() => {
   }
 
   function init() {
-    // 기존 로컬 공부횟수 데이터 정리
-    try { localStorage.removeItem('study_counts'); } catch(e) {}
-
-    // 탭 비활성화 or 앱 종료 시 저장
+    // 탭 비활성화 / 앱 종료 시 GitHub 저장
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && _isDirty) _doSave();
+      if (document.hidden && _isDirty) _doSave('visibility');
     });
     window.addEventListener('beforeunload', () => {
-      if (_isDirty) _doSave();
+      if (_isDirty) _doSave('unload');
     });
   }
 
