@@ -33,14 +33,19 @@ const GitHubModule = (() => {
 
   /* ── HTTP ── */
   function headers() {
-    const h = { 'Accept': 'application/vnd.github.v3+json' };
+    const h = {
+      'Accept': 'application/vnd.github.v3+json',
+      'Cache-Control': 'no-cache',   // 브라우저 캐시 방지 → 항상 최신 SHA 수신
+      'Pragma': 'no-cache',
+    };
     if (_cfg.token) h['Authorization'] = 'token ' + _cfg.token;
     return h;
   }
 
   async function fetchContents(path) {
-    const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/contents/${path}?ref=${_cfg.branch}`;
-    const r = await fetch(url, { headers: headers() });
+    // cache:'no-store' 로 fetch 레벨에서도 캐시 완전 차단
+    const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/contents/${path}?ref=${_cfg.branch}&_=${Date.now()}`;
+    const r = await fetch(url, { headers: headers(), cache: 'no-store' });
     if (!r.ok) {
       const e = await r.json().catch(() => ({}));
       throw new Error((e.message || `HTTP ${r.status}`) + '\n경로: ' + path);
@@ -80,7 +85,7 @@ const GitHubModule = (() => {
     return { text: decode64(data.content), sha: data.sha };
   }
 
-  /* ── 파일 쓰기 (sha 직접 전달 시 추가 API 호출 없음) ── */
+  /* ── 파일 쓰기 ── */
   async function writeFile(path, text, message, sha) {
     if (!_cfg.token) throw new Error('GitHub 토큰이 필요합니다');
     const bytes = new TextEncoder().encode(text);
@@ -89,13 +94,12 @@ const GitHubModule = (() => {
     const encoded = btoa(binary);
     const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/contents/${path}`;
 
-    // sha가 없으면 조회 (신규 파일 생성 시)
     let fileSha = sha;
     if (!fileSha) {
       try {
         const meta = await fetchContents(path);
         fileSha = meta.sha;
-      } catch(e) { /* 파일 없으면 sha 없이 생성 */ }
+      } catch(e) {}
     }
 
     const body = { message: message || '앱에서 수정', content: encoded, branch: _cfg.branch };
@@ -105,13 +109,15 @@ const GitHubModule = (() => {
       method: 'PUT',
       headers: { ...headers(), 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      cache: 'no-store',
     });
     if (!r.ok) {
       const e = await r.json().catch(() => ({}));
       throw new Error(e.message || `HTTP ${r.status}`);
     }
     const result = await r.json();
-    return result;
+    // PUT 응답에서 새 SHA 반환 → 다음 저장 시 재사용 가능
+    return { ...result, newSha: result?.content?.sha };
   }
 
   return { save, load, configure, get, isReady, fetchContents, fetchTree, readFile, readFileWithSha, writeFile, decode64 };

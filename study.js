@@ -73,6 +73,7 @@ const StudyModule = (() => {
     }
 
     currentFile = path;
+    _lastSha = null;  // 새 파일이므로 SHA 캐시 초기화
     localStorage.setItem('study_last_file', path);
     showLoading();
     try {
@@ -495,6 +496,8 @@ const StudyModule = (() => {
     } catch(e) { return false; }
   }
 
+  let _lastSha = null;  // 마지막 저장 후 받은 최신 SHA 캐시
+
   /* GitHub에 전체 저장 */
   async function _doSave(showToast = true) {
     if (!_isDirty) return;
@@ -505,6 +508,7 @@ const StudyModule = (() => {
     const btn = document.getElementById('study-save-btn');
     if (btn) { btn.textContent = '⏳ 저장 중…'; btn.disabled = true; }
     try {
+      // 항상 최신 SHA를 서버에서 가져옴 (캐시 방지는 fetchContents에서 처리)
       const { text, sha } = await GitHubModule.readFileWithSha(currentFile);
       const updated = updateAllCounts(text);
       if (updated === text) {
@@ -512,15 +516,19 @@ const StudyModule = (() => {
         localStorage.removeItem(SAVE_KEY);
         _updateSaveBtn();
         if (showToast) toast('변경 내용이 없습니다', '');
+        if (btn) btn.disabled = false;
         return;
       }
-      await GitHubModule.writeFile(currentFile, updated, '공부횟수 업데이트', sha);
+      const res = await GitHubModule.writeFile(currentFile, updated, '공부횟수 업데이트', sha);
+      // PUT 응답에서 새 SHA 캐시 → 다음 저장 시 재사용
+      _lastSha = res?.newSha || res?.content?.sha || null;
       _isDirty = false;
       localStorage.removeItem(SAVE_KEY);
       _updateSaveBtn();
       if (showToast) toast('✓ GitHub 저장 완료', 'success');
     } catch(e) {
-      if (btn) { btn.textContent = '💾 저장'; btn.disabled = false; }
+      _lastSha = null;  // SHA 오류 시 초기화
+      if (btn) { btn.classList.add('dirty'); }
       toast('저장 오류: ' + e.message, 'error');
     }
     if (btn) btn.disabled = false;
