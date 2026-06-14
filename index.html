@@ -476,6 +476,18 @@ html[data-dark] #pdf-sidebar {
 .num-input:focus { outline: none; border-color: var(--ui-accent2); }
 .tb-icon-btn { background: var(--ui-bg3); border: 1px solid var(--ui-border); color: var(--ui-text2); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; transition: all .13s; white-space: nowrap; }
 .tb-icon-btn:hover { border-color: var(--ui-accent2); color: var(--ui-accent2); }
+/* 저장 버튼 — 미저장 시 강조 */
+#study-save-btn { transition: all .2s; }
+#study-save-btn.dirty {
+  border-color: var(--ui-accent3) !important;
+  color: var(--ui-accent3) !important;
+  font-weight: 700;
+  animation: savePulse 1.8s ease-in-out infinite;
+}
+@keyframes savePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(125,211,168,.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(125,211,168,.0); }
+}
 /* 스테퍼 (－ 값 ＋) */
 .tb-stepper {
   display: flex; align-items: center;
@@ -800,7 +812,7 @@ html[data-dark] #pdf-sidebar {
     <div class="tb-group" style="margin-left:auto">
       <button class="tb-icon-btn" onclick="StudyModule.loadNotebooks()">🔄 새로고침</button>
       <button class="tb-icon-btn" id="study-save-btn" onclick="StudyModule.saveNow()"
-        style="display:none;border-color:var(--ui-accent3);color:var(--ui-accent3)">
+        title="공부횟수를 GitHub에 저장">
         💾 저장
       </button>
     </div>

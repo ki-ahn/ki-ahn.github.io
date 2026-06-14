@@ -454,12 +454,19 @@ const StudyModule = (() => {
   const SAVE_KEY = 'study_pending';
   let _isDirty   = false;
 
-  /* 저장 버튼 표시/숨김 */
+  /* 저장 버튼 상태 업데이트 */
   function _updateSaveBtn() {
     const btn = document.getElementById('study-save-btn');
     if (!btn) return;
-    btn.style.display = _isDirty ? 'flex' : 'none';
-    btn.textContent = _isDirty ? '💾 저장' : '✓ 저장됨';
+    if (_isDirty) {
+      btn.classList.add('dirty');
+      btn.textContent = '💾 저장 *';
+      btn.title = '미저장 공부횟수 있음 — 클릭하여 GitHub 저장';
+    } else {
+      btn.classList.remove('dirty');
+      btn.textContent = '💾 저장';
+      btn.title = '공부횟수를 GitHub에 저장';
+    }
   }
 
   /* 로컬 백업 저장 */
