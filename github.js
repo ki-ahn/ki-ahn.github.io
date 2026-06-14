@@ -33,18 +33,13 @@ const GitHubModule = (() => {
 
   /* ── HTTP ── */
   function headers() {
-    const h = {
-      'Accept': 'application/vnd.github.v3+json',
-      'Cache-Control': 'no-cache',   // 브라우저 캐시 방지 → 항상 최신 SHA 수신
-      'Pragma': 'no-cache',
-    };
+    const h = { 'Accept': 'application/vnd.github.v3+json' };
     if (_cfg.token) h['Authorization'] = 'token ' + _cfg.token;
     return h;
   }
 
   async function fetchContents(path) {
-    // cache:'no-store' 로 fetch 레벨에서도 캐시 완전 차단
-    const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/contents/${path}?ref=${_cfg.branch}&_=${Date.now()}`;
+    const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/contents/${path}?ref=${_cfg.branch}`;
     const r = await fetch(url, { headers: headers(), cache: 'no-store' });
     if (!r.ok) {
       const e = await r.json().catch(() => ({}));
