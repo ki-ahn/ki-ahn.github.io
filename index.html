@@ -799,6 +799,10 @@ html[data-dark] #pdf-sidebar {
     </div>
     <div class="tb-group" style="margin-left:auto">
       <button class="tb-icon-btn" onclick="StudyModule.loadNotebooks()">🔄 새로고침</button>
+      <button class="tb-icon-btn" id="study-save-btn" onclick="StudyModule.saveNow()"
+        style="display:none;border-color:var(--ui-accent3);color:var(--ui-accent3)">
+        💾 저장
+      </button>
     </div>
   </div>
   <div id="study-togglebar">

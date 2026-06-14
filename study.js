@@ -446,15 +446,21 @@ const StudyModule = (() => {
 
   /* ── GitHub 저장 ── */
   /* ── 저장 전략 ──
-     - ＋/－ 클릭 시: 메모리 + localStorage에 즉시 저장
-     - 마지막 변경 후 10분 경과 (idle): GitHub에 저장
-     - 탭 비활성 / 앱 종료 시: GitHub에 저장
-     - 앱 시작 시: localStorage에 미저장 데이터 있으면 복원
+     - ＋/－ 클릭: 메모리 + localStorage 즉시 저장, 저장 버튼 활성화
+     - 저장 버튼 클릭: GitHub에 전체 저장
+     - 탭 이동 / 앱 종료: GitHub에 자동 저장
+     - 앱 재시작: localStorage 미저장 데이터 자동 복원
   ── */
-  const SAVE_KEY   = 'study_pending';  // 미저장 공부횟수 로컬 백업
-  const IDLE_MS    = 10 * 60 * 1000;  // 10분
-  let   _saveTimer = null;
-  let   _isDirty   = false;
+  const SAVE_KEY = 'study_pending';
+  let _isDirty   = false;
+
+  /* 저장 버튼 표시/숨김 */
+  function _updateSaveBtn() {
+    const btn = document.getElementById('study-save-btn');
+    if (!btn) return;
+    btn.style.display = _isDirty ? 'flex' : 'none';
+    btn.textContent = _isDirty ? '💾 저장' : '✓ 저장됨';
+  }
 
   /* 로컬 백업 저장 */
   function _saveLocal() {
@@ -466,7 +472,7 @@ const StudyModule = (() => {
     } catch(e) {}
   }
 
-  /* 로컬 백업 불러오기 — 같은 파일이면 메모리에 반영, 복원 여부 반환 */
+  /* 로컬 백업 복원 — 같은 파일이면 메모리에 반영, 복원 여부 반환 */
   function _restoreLocal() {
     try {
       const raw = localStorage.getItem(SAVE_KEY);
@@ -476,41 +482,50 @@ const StudyModule = (() => {
       allWords.forEach(w => {
         if (counts[w._idx] !== undefined) w.studyCount = counts[w._idx];
       });
-      _isDirty = true;   // 복원된 데이터는 아직 GitHub에 저장 안 된 상태
-      _resetIdleTimer(); // idle 타이머 시작
+      _isDirty = true;
+      _updateSaveBtn();
       return true;
     } catch(e) { return false; }
   }
 
-  /* idle 타이머 재시작 */
-  function _resetIdleTimer() {
-    clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(() => _doSave('idle'), IDLE_MS);
-  }
-
-  /* 실제 GitHub 저장 */
-  async function _doSave(reason) {
+  /* GitHub에 전체 저장 */
+  async function _doSave(showToast = true) {
     if (!_isDirty) return;
-    if (!GitHubModule.get().token || !currentFile) return;
-    _isDirty = false;
-    clearTimeout(_saveTimer);
+    if (!GitHubModule.get().token || !currentFile) {
+      toast('GitHub 토큰을 설정하세요', 'error');
+      return;
+    }
+    const btn = document.getElementById('study-save-btn');
+    if (btn) { btn.textContent = '⏳ 저장 중…'; btn.disabled = true; }
     try {
       const { text, sha } = await GitHubModule.readFileWithSha(currentFile);
       const updated = updateAllCounts(text);
-      if (updated === text) { localStorage.removeItem(SAVE_KEY); return; }
+      if (updated === text) {
+        _isDirty = false;
+        localStorage.removeItem(SAVE_KEY);
+        _updateSaveBtn();
+        if (showToast) toast('변경 내용이 없습니다', '');
+        return;
+      }
       await GitHubModule.writeFile(currentFile, updated, '공부횟수 업데이트', sha);
-      localStorage.removeItem(SAVE_KEY);  // 저장 성공 시 로컬 백업 삭제
-      toast('✓ GitHub 저장 완료', 'success');
+      _isDirty = false;
+      localStorage.removeItem(SAVE_KEY);
+      _updateSaveBtn();
+      if (showToast) toast('✓ GitHub 저장 완료', 'success');
     } catch(e) {
-      _isDirty = true;  // 실패 시 재시도 가능
-      toast('저장 오류 (로컬 보관 중): ' + e.message, 'error');
+      if (btn) { btn.textContent = '💾 저장'; btn.disabled = false; }
+      toast('저장 오류: ' + e.message, 'error');
     }
+    if (btn) btn.disabled = false;
   }
+
+  /* 저장 버튼 클릭 */
+  async function saveNow() { await _doSave(true); }
 
   async function trySaveGitHub(word) {
     _isDirty = true;
-    _saveLocal();        // 즉시 로컬 백업
-    _resetIdleTimer();   // idle 타이머 재시작
+    _saveLocal();
+    _updateSaveBtn();
   }
 
   /* 메모리의 모든 단어 공부횟수를 텍스트에 반영 */
@@ -572,18 +587,18 @@ const StudyModule = (() => {
   }
 
   function init() {
-    // 탭 비활성화 / 앱 종료 시 GitHub 저장
+    // 탭 비활성화 / 앱 종료 시 자동 저장
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && _isDirty) _doSave('visibility');
+      if (document.hidden && _isDirty) _doSave(false);
     });
     window.addEventListener('beforeunload', () => {
-      if (_isDirty) _doSave('unload');
+      if (_isDirty) _doSave(false);
     });
   }
 
   return {
     init, loadNotebooks, loadCurrentNotebook, renderWords, goPage,
-    onCountFilterChange, stepFilter, stepDisplay,
+    onCountFilterChange, stepFilter, stepDisplay, saveNow,
     toggleCol, toggleCell, playAudio, playAll,
     changeCount, setCountInline, confirmInline, cancelInline, clearLocal,
   };
