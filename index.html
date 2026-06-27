@@ -1131,9 +1131,10 @@ function bkRender() {
   reader.style.fontSize = _bkS.fs + 'px';
   if (_bkS.readerW) reader.style.maxWidth = _bkS.readerW + 'px';
   BibleModule.processDom(reader);
-  hookLinks(reader); /////
+
   bkApplyHls(); bkBuildToc(); bkTrackProg();
   bkColorTags(reader);  // #태그 색상
+  hookLinks(reader); /////
 }
 
 /* ══════════════════════════════════════════════
