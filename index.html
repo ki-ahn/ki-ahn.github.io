@@ -314,6 +314,17 @@ html[data-dark] #bk-sidebar {
 #bk-reader pre code { background: none; padding: 0; }
 #bk-reader hr { border: none; border-top: 1px solid var(--pbd); margin: 1.6em 0; }
 #bk-reader a { color: var(--ac2); text-decoration: underline; }
+/* 위키링크 스타일 */
+#bk-reader a[href^="obsidian://"] {
+  color: var(--ac) !important;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--ac);
+  cursor: pointer;
+}
+#bk-reader a[href^="obsidian://"]:hover {
+  background: rgba(196,164,90,.1);
+  border-radius: 3px;
+}
 #bk-reader table { width: 100%; border-collapse: collapse; margin: .9em 0; font-size: .9em; }
 #bk-reader th { background: rgba(196,164,90,.1); padding: 7px 10px; border: 1px solid var(--pbd); font-weight: 600; text-align: left; color: var(--pt); }
 #bk-reader td { padding: 6px 10px; border: 1px solid var(--pbd); color: var(--pt); }
@@ -1110,7 +1121,15 @@ async function bkOpen(path) {
 function bkRender() {
   let md = _bkContent;
   md = md.replace(/^---[\s\S]*?---\n?/, '');
-  md = md.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (_, p, a) => a ? a.slice(1) : p);
+
+  // [[노트명]] 또는 [[노트명|표시텍스트]] → 클릭 가능한 마크다운 링크로 변환
+  md = md.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(|[^\]]+)?\]\]/g, (_, noteName, heading, alias) => {
+    const display = alias ? alias.slice(1) : (heading ? noteName + heading : noteName);
+    const encoded = encodeURIComponent(noteName.trim());
+    const headingPart = heading ? encodeURIComponent(heading) : '';
+    return `[${display}](obsidian://${encoded}${headingPart})`;
+  });
+
   md = md.replace(/^(> \[!(\w+)\][^\n]*\n(?:>.*\n?)*)/gm, m => {
     const lines = m.split('\n');
     const tm = lines[0].match(/\[!(\w+)\](.*)/);
@@ -1120,6 +1139,7 @@ function bkRender() {
     const icons = {note:'📝',tip:'💡',warning:'⚠️',danger:'🚨',info:'ℹ️',quote:'💬',important:'❗'};
     return `\n\n<div class="obs-callout ${type}"><div class="obs-callout-title">${icons[type]||'📌'} ${title||type}</div><div class="obs-callout-body">${body}</div></div>\n\n`;
   });
+
   bkSyncBible();
   md = BibleModule.protectRefs(md);
   let html = '';
@@ -1132,7 +1152,74 @@ function bkRender() {
   if (_bkS.readerW) reader.style.maxWidth = _bkS.readerW + 'px';
   BibleModule.processDom(reader);
   bkApplyHls(); bkBuildToc(); bkTrackProg();
-  bkColorTags(reader);  // #태그 색상
+  bkColorTags(reader);
+  bkBindLinks(reader);  // 내부 링크 클릭 핸들러
+}
+
+/* ── 내부 링크 처리 ── */
+function bkBindLinks(reader) {
+  reader.querySelectorAll('a').forEach(a => {
+    const href = a.getAttribute('href') || '';
+
+    // obsidian:// 위키링크
+    if (href.startsWith('obsidian://')) {
+      a.style.cursor = 'pointer';
+      a.style.color = 'var(--ac2)';
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const noteName = decodeURIComponent(href.replace('obsidian://', '').split('%23')[0]);
+        const heading  = href.includes('%23') ? decodeURIComponent(href.split('%23')[1]) : null;
+        bkOpenByName(noteName, heading);
+      });
+    }
+    // 일반 http 링크는 새 탭
+    else if (href.startsWith('http')) {
+      a.target = '_blank';
+      a.rel = 'noopener';
+    }
+    // 상대 경로 .md 링크
+    else if (href.endsWith('.md') || (!href.startsWith('#') && !href.includes('://'))) {
+      a.style.cursor = 'pointer';
+      a.style.color = 'var(--ac2)';
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const name = decodeURIComponent(href).replace(/\.md$/, '');
+        bkOpenByName(name, null);
+      });
+    }
+  });
+}
+
+/* 노트 이름으로 파일 찾아서 열기 */
+async function bkOpenByName(noteName, heading) {
+  // 파일 목록에서 이름 매칭 (경로 마지막 부분으로 검색)
+  const lower = noteName.toLowerCase().trim();
+  let found = _bkFiles.find(p => {
+    const fname = p.split('/').pop().replace(/\.md$/, '').toLowerCase();
+    return fname === lower;
+  });
+  // 정확히 못 찾으면 포함 검색
+  if (!found) {
+    found = _bkFiles.find(p => {
+      const fname = p.split('/').pop().replace(/\.md$/, '').toLowerCase();
+      return fname.includes(lower) || lower.includes(fname);
+    });
+  }
+  if (!found) {
+    AppToast.show(`"${noteName}" 노트를 찾을 수 없습니다`, 'error');
+    return;
+  }
+  await bkOpen(found);
+  // 헤딩으로 스크롤
+  if (heading) {
+    setTimeout(() => {
+      const hs = document.querySelectorAll('#bk-reader h1,#bk-reader h2,#bk-reader h3,#bk-reader h4');
+      const target = Array.from(hs).find(h =>
+        h.textContent.toLowerCase().trim() === heading.toLowerCase().trim()
+      );
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 400);
+  }
 }
 
 /* ── 밑줄 ── */
