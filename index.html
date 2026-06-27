@@ -1131,8 +1131,59 @@ function bkRender() {
   reader.style.fontSize = _bkS.fs + 'px';
   if (_bkS.readerW) reader.style.maxWidth = _bkS.readerW + 'px';
   BibleModule.processDom(reader);
+  hookLinks(reader); /////
   bkApplyHls(); bkBuildToc(); bkTrackProg();
   bkColorTags(reader);  // #태그 색상
+}
+
+/* ══════════════════════════════════════════════
+   LINK HANDLER
+   obsidian-link://note?p=...       → 다른 노트 열기
+   obsidian-link://heading?h=...    → 현재 노트 내 헤딩 스크롤
+   obsidian-link://note?p=...&h=... → 다른 노트의 헤딩으로 이동
+   일반 http(s):// 링크             → 새 탭 열기
+══════════════════════════════════════════════ */
+function hookLinks(rootEl){
+  rootEl.querySelectorAll('a[href]').forEach(a=>{
+    // 이미 처리된 링크는 스킵
+    if(a.dataset.hooked) return;
+    a.dataset.hooked='1';
+    const href=a.getAttribute('href')||'';
+
+    if(href.startsWith('obsidian-link://')){
+      a.style.cssText='color:var(--accent2);cursor:pointer;border-bottom:1px dotted var(--accent);text-decoration:none';
+      a.onclick=e=>{
+        e.preventDefault();
+        const url=new URL(href);
+        const page  =decodeURIComponent(url.searchParams.get('p')||'');
+        const heading=decodeURIComponent(url.searchParams.get('h')||'');
+
+        if(url.host==='heading'){
+          // 현재 노트 내 헤딩으로 스크롤
+          scrollToHeading(heading);
+        } else {
+          // 다른 노트 열기
+          const target=resolveNotePath(page);
+          if(target){
+            openFile(target).then(()=>{
+              if(heading) setTimeout(()=>scrollToHeading(heading),350);
+            });
+          } else {
+            showToast(`노트를 찾을 수 없습니다: ${page}`);
+          }
+        }
+      };
+    } else if(href.startsWith('http://') || href.startsWith('https://')){
+      a.setAttribute('target','_blank');
+      a.setAttribute('rel','noopener noreferrer');
+    } else if(href.startsWith('#')){
+      // 마크다운 앵커 (marked가 생성한 #heading-id)
+      a.onclick=e=>{
+        e.preventDefault();
+        scrollToHeading(decodeURIComponent(href.slice(1)));
+      };
+    }
+  });
 }
 
 /* ── 밑줄 ── */
