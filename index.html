@@ -326,6 +326,12 @@ html[data-dark] #bk-sidebar {
   border-radius: 3px;
 }
 #bk-reader table { width: 100%; border-collapse: collapse; margin: .9em 0; font-size: .9em; }
+#bk-reader img {
+  max-width: 100%; height: auto; display: block;
+  margin: 1em auto; border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.1);
+  transition: opacity .25s;
+}
 #bk-reader th { background: rgba(196,164,90,.1); padding: 7px 10px; border: 1px solid var(--pbd); font-weight: 600; text-align: left; color: var(--pt); }
 #bk-reader td { padding: 6px 10px; border: 1px solid var(--pbd); color: var(--pt); }
 .obs-callout { border-radius: 6px; margin: 1em 0; padding: 10px 14px; border-left: 4px solid; font-size: .93em; background: rgba(128,100,50,.06); }
@@ -1122,12 +1128,27 @@ function bkRender() {
   let md = _bkContent;
   md = md.replace(/^---[\s\S]*?---\n?/, '');
 
-  // [[노트명]] 또는 [[노트명|표시텍스트]] → 클릭 가능한 마크다운 링크로 변환
-  md = md.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(|[^\]]+)?\]\]/g, (_, noteName, heading, alias) => {
+  // ![[image.png]] 또는 ![[image.png|300]] 옵시디언 이미지 임베드
+  md = md.replace(/!\[\[([^\]|#]+\.(png|jpe?g|gif|svg|webp|bmp))(\|(\d+))?\]\]/gi,
+    (_, imgPath, ext, sizeFull, width) => {
+      const alt = imgPath.split('/').pop();
+      const w = width ? `|${width}` : '';
+      return `![${alt}](bk-img://${encodeURIComponent(imgPath.trim())}${w})`;
+    });
+
+  // [[노트명]] 또는 [[노트명|표시텍스트]] → 클릭 가능한 마크다운 링크 (이미지 처리 후 실행)
+  md = md.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(\|[^\]]+)?\]\]/g, (_, noteName, heading, alias) => {
     const display = alias ? alias.slice(1) : (heading ? noteName + heading : noteName);
     const encoded = encodeURIComponent(noteName.trim());
     const headingPart = heading ? encodeURIComponent(heading) : '';
     return `[${display}](obsidian://${encoded}${headingPart})`;
+  });
+
+  // 일반 마크다운 이미지의 상대경로를 bk-img:// 로 변환 (http/https/data 제외)
+  md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (full, alt, src) => {
+    if (/^(https?:|data:|bk-img:)/.test(src)) return full;
+    try { src = decodeURIComponent(src); } catch(e) {}
+    return `![${alt}](bk-img://${encodeURIComponent(src)})`;
   });
 
   md = md.replace(/^(> \[!(\w+)\][^\n]*\n(?:>.*\n?)*)/gm, m => {
@@ -1153,7 +1174,103 @@ function bkRender() {
   BibleModule.processDom(reader);
   bkApplyHls(); bkBuildToc(); bkTrackProg();
   bkColorTags(reader);
-  bkBindLinks(reader);  // 내부 링크 클릭 핸들러
+  bkBindLinks(reader);
+  bkResolveImages(reader);  // 이미지 로딩
+}
+
+/* ── 이미지 로딩 ── */
+const _bkImgCache = new Map();  // path → blobUrl 캐시
+
+async function bkResolveImages(reader) {
+  const imgs = Array.from(reader.querySelectorAll('img[src^="bk-img://"]'));
+  if (!imgs.length) return;
+
+  await Promise.all(imgs.map(async img => {
+    const raw = img.getAttribute('src').replace('bk-img://', '');
+    // 너비 지정 분리 (encodeURIComponent된 경로|너비)
+    const parts = raw.split('|');
+    let imgPath = decodeURIComponent(parts[0]);
+    const width = parts[1];
+
+    // 로딩 placeholder
+    img.style.opacity = '0.3';
+    img.style.background = 'var(--ui-bg3, #eee)';
+    img.style.minHeight = '60px';
+    if (width) img.style.width = width + 'px';
+
+    try {
+      const fullPath = bkResolveImagePath(imgPath);
+      if (_bkImgCache.has(fullPath)) {
+        img.src = _bkImgCache.get(fullPath);
+        img.style.opacity = '1';
+        return;
+      }
+
+      const cfg = GitHubModule.get();
+      let fetchPath = fullPath;
+      let meta;
+      try {
+        meta = await GitHubModule.fetchContents(fetchPath);
+      } catch(e1) {
+        const fname = imgPath.split('/').pop().toLowerCase();
+        const tree = await GitHubModule.fetchTree();
+        const match = tree.tree.find(f =>
+          f.type === 'blob' && f.path.split('/').pop().toLowerCase() === fname
+        );
+        if (!match) throw e1;
+        fetchPath = match.path;
+        meta = await GitHubModule.fetchContents(fetchPath);
+      }
+
+      let bytes;
+      if (meta.encoding === 'base64' && meta.content) {
+        const b64 = meta.content.replace(/\n/g, '');
+        const rawStr = atob(b64);
+        bytes = new Uint8Array(rawStr.length);
+        for (let i = 0; i < rawStr.length; i++) bytes[i] = rawStr.charCodeAt(i);
+      } else {
+        const sha = meta.sha;
+        const blobUrl = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/git/blobs/${sha}`;
+        const headers = { 'Accept': 'application/vnd.github.raw' };
+        if (cfg.token) headers['Authorization'] = 'token ' + cfg.token;
+        const res = await fetch(blobUrl, { headers });
+        if (!res.ok) throw new Error('이미지 로드 실패');
+        bytes = new Uint8Array(await res.arrayBuffer());
+      }
+
+      const ext = (fetchPath.split('.').pop() || 'png').toLowerCase();
+      const mimeMap = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', svg:'image/svg+xml', webp:'image/webp', bmp:'image/bmp' };
+      const blob = new Blob([bytes], { type: mimeMap[ext] || 'image/png' });
+      const blobUrl = URL.createObjectURL(blob);
+      _bkImgCache.set(fullPath, blobUrl);
+
+      img.src = blobUrl;
+      img.style.opacity = '1';
+      img.style.background = 'none';
+    } catch(e) {
+      img.alt = `⚠ 이미지 로드 실패: ${imgPath}`;
+      img.style.opacity = '1';
+      img.style.background = 'none';
+      img.style.border = '1px dashed var(--ui-danger, #e05555)';
+      img.style.padding = '8px';
+      img.style.fontSize = '12px';
+      img.style.color = 'var(--ui-danger, #e05555)';
+    }
+  }));
+}
+
+/* 이미지 경로를 저장소 절대 경로로 변환 */
+function bkResolveImagePath(imgPath) {
+  // 이미 절대 경로(/ 로 시작)면 그대로
+  if (imgPath.startsWith('/')) return imgPath.slice(1);
+  // http(s):// 면 처리 안 함 (이미 위에서 걸러짐)
+  // 옵시디언은 보통 첨부파일을 attachments/ 또는 같은 폴더에 둠
+  // 1순위: 현재 파일과 같은 폴더 기준 상대경로
+  if (_bkCur) {
+    const curDir = _bkCur.includes('/') ? _bkCur.substring(0, _bkCur.lastIndexOf('/')) : '';
+    if (curDir) return curDir + '/' + imgPath;
+  }
+  return imgPath;
 }
 
 /* ── 내부 링크 처리 ── */
