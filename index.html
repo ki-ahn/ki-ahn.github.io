@@ -484,7 +484,9 @@ html[data-dark] #pdf-sidebar {
 #pdf-viewer-wrap { flex: 1; overflow: hidden; position: relative; background: var(--ui-bg2); }
 #pdf-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ui-text3); text-align: center; padding: 24px; }
 #pdf-iframe { width: 100%; height: 100%; border: none; display: none; background: var(--ui-bg); }
-
+/* ══════════════════════════════════════
+   단어공부 — 책보기와 동일한 레이아웃
+══════════════════════════════════════ */
 #panel-study { height: calc(100vh - 48px); display: none; flex-direction: column; overflow: hidden; }
 #panel-study.on { display: flex; }
 #study-wrap { flex: 1; display: flex; overflow: hidden; height: 100%; background: var(--ui-bg); }
@@ -607,9 +609,7 @@ html[data-dark] #st-sidebar {
 .s-icon { font-size: 38px; margin-bottom: 10px; }
 .s-status h3 { font-size: 14px; color: var(--ui-text2); font-weight: 400; margin-bottom: 6px; }
 .s-status p { font-size: 13px; line-height: 1.6; }
-.s-loader { width: 28px; height: 28px; border: 3px solid var(--ui-border); border-top-color: var(--ui-accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; 
-}
-
+.s-loader { width: 28px; height: 28px; border: 3px solid var(--ui-border); border-top-color: var(--ui-accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
 </style>
 </head>
 <body>
@@ -802,64 +802,44 @@ html[data-dark] #st-sidebar {
 
 <!-- ══ 단어공부 패널 ══ -->
 <div class="panel" id="panel-study">
-  <div id="study-toolbar">
-    <div class="tb-group">
-      <span class="tb-label">📂 노트</span>
-      <select class="tb-sel" id="study-notebook-sel" onchange="StudyModule.loadCurrentNotebook()">
-        <option value="">— 설정 필요 —</option>
-      </select>
-    </div>
-    <div class="tb-group">
-      <span class="tb-label">🎯 공부횟수</span>
-      <div class="tb-stepper">
-        <button onclick="StudyModule.stepFilter(-1)">－</button>
-        <span id="study-count-filter-display">전체</span>
-        <button onclick="StudyModule.stepFilter(1)">＋</button>
+  <div id="study-wrap">
+    <!-- 사이드바: 노트 목록 -->
+    <div id="st-sidebar">
+      <div class="bk-sbh"><h1>✏️ 단어공부</h1><p id="st-repo-lbl">저장소를 연결하세요</p></div>
+      <div class="bk-sbs"><input placeholder="파일 필터…" oninput="StudyModule.filterTree(this.value)"></div>
+      <div id="st-ftree"><div style="padding:16px;color:var(--sb-text2);font-size:12px;text-align:center">저장소를 연결하세요</div></div>
+      <div class="bk-sbf">
+        <button class="bk-sbb" onclick="StudyModule.loadNotebooks()">↺ 새로고침</button>
+        <button class="bk-sbb" id="study-save-btn" onclick="StudyModule.saveNow()" title="공부횟수 저장">💾 저장</button>
       </div>
-      <span style="font-size:11px;color:var(--ui-text3)">이하</span>
     </div>
-    <div class="tb-group">
-      <span class="tb-label">📋 표시</span>
-      <div class="tb-stepper">
-        <button onclick="StudyModule.stepDisplay(-1)">－</button>
-        <span id="study-display-count-display">20</span>
-        <button onclick="StudyModule.stepDisplay(1)">＋</button>
+    <div class="bk-spl" id="st-spl" onmousedown="stDragStart(event)" style="display:block"></div>
+    <!-- 본문 영역 -->
+    <div id="st-main">
+      <!-- 상단 토글바 -->
+      <div id="st-topbar">
+        <button class="bk-btn" id="st-sb-btn" onclick="StudyModule.toggleSidebar()">☰</button>
+        <div id="st-title"><span style="color:var(--pm)">노트를 선택하세요</span></div>
+        <!-- 보기 토글 버튼 -->
+        <button class="tog-btn on" id="stog-lao" onclick="StudyModule.toggleCol('lao')">라오어</button>
+        <button class="tog-btn on" id="stog-eng" onclick="StudyModule.toggleCol('eng')">영어</button>
+        <button class="tog-btn on" id="stog-kor" onclick="StudyModule.toggleCol('kor')">한글</button>
+        <div style="flex:1"></div>
+        <button class="play-all-btn" style="padding:3px 10px;font-size:11px" onclick="StudyModule.playAll()">▶ 전체</button>
       </div>
-      <span style="font-size:11px;color:var(--ui-text3)">개</span>
-    </div>
-    <div class="tb-group" style="margin-left:auto">
-      <button class="tb-icon-btn" onclick="StudyModule.loadNotebooks()">🔄 새로고침</button>
-      <button class="tb-icon-btn" id="study-save-btn" onclick="StudyModule.saveNow()"
-        title="공부횟수를 GitHub에 저장">
-        💾 저장
-      </button>
-    </div>
-  </div>
-  <div id="study-togglebar">
-    <button class="play-all-btn" onclick="StudyModule.playAll()">▶ 전체 재생</button>
-    <div style="width:1px;height:18px;background:var(--ui-border);margin:0 3px"></div>
-    <button class="tog-btn on" id="stog-lao"  onclick="StudyModule.toggleCol('lao')">라오어</button>
-    <button class="tog-btn on" id="stog-eng"  onclick="StudyModule.toggleCol('eng')">영어</button>
-    <button class="tog-btn on" id="stog-kor"  onclick="StudyModule.toggleCol('kor')">한글</button>
-    <button class="tog-btn on" id="stog-opp"  onclick="StudyModule.toggleCol('opp')">반댓말</button>
-    <div style="flex:1"></div>
-    <span id="st-range" style="font-size:11px;color:var(--ui-text3)"></span>
-  </div>
-  <div id="study-stats">
-    전체&nbsp;<span id="st-total">0</span>개 ·
-    표시&nbsp;<span id="st-shown">0</span>개 ·
-    학습완료&nbsp;<span id="st-studied">0</span>개
-  </div>
-  <div id="study-words">
-    <div class="s-status">
-      <div class="s-icon">⚙️</div>
-      <h3>설정에서 GitHub 저장소를 입력하세요</h3>
-      <p>우측 상단 ⚙ 설정 버튼을 눌러 저장소를 연결하세요.</p>
+      <!-- 단어 본문 스크롤 -->
+      <div id="st-reader-wrap">
+        <div id="st-reader">
+          <div class="s-status">
+            <div class="s-icon">⚙️</div>
+            <h3>설정에서 GitHub 저장소를 연결하세요</h3>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-  <!-- 페이지네이션 -->
-  <div id="study-pagination"></div>
 </div>
+
 
 <script>
 /* ══ AppToast ══ */
@@ -938,9 +918,9 @@ function saveCfg() {
   closeCfg();
   updateEtcLabel();
   bkSyncBible();
-  // 책보기 파일 목록 갱신
-  const c = GitHubModule.get();
-  document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
+  const c2 = GitHubModule.get();
+  if (document.getElementById('st-repo-lbl'))
+    document.getElementById('st-repo-lbl').textContent = `${c2.user}/${c2.repo}`;
   bkLoadFiles();
   StudyModule.loadNotebooks();
 }
@@ -952,14 +932,13 @@ function updateEtcLabel() {
 
 /* ── 단어공부 글자크기 ── */
 function studyFontSize(sz, btn) {
-  document.getElementById('study-words').style.setProperty('--study-fs', sz + 'px');
-  localStorage.setItem('study-fs', sz);
+  StudyModule.setFontSize(sz);
   document.querySelectorAll('#cfgp-study .cfg-fsbtn').forEach(b => b.classList.remove('on'));
   btn?.classList.add('on');
 }
 function studyFontSizeRestore() {
   const sz = parseInt(localStorage.getItem('study-fs') || '19');
-  document.getElementById('study-words').style.setProperty('--study-fs', sz + 'px');
+  StudyModule.setFontSize(sz);
   const sizes = [17, 19, 21, 24];
   const idx = sizes.indexOf(sz);
   const btns = document.querySelectorAll('#cfgp-study .cfg-fsbtn');
@@ -1698,10 +1677,12 @@ function bkDragStart(e, side) {
 document.addEventListener('mousemove', e => {
   if (_bkDrag)  _bkDrag.move(e);
   if (_pdfDrag) _pdfDrag.move(e);
+  if (_stDrag)  _stDrag.move(e);
 });
 document.addEventListener('mouseup', e => {
   if (_bkDrag)  _bkDrag.up(e);
   if (_pdfDrag) _pdfDrag.up(e);
+  if (_stDrag)  _stDrag.up(e);
 });
 
 /* 키보드 */
@@ -1936,6 +1917,17 @@ function pdfDragStart(e) {
     up()    { _pdfDrag = null; }
   };
 }
+/* ── 단어공부 사이드바 드래그 리사이즈 ── */
+let _stDrag = null;
+function stDragStart(e) {
+  e.preventDefault();
+  const sb = document.getElementById('st-sidebar');
+  const sx = e.clientX, sw = sb.offsetWidth;
+  _stDrag = {
+    move(e) { sb.style.width = Math.max(80, Math.min(400, sw + (e.clientX - sx))) + 'px'; },
+    up()    { _stDrag = null; }
+  };
+}
 (function init() {
   GitHubModule.load();
   StudyModule.init();
@@ -1950,6 +1942,8 @@ function pdfDragStart(e) {
     document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
     if (document.getElementById('pdf-repo-lbl'))
       document.getElementById('pdf-repo-lbl').textContent = `${c.user}/${c.repo}`;
+    if (document.getElementById('st-repo-lbl'))
+      document.getElementById('st-repo-lbl').textContent = `${c.user}/${c.repo}`;
     bkTogSidebar();
     bkLoadFiles();
     StudyModule.loadNotebooks();
