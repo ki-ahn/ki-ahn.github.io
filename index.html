@@ -706,7 +706,29 @@ html[data-dark] #pdf-sidebar {
       <div class="cfg-vcbs" id="bk-vcbs"></div>
       <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
     </div>
- 
+    <!-- 단어공부 탭 -->
+    <div class="cfg-pane" id="cfgp-study">
+      <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
+      <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
+      <hr class="cfg-divider">
+      <div class="cfg-setr">
+        <div class="cfg-setl">글자 크기</div>
+        <div class="cfg-fsb">
+          <button class="cfg-fsbtn" onclick="studyFontSize(17,this)">S</button>
+          <button class="cfg-fsbtn on" onclick="studyFontSize(19,this)" id="sfs-m">M</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(21,this)">L</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(24,this)">XL</button>
+        </div>
+      </div>
+      <hr class="cfg-divider">
+      <div style="font-size:13px;color:var(--ui-text2);line-height:1.7">
+        공부횟수 저장:<br>
+        • <b style="color:var(--ui-accent2)">원본 .md 파일</b>에만 저장됩니다<br>
+        • GitHub 토큰 설정 시 ＋/－ 버튼으로 즉시 업데이트
+      </div>
+      <hr class="cfg-divider">
+      <div style="font-size:13px;color:var(--ui-text2)">현재 저장소: <code id="etc-gh-label" style="color:var(--ui-accent)">미설정</code></div>
+    </div>
     <div class="cfg-row">
       <button class="btn-cancel" onclick="closeCfg()">취소</button>
       <button class="btn-ok"     onclick="saveCfg()">저장 &amp; 적용</button>
@@ -846,6 +868,39 @@ html[data-dark] #pdf-sidebar {
   </div>
 </div>
 
+      <div class="bk-sbs"><input placeholder="파일 필터…" oninput="StudyModule.filterTree(this.value)"></div>
+      <div id="st-ftree"><div style="padding:16px;color:var(--sb-text2);font-size:12px;text-align:center">저장소를 연결하세요</div></div>
+      <div class="bk-sbf">
+        <button class="bk-sbb" onclick="StudyModule.loadNotebooks()">↺ 새로고침</button>
+        <button class="bk-sbb" id="study-save-btn" onclick="StudyModule.saveNow()" title="공부횟수 저장">💾 저장</button>
+      </div>
+    </div>
+    <div class="bk-spl" id="st-spl" onmousedown="stDragStart(event)" style="display:block"></div>
+    <!-- 본문 영역 -->
+    <div id="st-main">
+      <!-- 상단 토글바 -->
+      <div id="st-topbar">
+        <button class="bk-btn" id="st-sb-btn" onclick="StudyModule.toggleSidebar()">☰</button>
+        <div id="st-title"><span style="color:var(--pm)">노트를 선택하세요</span></div>
+        <!-- 보기 토글 버튼 -->
+        <button class="tog-btn on" id="stog-lao" onclick="StudyModule.toggleCol('lao')">라오어</button>
+        <button class="tog-btn on" id="stog-eng" onclick="StudyModule.toggleCol('eng')">영어</button>
+        <button class="tog-btn on" id="stog-kor" onclick="StudyModule.toggleCol('kor')">한글</button>
+        <div style="flex:1"></div>
+        <button class="play-all-btn" style="padding:3px 10px;font-size:11px" onclick="StudyModule.playAll()">▶ 전체</button>
+      </div>
+      <!-- 단어 본문 스크롤 -->
+      <div id="st-reader-wrap">
+        <div id="st-reader">
+          <div class="s-status">
+            <div class="s-icon">⚙️</div>
+            <h3>설정에서 GitHub 저장소를 연결하세요</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 <script>
