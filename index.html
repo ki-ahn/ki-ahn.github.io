@@ -38,6 +38,10 @@
   --pbd: #ccc0a0;
   --ac: #b8943a;
   --ac2: #7a5c10;
+  /* 단어장 각 언어별 독립 폰트 크기 기본값 */
+  --word-fs-lao: 20px;
+  --word-fs-eng: 17px;
+  --word-fs-kor: 17px;
 }
 html[data-dark] {
   --ui-bg:      #0f1117;
@@ -126,7 +130,7 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 
 /* ══ 단어장 테이블 스타일 ══ */
 :root { --word-fs: 17px; }
-#bk-reader table.word-table { width: 100%; border-collapse: collapse; margin: .5em 0; }
+#bk-reader table.word-table { width: 100%; border-collapse: collapse; margin: .5em 0; table-layout: fixed;}
 #bk-reader table.word-table td {
   padding: 8px 12px; border: 1px solid var(--pbd);
   font-size: var(--word-fs); vertical-align: middle;
@@ -817,7 +821,9 @@ html[data-dark] #pdf-sidebar {
             <button class="w-size-btn" onclick="wFontSize('kor',-1)">-</button>
             <button class="w-size-btn" onclick="wFontSize('kor',1)">+</button>
           </div>
-        </div>        <!-- 일반 노트 컨트롤 -->
+        </div>       
+        
+        <!-- 일반 노트 컨트롤 -->
         <div id="bk-width-wrap" title="본문 너비 조절">
           <label>너비</label>
           <input id="bk-width-sl" type="range" min="400" max="1200" value="740" step="20" oninput="bkSetWidth(this.value)">
@@ -1883,10 +1889,17 @@ function wTogCell(td) {
 
 /* 폰트 크기 조절 */
 let _wFontSize = 17;
-function wFontSize(delta) {
+function wFontSize1(delta) {
   _wFontSize = Math.min(28, Math.max(12, _wFontSize + delta * 2));
   document.getElementById('bk-reader').style.setProperty('--word-fs', _wFontSize + 'px');
   localStorage.setItem('word-fs', _wFontSize);
+}
+
+// 각 언어군별 완벽한 폰트 크기 독립 분리 연산기
+function wFontSize(lang, dir) {
+  _wSizes[lang] = Math.max(11, Math.min(50, _wSizes[lang] + dir * 2));
+  localStorage.setItem(`w-fs-${lang}`, _wSizes[lang]);
+  document.getElementById('bk-word-table')?.style.setProperty(`--word-fs-${lang}`, _wSizes[lang] + 'px');
 }
 
 /* 사전 파일 캐시 */
@@ -1979,6 +1992,20 @@ function parseEntry(block) {
 
 function bkHideDictPopup() {
   document.getElementById('bk-dict-popup').classList.remove('open');
+}
+
+// 6. 저장되어 있던 크기 값을 로드하여 테이블 CSS 변수에 주입
+function wApplyLoadedSizes() {
+  _wSizes.lao = parseInt(localStorage.getItem('w-fs-lao') || '20');
+  _wSizes.eng = parseInt(localStorage.getItem('w-fs-eng') || '17');
+  _wSizes.kor = parseInt(localStorage.getItem('w-fs-kor') || '17');
+  
+  const table = document.getElementById('bk-word-table');
+  if(table) {
+    table.style.setProperty('--word-fs-lao', _wSizes.lao + 'px');
+    table.style.setProperty('--word-fs-eng', _wSizes.eng + 'px');
+    table.style.setProperty('--word-fs-kor', _wSizes.kor + 'px');
+  }
 }
 
 /* bkRender에서 단어장 분기 처리 */
