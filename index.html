@@ -1195,7 +1195,7 @@ async function bkOpen(path) {
 
   // 단어장 / 일반 노트 컨트롤 전환
   const isWord = bkIsWordFile(path);
-  document.getElementById('bk-word-ctrl').style.display  = isWord ? 'flex' : 'none';
+  document.getElementById('bk-word-ctrl').style.display  = isWord ? 'none' : 'flex';
   document.getElementById('bk-width-wrap').style.display = isWord ? 'none' : 'flex';
   document.getElementById('bk-tocbtn').style.display     = isWord ? 'none' : '';
   document.getElementById('bk-annotbtn').style.display   = isWord ? 'none' : '';
