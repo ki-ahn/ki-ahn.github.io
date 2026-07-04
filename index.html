@@ -38,10 +38,7 @@
   --pbd: #ccc0a0;
   --ac: #b8943a;
   --ac2: #7a5c10;
-  /* 단어장 글자 크기 기본값 */
-  --word-fs: 17px;
 }
-
 html[data-dark] {
   --ui-bg:      #0f1117;
   --ui-bg2:     #1a1d27;
@@ -128,7 +125,7 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 #toast.err { border-color: var(--ui-danger);  color: var(--ui-danger); }
 
 /* ══ 단어장 테이블 스타일 ══ */
-/*:root { --word-fs: 17px; }/////*/
+:root { --word-fs: 17px; }
 #bk-reader table.word-table { width: 100%; border-collapse: collapse; margin: .5em 0; }
 #bk-reader table.word-table td {
   padding: 8px 12px; border: 1px solid var(--pbd);
@@ -709,7 +706,29 @@ html[data-dark] #pdf-sidebar {
       <div class="cfg-vcbs" id="bk-vcbs"></div>
       <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
     </div>
-
+    <!-- 단어공부 탭 -->
+    <div class="cfg-pane" id="cfgp-study">
+      <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
+      <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
+      <hr class="cfg-divider">
+      <div class="cfg-setr">
+        <div class="cfg-setl">글자 크기</div>
+        <div class="cfg-fsb">
+          <button class="cfg-fsbtn" onclick="studyFontSize(17,this)">S</button>
+          <button class="cfg-fsbtn on" onclick="studyFontSize(19,this)" id="sfs-m">M</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(21,this)">L</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(24,this)">XL</button>
+        </div>
+      </div>
+      <hr class="cfg-divider">
+      <div style="font-size:13px;color:var(--ui-text2);line-height:1.7">
+        공부횟수 저장:<br>
+        • <b style="color:var(--ui-accent2)">원본 .md 파일</b>에만 저장됩니다<br>
+        • GitHub 토큰 설정 시 ＋/－ 버튼으로 즉시 업데이트
+      </div>
+      <hr class="cfg-divider">
+      <div style="font-size:13px;color:var(--ui-text2)">현재 저장소: <code id="etc-gh-label" style="color:var(--ui-accent)">미설정</code></div>
+    </div>
     <div class="cfg-row">
       <button class="btn-cancel" onclick="closeCfg()">취소</button>
       <button class="btn-ok"     onclick="saveCfg()">저장 &amp; 적용</button>
@@ -848,6 +867,7 @@ html[data-dark] #pdf-sidebar {
     </div>
   </div>
 </div>
+
 
 
 <script>
