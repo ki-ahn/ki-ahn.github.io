@@ -571,27 +571,84 @@ function switchTab(name) {
   document.getElementById('tab-' + name)?.classList.add('on');
 }
 
-/* 설정 관리 */
+/* 설정 관리 — 수정 및 보완 완료 */
 function openCfg() {
-  const c = GitHubModule.get();
-  document.getElementById('cfg-user').value = c.user || '';
-  document.getElementById('cfg-repo').value = c.repo || '';
-  document.getElementById('cfg-branch').value = c.branch || 'main';
-  document.getElementById('cfg-token').value = c.token || '';
+  // GitHubModule에 저장된 값이 없으면 _bkS 환경변수나 로컬스토리지에서 복원 시도
+  const c = GitHubModule.get() || {};
+  document.getElementById('cfg-user').value = c.user || _bkS.github_user || '';
+  document.getElementById('cfg-repo').value = c.repo || _bkS.github_repo || '';
+  document.getElementById('cfg-branch').value = c.branch || _bkS.github_branch || 'main';
+  document.getElementById('cfg-bible').value = _bkS.bible_folder || 'Bible';
+  document.getElementById('cfg-token').value = c.token || _bkS.github_token || '';
+  document.getElementById('cfg-root').value = c.rootFolder || _bkS.github_root || 'Notes';
+  
   document.getElementById('cfg-overlay').classList.add('open');
 }
-function closeCfg() { document.getElementById('cfg-overlay').classList.remove('open'); }
+
+function closeCfg() { 
+  document.getElementById('cfg-overlay').classList.remove('open'); 
+}
+
 function saveCfg() {
   const user = document.getElementById('cfg-user').value.trim();
   const repo = document.getElementById('cfg-repo').value.trim();
-  if(!user || !repo) return;
-  GitHubModule.configure({
-    user, repo, branch: document.getElementById('cfg-branch').value.trim(),
-    token: document.getElementById('cfg-token').value.trim(),
-    rootFolder: document.getElementById('cfg-root').value.trim()
-  });
-  closeCfg(); bkLoadFiles();
+  const branch = document.getElementById('cfg-branch').value.trim() || 'main';
+  const bible = document.getElementById('cfg-bible').value.trim() || 'Bible';
+  const token = document.getElementById('cfg-token').value.trim();
+  const rootFolder = document.getElementById('cfg-root').value.trim();
+
+  if(!user || !repo) {
+    AppToast.show('사용자명과 저장소 이름은 필수입니다.', 'error');
+    return;
+  }
+
+  // 1. GitHub 모듈 메모리에 반영
+  GitHubModule.configure({ user, repo, branch, token, rootFolder });
+
+  // 2. 통합 환경 변수(_bkS)에 영구 저장을 위한 값 할당
+  _bkS.github_user = user;
+  _bkS.github_repo = repo;
+  _bkS.github_branch = branch;
+  _bkS.github_token = token;
+  _bkS.github_root = rootFolder;
+  _bkS.bible_folder = bible;
+
+  // 3. 브라우저 로컬 스토리지에 즉시 강제 영구 저장
+  bkSaveStore();
+
+  AppToast.show('설정이 브라우저에 안전하게 저장되었습니다.', 'success');
+  closeCfg();
+  
+  // 4. 저장 직후 파일 목록 새로고침 작동
+  bkLoadFiles();
 }
+
+/* 초기 로드 기동 시 저장된 설정 강제 복원 기능 추가 */
+window.addEventListener('DOMContentLoaded', () => {
+  bkLoadStore();
+  
+  // 브라우저가 켜질 때 로컬스토리지 복원값이 있으면 GitHub 모듈에 자동 주입
+  if (_bkS.github_user && _bkS.github_repo) {
+    GitHubModule.configure({
+      user: _bkS.github_user,
+      repo: _bkS.github_repo,
+      branch: _bkS.github_branch || 'main',
+      token: _bkS.github_token || '',
+      rootFolder: _bkS.github_root || 'Notes'
+    });
+    
+    // UI 레이블 업데이트
+    const lbl = document.getElementById('bk-repo-lbl');
+    if(lbl) lbl.textContent = `${_bkS.github_user} / ${_bkS.github_repo}`;
+  }
+
+  // 다크모드 설정값 유지 반영
+  if (_bkS.dark) {
+    applyDark(true);
+  }
+
+  bkLoadFiles();
+});
 
 /* ══════════════════════════════════════
    [핵심 수정] 단어장 기능 탐지 및 뷰어 연동
