@@ -39,8 +39,10 @@
   --ac: #b8943a;
   --ac2: #7a5c10;
   
-  /* 단어장 글자 크기 기본값 */
-  --word-fs: 17px;
+  /* [변경] 단어장 각 언어별 개별 글자 크기 변수화 */
+  --word-fs-lao: 20px;
+  --word-fs-eng: 17px;
+  --word-fs-kor: 17px;
 }
 html[data-dark] {
   --ui-bg:      #0f1117;
@@ -131,17 +133,25 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 #bk-reader table.word-table { width: 100%; border-collapse: collapse; margin: .5em 0; }
 #bk-reader table.word-table td {
   padding: 10px 14px; border: 1px solid var(--pbd);
-  font-size: var(--word-fs); vertical-align: middle;
+  vertical-align: middle;
   transition: filter .15s, opacity .15s, background .15s;
 }
 #bk-reader table.word-table tr:hover { background: rgba(128,100,50,.04); }
+
+/* [변경] 각 칼럼별로 독립된 폰트사이즈 변수 매핑 */
 #bk-reader table.word-table td.w-lao {
   font-family: "Noto Sans Lao", Georgia, serif;
   color: var(--ac); font-weight: 700;
-  font-size: calc(var(--word-fs) + 3px);
+  font-size: var(--word-fs-lao);
 }
-#bk-reader table.word-table td.w-eng { color: var(--ac2); }
-#bk-reader table.word-table td.w-kor { color: var(--pt); }
+#bk-reader table.word-table td.w-eng { 
+  color: var(--ac2); 
+  font-size: var(--word-fs-eng);
+}
+#bk-reader table.word-table td.w-kor { 
+  color: var(--pt); 
+  font-size: var(--word-fs-kor);
+}
 
 /* 숨김 상태 (블러 처리 및 터치 유도) */
 #bk-reader table.word-table td.vis-hidden {
@@ -159,7 +169,7 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 }
 .w-lookup-btn:hover { background: var(--ac); color: #fff; border-color: var(--ac2); }
 
-/* topbar 토글 버튼 */
+/* topbar 토글 버튼 및 폰트 그룹 레이아웃 */
 .tog-btn {
   padding: 4px 12px; border-radius: 16px; font-size: 12px; font-weight: 500;
   cursor: pointer; border: 1px solid var(--ui-border);
@@ -168,6 +178,18 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 }
 .tog-btn.on { background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2); }
 .tog-btn:hover:not(.on) { border-color: var(--ui-text2); color: var(--ui-text); }
+
+.w-size-group {
+  display: flex; align-items: center; background: var(--ui-bg2); 
+  border: 1px solid var(--ui-border); border-radius: 6px; padding: 2px 4px; gap: 2px;
+}
+.w-size-label { font-size: 11px; font-weight: bold; color: var(--ui-text2); padding: 0 4px; }
+.w-size-btn {
+  background: var(--ui-bg); border: 1px solid var(--ui-border); color: var(--ui-text);
+  border-radius: 4px; width: 22px; height: 22px; font-size: 12px; font-weight: bold;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.w-size-btn:hover { background: var(--ui-bg3); }
 
 /* 사전 팝업 */
 #bk-dict-popup {
@@ -404,14 +426,28 @@ html[data-dark] #bk-sidebar {
         <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
         <div id="bk-title"><span>파일을 불러오는 중…</span></div>
         
-        <!-- 단어장 전용 컨트롤 토글 & 글자 크기 조정바 -->
-        <div id="bk-word-ctrl" style="display:none; align-items:center; gap:6px;">
+        <!-- [변경] 언어별 독립 폰트 조절 컴포넌트 탑재 -->
+        <div id="bk-word-ctrl" style="display:none; align-items:center; gap:8px;">
           <button class="tog-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오어</button>
+          <div class="w-size-group">
+            <span class="w-size-label">라오</span>
+            <button class="w-size-btn" onclick="wFontSize('lao', -1)">-</button>
+            <button class="w-size-btn" onclick="wFontSize('lao', 1)">+</button>
+          </div>
+
           <button class="tog-btn on" id="wctrl-eng" onclick="wTogCol('eng')">영어</button>
+          <div class="w-size-group">
+            <span class="w-size-label">영</span>
+            <button class="w-size-btn" onclick="wFontSize('eng', -1)">-</button>
+            <button class="w-size-btn" onclick="wFontSize('eng', 1)">+</button>
+          </div>
+
           <button class="tog-btn on" id="wctrl-kor" onclick="wTogCol('kor')">한글</button>
-          <div style="width:1px; height:16px; background:var(--pbd); margin:0 4px"></div>
-          <button class="bk-btn" onclick="wFontSize(-1)" title="글자 작게" style="padding:2px 6px; font-weight:bold;">A-</button>
-          <button class="bk-btn" onclick="wFontSize(1)"  title="글자 크게" style="padding:2px 6px; font-weight:bold;">A+</button>
+          <div class="w-size-group">
+            <span class="w-size-label">한</span>
+            <button class="w-size-btn" onclick="wFontSize('kor', -1)">-</button>
+            <button class="w-size-btn" onclick="wFontSize('kor', 1)">+</button>
+          </div>
         </div>
 
         <!-- 일반 노트 전용 너비 컨트롤 바 -->
@@ -487,7 +523,7 @@ function switchTab(name) {
 
 /* ⚙ 설정 창 기능 제어 */
 function openCfg() {
-  bkLoadStore(); // 열기 전 스토리지 최신본 확인
+  bkLoadStore();
   document.getElementById('cfg-user').value = _bkS.github_user || '';
   document.getElementById('cfg-repo').value = _bkS.github_repo || '';
   document.getElementById('cfg-branch').value = _bkS.github_branch || 'main';
@@ -498,7 +534,6 @@ function openCfg() {
 }
 function closeCfg() { document.getElementById('cfg-overlay').classList.remove('open'); }
 
-/* [버그 수정 완료된 안전 저장이 보장되는 saveCfg 함수] */
 function saveCfg() {
   const user = document.getElementById('cfg-user').value.trim();
   const repo = document.getElementById('cfg-repo').value.trim();
@@ -512,7 +547,6 @@ function saveCfg() {
     return; 
   }
 
-  // 1. 내부 변수 할당 및 로컬 스토리지 강제 저장 (가장 먼저 수행하여 무조건적인 저장 보장)
   _bkS.github_user = user; 
   _bkS.github_repo = repo; 
   _bkS.github_branch = branch; 
@@ -521,18 +555,14 @@ function saveCfg() {
   _bkS.bible_folder = bible;
   bkSaveStore();
 
-  // 2. github.js 외부 연동 시도 (에러가 발생하더라도 프론트 차단 방지용 try-catch 샌드박스 처리)
   try {
     if (typeof GitHubModule !== 'undefined' && GitHubModule.configure) {
       GitHubModule.configure({ user, repo, branch, token, rootFolder });
-    } else {
-      console.warn("GitHubModule이 감지되지 않았습니다. github.js 경로를 점검하세요.");
     }
   } catch (e) {
-    console.error("GitHub API 동적 설정 주입 실패:", e);
+    console.error(e);
   }
 
-  // 3. UI 라벨 및 탐색 트리 갱신 연동
   const lbl = document.getElementById('bk-repo-lbl');
   if (lbl) lbl.textContent = `${user} / ${repo}`;
   const pdfLbl = document.getElementById('pdf-repo-lbl');
@@ -548,7 +578,9 @@ function saveCfg() {
    단어공부 확장 기능 엔진 구현
 ══════════════════════════════════════ */
 let _wColVis = { lao: true, eng: true, kor: true };
-let _wFontSize = 17;
+
+// [변경] 각 언어별 기본 글자 크기 스토리지 상태 매핑 객체
+let _wSizes = { lao: 20, eng: 17, kor: 17 };
 
 function bkIsWordFile(path, text = "") {
   if (path && (path.toLowerCase().includes('word') || path.toLowerCase().includes('voca') || path.toLowerCase().includes('단어'))) return true;
@@ -605,11 +637,29 @@ function wTogCol(col) {
 
 function wTogCell(td) { td.classList.toggle('vis-hidden'); }
 
-function wFontSize(dir) {
-  _wFontSize = Math.max(12, Math.min(38, _wFontSize + dir * 2));
-  localStorage.setItem('word-fs-val', _wFontSize);
+// [변경] 언어별 독립 폰트 크기 변경 및 동적 반영 함수
+function wFontSize(lang, dir) {
+  _wSizes[lang] = Math.max(11, Math.min(45, _wSizes[lang] + dir * 2));
+  localStorage.setItem(`w-fs-${lang}`, _wSizes[lang]);
+  
   const table = document.getElementById('bk-word-table');
-  if(table) table.style.setProperty('--word-fs', _wFontSize + 'px');
+  if(table) {
+    table.style.setProperty(`--word-fs-${lang}`, _wSizes[lang] + 'px');
+  }
+}
+
+// [변경] 로컬스토리지에 저장된 각 언어별 크기 데이터를 불러와 테이블에 강제 주입하는 로직
+function wApplyLoadedSizes() {
+  _wSizes.lao = parseInt(localStorage.getItem('w-fs-lao') || '20');
+  _wSizes.eng = parseInt(localStorage.getItem('w-fs-eng') || '17');
+  _wSizes.kor = parseInt(localStorage.getItem('w-fs-kor') || '17');
+  
+  const table = document.getElementById('bk-word-table');
+  if(table) {
+    table.style.setProperty('--word-fs-lao', _wSizes.lao + 'px');
+    table.style.setProperty('--word-fs-eng', _wSizes.eng + 'px');
+    table.style.setProperty('--word-fs-kor', _wSizes.kor + 'px');
+  }
 }
 
 function bkDictLookup(word) {
@@ -694,11 +744,10 @@ async function bkOpen(path) {
       document.getElementById('bk-width-wrap').style.display = 'none';
       document.getElementById('bk-tocbtn').style.display = 'none';
 
-      _wFontSize = parseInt(localStorage.getItem('word-fs-val') || '17');
       const tblHtml = bkRenderWordTable(content);
       if(tblHtml) {
         reader.innerHTML = tblHtml;
-        reader.style.setProperty('--word-fs', _wFontSize + 'px');
+        wApplyLoadedSizes(); // [변경] 단어 테이블 렌더링 즉시 각각의 개별 크기 세팅 로드
         return;
       }
     }
@@ -727,7 +776,6 @@ window.addEventListener('DOMContentLoaded', () => {
   bkLoadStore();
   if (_bkS.dark) applyDark(true);
   
-  // 폼 입력 필드 자동 복원 매핑 [source: 2]
   if (document.getElementById('cfg-user')) document.getElementById('cfg-user').value = _bkS.github_user || '';
   if (document.getElementById('cfg-repo')) document.getElementById('cfg-repo').value = _bkS.github_repo || '';
   if (document.getElementById('cfg-branch')) document.getElementById('cfg-branch').value = _bkS.github_branch || 'main';
