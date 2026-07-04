@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Book Reader</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="github.js"></script>
+<script src="study.js"></script>
+<script src="bible.js"></script>
+<style>
+/* ══════════════════════════════════════
+   전역 테마 변수 — 라이트(기본) / 다크
+══════════════════════════════════════ */
+:root {
+  /* 공통 UI (탭바·단어공부·설정모달) */
+  --ui-bg:      #ffffff;
+  --ui-bg2:     #f4f4f6;
+  --ui-bg3:     #e8e8ec;
+  --ui-border:  #d0d0d8;
+  --ui-text:    #1a1a2e;
+  --ui-text2:   #5a5a78;
+  --ui-text3:   #9090a8;
+  --ui-accent:  #5a7ef0;
+  --ui-accent2: #3d9970;
+  --ui-accent3: #e07820;
+  --ui-danger:  #d03030;
+  --r: 10px;
+  /* 책보기 테마 */
+  --pb: #f5f0e8;
+  --paper: #fdfaf4;
+  --ps: #ddd0b8;
+  --pt: #1e1608;
+  --pm: #6a5a3a;
+  --pbd: #ccc0a0;
+  --ac: #b8943a;
+  --ac2: #7a5c10;
+}
+html[data-dark] {
+  --ui-bg:      #0f1117;
+  --ui-bg2:     #1a1d27;
+  --ui-bg3:     #22263a;
+  --ui-border:  #2e3350;
+  --ui-text:    #e8eaf0;
+  --ui-text2:   #8b90aa;
+  --ui-text3:   #5a5f78;
+  --ui-accent:  #e8a040;
+  --ui-accent2: #4fa3e0;
+  --ui-accent3: #7dd3a8;
+  --ui-danger:  #e05555;
+  --pb: #111008;
+  --paper: #1c1810;
+  --ps: #2e2818;
+  --pt: #e8dfc8;
+  --pm: #9a8a6a;
+  --pbd: #302818;
+  --ac: #c4a45a;
+  --ac2: #a08030;
+}
+
+/* ══ 리셋 ══ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, "Noto Sans KR", sans-serif;
+  background: var(--ui-bg); color: var(--ui-text);
+  min-height: 100vh; overflow-x: hidden;
+  transition: background .2s, color .2s;
+}
+
+/* ══ 탭바 ══ */
+#main-tabs {
+  display: flex; align-items: center;
+  background: var(--ui-bg2); border-bottom: 1px solid var(--ui-border);
+  padding: 0 10px; gap: 2px; position: sticky; top: 0; z-index: 100;
+}
+.main-tab {
+  padding: 13px 16px; font-size: 13px; font-weight: 500;
+  color: var(--ui-text2); cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all .18s; white-space: nowrap;
+}
+.main-tab.on { color: var(--ui-accent); border-bottom-color: var(--ui-accent); }
+.main-tab:hover:not(.on) { color: var(--ui-text); }
+#tabs-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.tab-icon-btn {
+  background: none; border: 1px solid var(--ui-border);
+  color: var(--ui-text2); border-radius: 6px; padding: 5px 10px;
+  font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+  transition: all .15s; white-space: nowrap;
+}
+.tab-icon-btn:hover { color: var(--ui-text); border-color: var(--ui-text2); }
+.tab-icon-btn.active { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+
+/* 다크모드 토글 버튼 */
+#dark-toggle {
+  width: 38px; height: 22px; border-radius: 11px;
+  background: var(--ui-bg3); border: 1px solid var(--ui-border);
+  cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0;
+}
+html[data-dark] #dark-toggle { background: var(--ui-accent); border-color: var(--ui-accent); }
+#dark-toggle::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; transition: left .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+html[data-dark] #dark-toggle::after { left: 18px; }
+#dark-label { font-size: 11px; color: var(--ui-text2); }
+
+.panel { display: none; }
+.panel.on { display: block; }
+
+/* ══ 토스트 ══ */
+#toast {
+  position: fixed; bottom: 22px; right: 22px;
+  background: var(--ui-bg2); border: 1px solid var(--ui-border);
+  border-radius: 8px; padding: 9px 15px; font-size: 13px; color: var(--ui-text);
+  box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  transform: translateY(80px); opacity: 0; transition: all .28s;
+  z-index: 9999; max-width: 300px;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.ok  { border-color: var(--ui-accent3); color: var(--ui-accent3); }
+#toast.err { border-color: var(--ui-danger);  color: var(--ui-danger); }
+
+/* ══ 단어장 테이블 스타일 ══ */
+:root { --word-fs: 17px; }
+#bk-reader table.word-table { width: 100%; border-collapse: collapse; margin: .5em 0; }
+#bk-reader table.word-table td {
+  padding: 8px 12px; border: 1px solid var(--pbd);
+  font-size: var(--word-fs); vertical-align: middle;
+  transition: filter .15s;
+}
+#bk-reader table.word-table tr:hover { background: rgba(128,100,50,.04); }
+#bk-reader table.word-table td.w-lao {
+  font-family: "Noto Sans Lao", Georgia, serif;
+  color: var(--ac); font-weight: 700;
+  font-size: calc(var(--word-fs) + 2px);
+}
+#bk-reader table.word-table td.w-eng { color: var(--ac2); }
+#bk-reader table.word-table td.w-kor { color: var(--pt); }
+#bk-reader table.word-table td.vis-hidden {
+  filter: blur(6px); cursor: pointer; user-select: none;
+}
+#bk-reader table.word-table td.vis-hidden:hover { filter: blur(3px); }
+/* 찾기 버튼 */
+.w-lookup-btn {
+  background: none; border: 1px solid var(--pbd); border-radius: 4px;
+  padding: 1px 6px; font-size: 10px; color: var(--pm); cursor: pointer;
+  margin-right: 4px; transition: all .12s; vertical-align: middle;
+  white-space: nowrap;
+}
+.w-lookup-btn:hover { background: var(--ac); color: #fff; border-color: var(--ac2); }
+/* topbar 토글 버튼 */
+.tog-btn {
+  padding: 3px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1px solid var(--ui-border);
+  background: var(--ui-bg3); color: var(--ui-text2);
+  transition: all .13s; white-space: nowrap;
+}
+.tog-btn.on { background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2); }
+.tog-btn:hover:not(.on) { border-color: var(--ui-text2); color: var(--ui-text); }
+/* 사전 팝업 */
+#bk-dict-popup {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 700;
+  align-items: center; justify-content: center; padding: 20px;
+}
+#bk-dict-popup.open { display: flex; }
+#bk-dict-content {
+  background: var(--paper); border: 1px solid var(--pbd);
+  border-radius: 12px; width: min(500px, 92vw);
+  max-height: 70vh; display: flex; flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,.25); overflow: hidden;
+}
+#bk-dict-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--pbd);
+  font-family: "Noto Sans Lao", serif; font-size: 20px;
+  color: var(--ac); font-weight: 700; flex-shrink: 0;
+}
+#bk-dict-header button {
+  background: none; border: none; color: var(--pm);
+  font-size: 18px; cursor: pointer; padding: 0 4px;
+}
+#bk-dict-body {
+  overflow-y: auto; padding: 14px 16px;
+  font-size: 14px; line-height: 1.8; color: var(--pt);
+  -webkit-overflow-scrolling: touch;
+}
+#bk-dict-body .dict-entry {
+  padding: 10px 0; border-bottom: 1px solid var(--pbd);
+}
+#bk-dict-body .dict-entry:last-child { border-bottom: none; }
+#bk-dict-body .dict-lao {
+  font-family: "Noto Sans Lao", serif; font-size: 18px;
+  color: var(--ac); font-weight: 700; margin-bottom: 4px;
+}
+#bk-dict-body .dict-eng { color: var(--ac2); font-size: 14px; }
+#bk-dict-body .dict-kor { color: var(--pt); font-size: 14px; }
+#bk-dict-body .dict-pron { color: var(--pm); font-size: 12px; }
+#bk-dict-body .dict-none { color: var(--pm); text-align: center; padding: 20px; }
+.bk-tag {
+  color: #7c6cfc !important;           /* 옵시디언 태그 보라 */
+  background: rgba(124,108,252,.10);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: .88em;
+  text-decoration: none !important;
+  font-family: -apple-system, sans-serif;
+  white-space: nowrap;
+  cursor: default;
+}
+html[data-dark] .bk-tag {
+  color: #a99cff !important;           /* 다크모드: 더 밝은 라벤더 */
+  background: rgba(124,108,252,.15);
+}
+
+/* ══ 통합 설정 모달 ══ */
+#cfg-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.6); z-index: 500;
+  align-items: flex-start; justify-content: center;  /* flex-start: 키보드 올라와도 모달 위로 밀리지 않음 */
+  padding: 12px 12px 0;
+  overflow-y: auto;                                   /* 모달이 키보드에 가려질 때 스크롤 가능 */
+  -webkit-overflow-scrolling: touch;
+}
+#cfg-overlay.open { display: flex; }
+#cfg-box {
+  background: var(--ui-bg); border: 1px solid var(--ui-border);
+  border-radius: 14px; width: 100%; max-width: 480px;
+  box-shadow: 0 8px 36px rgba(0,0,0,.35);
+  display: flex; flex-direction: column;
+  margin: auto;                    /* 세로 중앙 정렬 유지 */
+  /* max-height 제거 → 키보드 올라와도 잘림 없음 */
+}
+#cfg-tabs { display: flex; border-bottom: 1px solid var(--ui-border); flex-shrink: 0; }
+.cfg-tab {
+  flex: 1; padding: 12px; text-align: center; font-size: 13px; font-weight: 600;
+  color: var(--ui-text2); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+}
+.cfg-tab.on { color: var(--ui-accent); border-bottom-color: var(--ui-accent); }
+.cfg-pane { display: none; overflow-y: auto; padding: 20px 24px; max-height: 60vh; -webkit-overflow-scrolling: touch; }
+.cfg-pane.on { display: block; }
+.cfg-label { display: block; font-size: 11px; color: var(--ui-text2); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .5px; }
+.cfg-input {
+  width: 100%; background: var(--ui-bg2); border: 1px solid var(--ui-border);
+  color: var(--ui-text); padding: 10px 11px; border-radius: 7px;
+  font-size: 16px; font-family: monospace;
+  -webkit-user-select: text; user-select: text;
+  touch-action: manipulation;
+  cursor: text;
+  -webkit-appearance: none; appearance: none;
+  pointer-events: auto;
+}
+.cfg-input:focus {
+  outline: 2px solid var(--ui-accent2);
+  outline-offset: 0;
+  border-color: var(--ui-accent2);
+}
+.cfg-hint { font-size: 11px; color: var(--ui-text3); margin-top: 5px; line-height: 1.5; }
+.cfg-row { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; flex-shrink: 0; padding: 0 24px 20px; }
+.btn-ok { padding: 8px 20px; background: var(--ui-accent); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-cancel { padding: 8px 14px; background: transparent; color: var(--ui-text2); border: 1px solid var(--ui-border); border-radius: 7px; font-size: 13px; cursor: pointer; }
+/* 설정 모달 내부 항목 스타일 */
+.cfg-setr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cfg-setl { font-size: 13px; color: var(--ui-text); }
+.cfg-tog {
+  width: 36px; height: 20px; border-radius: 10px; background: var(--ui-bg3);
+  border: 1px solid var(--ui-border); cursor: pointer; position: relative; transition: background .2s;
+}
+.cfg-tog.on { background: var(--ui-accent); border-color: var(--ui-accent); }
+.cfg-tog::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  background: #fff; border-radius: 50%; transition: left .2s;
+}
+.cfg-tog.on::after { left: 18px; }
+.cfg-fsb { display: flex; gap: 4px; }
+.cfg-fsbtn {
+  background: var(--ui-bg2); border: 1px solid var(--ui-border); border-radius: 5px;
+  padding: 4px 9px; font-size: 11px; cursor: pointer; color: var(--ui-text2);
+}
+.cfg-fsbtn.on { background: var(--ui-accent); color: #fff; border-color: var(--ui-accent); }
+.cfg-secs { font-size: 11px; font-weight: 700; color: var(--ui-text2); text-transform: uppercase; letter-spacing: .7px; margin: 14px 0 6px; border-top: 1px solid var(--ui-border); padding-top: 12px; }
+.cfg-vcbs { display: flex; flex-wrap: wrap; gap: 6px; }
+.cfg-vcb { font-size: 12px; color: var(--ui-text2); display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.cfg-vcb input { cursor: pointer; accent-color: var(--ui-accent); }
+.cfg-reset { width: 100%; background: var(--ui-bg2); border: 1px solid var(--ui-border); border-radius: 7px; padding: 8px; font-size: 12px; cursor: pointer; color: var(--ui-text2); margin-top: 12px; }
+.cfg-reset:hover { background: var(--ui-danger); border-color: var(--ui-danger); color: #fff; }
+.cfg-divider { border: none; border-top: 1px solid var(--ui-border); margin: 16px 0; }
+.danger-btn { padding: 7px 13px; background: var(--ui-danger); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 9px; }
+
+/* ══════════════════════════════════════
+   책보기 패널
+══════════════════════════════════════ */
+#panel-book { height: calc(100vh - 48px); display: none; flex-direction: column; overflow: hidden; }
+#panel-book.on { display: flex; }
+#book-wrap {
+  flex: 1; overflow: hidden; display: flex; height: 100%;
+  background: var(--pb); color: var(--pt);
+  transition: background .2s, color .2s;
+}
+/* topbar */
+#bk-main-col { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100%; overflow: hidden; }
+#bk-topbar {
+  background: var(--paper); border-bottom: 1px solid var(--pbd);
+  padding: 0 10px; height: 44px; display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  transition: background .2s;
+}
+.bk-btn {
+  background: none; border: 1px solid var(--pbd); color: var(--pm);
+  border-radius: 5px; padding: 3px 8px; font-size: 12px; cursor: pointer;
+  white-space: nowrap; transition: all .12s; display: flex; align-items: center; gap: 3px;
+  font-family: -apple-system, sans-serif;
+}
+.bk-btn:hover { background: var(--pb); color: var(--pt); }
+.bk-btn.on { background: var(--ac); color: #fff; border-color: var(--ac2); }
+#bk-title { flex: 1; font-size: 12px; color: var(--pm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+#bk-title strong { color: var(--pt); }
+#bk-width-wrap { display: flex; align-items: center; gap: 5px; padding: 0 3px; }
+#bk-width-wrap label { font-size: 10px; color: var(--pm); white-space: nowrap; }
+#bk-width-sl { width: 64px; accent-color: var(--ac); cursor: pointer; }
+/* ── 사이드바 : 라이트/다크 모두 대응 ── */
+#bk-sidebar {
+  width: 260px; min-width: 100px; max-width: 460px;
+  --sb-bg:    #2c2820; --sb-bg2:   #3a3428; --sb-bg3:   #484038;
+  --sb-text:  #c8c2b4; --sb-text2: #8a7a5a; --sb-acc:   #c4a45a;
+  --sb-bdr:   #3a3428;
+  background: var(--sb-bg); display: none; flex-direction: column;
+  height: 100%; overflow: hidden; flex-shrink: 0;
+  border-right: 1px solid var(--sb-bdr);
+}
+/* 라이트모드 사이드바 — 밝은 베이지/크림 계열 */
+html:not([data-dark]) #bk-sidebar {
+  --sb-bg:    #f0ece4; --sb-bg2:   #e4dfd5; --sb-bg3:   #d8d0c4;
+  --sb-text:  #2c2010; --sb-text2: #7a6a50; --sb-acc:   #8a6010;
+  --sb-bdr:   #d0c8b8;
+}
+/* 다크모드 사이드바 */
+html[data-dark] #bk-sidebar {
+  --sb-bg:    #0e0c08; --sb-bg2:   #1a1610; --sb-bg3:   #252018;
+  --sb-text:  #c8c2b4; --sb-text2: #6a5a40; --sb-acc:   #c4a45a;
+  --sb-bdr:   #1e1a12;
+}
+#bk-sidebar.open { display: flex; }
+.bk-sbh { padding: 11px 11px 8px; border-bottom: 1px solid var(--sb-bdr); flex-shrink: 0; }
+.bk-sbh h1 { color: var(--sb-acc); font-size: 14px; font-weight: 600; }
+.bk-sbh p  { color: var(--sb-text2); font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-sbs { padding: 6px 10px; border-bottom: 1px solid var(--sb-bdr); flex-shrink: 0; }
+.bk-sbs input { width: 100%; background: var(--sb-bg2); border: 1px solid var(--sb-bg3); color: var(--sb-text); border-radius: 5px; padding: 4px 8px; font-size: 12px; outline: none; }
+#bk-ftree { flex: 1; overflow-y: auto; padding: 4px 0; }
+#bk-ftree::-webkit-scrollbar { width: 3px; }
+#bk-ftree::-webkit-scrollbar-thumb { background: var(--sb-bg3); }
+.bk-tf { cursor: pointer; padding: 5px 10px; color: var(--sb-acc); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; display: flex; align-items: center; gap: 5px; user-select: none; }
+.bk-tf:hover { background: var(--sb-bg2); }
+.bk-tf .arr { font-size: 9px; transition: transform .2s; color: var(--sb-text2); }
+.bk-tf.open .arr { transform: rotate(90deg); }
+.bk-tc { display: none; } .bk-tc.open { display: block; }
+.bk-fi { padding: 4px 10px 4px 22px; color: var(--sb-text); font-size: 13px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background .1s; }
+.bk-fi:hover { background: var(--sb-bg2); }
+.bk-fi.active { background: var(--sb-bg3); color: var(--sb-acc); }
+.bk-sbf { padding: 7px 10px; border-top: 1px solid var(--sb-bdr); flex-shrink: 0; display: flex; gap: 5px; }
+.bk-sbb { flex: 1; background: var(--sb-bg2); border: 1px solid var(--sb-bg3); color: var(--sb-text); border-radius: 5px; padding: 5px; font-size: 11px; cursor: pointer; text-align: center; }
+.bk-sbb:hover { background: var(--sb-bg3); }
+/* splitter */
+.bk-spl { width: 4px; flex-shrink: 0; cursor: col-resize; background: transparent; transition: background .15s; user-select: none; }
+.bk-spl:hover, .bk-spl.drag { background: var(--ac); }
+/* content */
+#bk-content { flex: 1; display: flex; overflow: hidden; }
+#bk-rw { flex: 1; overflow-y: auto; padding: 28px 0; background: var(--pb); min-width: 180px; transition: background .2s; }
+#bk-rw::-webkit-scrollbar { width: 5px; }
+#bk-rw::-webkit-scrollbar-thumb { background: var(--ps); border-radius: 3px; }
+#bk-reader {
+  max-width: 740px; margin: 0 auto; background: var(--paper); border-radius: 4px;
+  box-shadow: 0 2px 20px rgba(0,0,0,.1); padding: 48px 60px;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.85; color: var(--pt); font-size: 17px;
+  word-break: normal; overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+  transition: background .2s, color .2s;
+}
+@media(max-width:820px) { #bk-reader { padding: 28px 16px; font-size: 16px; } }
+#bk-reader h1 { font-size: 2em; font-weight: 700; margin: 0 0 1em; border-bottom: 2px solid var(--ac); padding-bottom: .35em; color: var(--pt); }
+#bk-reader h2 { font-size: 1.4em; font-weight: 700; margin: 1.8em 0 .65em; color: var(--pt); }
+#bk-reader h3 { font-size: 1.15em; font-weight: 700; margin: 1.5em 0 .5em; color: var(--pt); }
+#bk-reader h4 { font-size: 1em; font-weight: 700; margin: 1.3em 0 .45em; color: var(--pm); }
+#bk-reader p { margin: 0 0 .95em; color: var(--pt); }
+#bk-reader ul, #bk-reader ol { margin: 0 0 .95em 1.4em; color: var(--pt); }
+#bk-reader li { margin: .2em 0; }
+#bk-reader blockquote { border-left: 3px solid var(--ac); padding: .5em 1em; color: var(--pm); margin: .9em 0; font-style: italic; background: rgba(196,164,90,.07); border-radius: 0 4px 4px 0; }
+#bk-reader code { background: rgba(128,100,50,.1); padding: 2px 5px; border-radius: 3px; font-size: .87em; font-family: monospace; color: var(--pt); }
+#bk-reader pre { background: rgba(128,100,50,.1); padding: 1em; border-radius: 6px; overflow-x: auto; margin: .9em 0; }
+#bk-reader pre code { background: none; padding: 0; }
+#bk-reader hr { border: none; border-top: 1px solid var(--pbd); margin: 1.6em 0; }
+#bk-reader a { color: var(--ac2); text-decoration: underline; }
+/* 위키링크 스타일 */
+#bk-reader a[href^="obsidian://"] {
+  color: var(--ac) !important;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--ac);
+  cursor: pointer;
+}
+#bk-reader a[href^="obsidian://"]:hover {
+  background: rgba(196,164,90,.1);
+  border-radius: 3px;
+}
+#bk-reader table { width: 100%; border-collapse: collapse; margin: .9em 0; font-size: .9em; }
+#bk-reader img {
+  max-width: 100%; height: auto; display: block;
+  margin: 1em auto; border-radius: 6px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.1);
+  transition: opacity .25s;
+}
+#bk-reader th { background: rgba(196,164,90,.1); padding: 7px 10px; border: 1px solid var(--pbd); font-weight: 600; text-align: left; color: var(--pt); }
+#bk-reader td { padding: 6px 10px; border: 1px solid var(--pbd); color: var(--pt); }
+.obs-callout { border-radius: 6px; margin: 1em 0; padding: 10px 14px; border-left: 4px solid; font-size: .93em; background: rgba(128,100,50,.06); }
+.obs-callout.note  { border-color: #4080ff; }
+.obs-callout.tip   { border-color: #40c870; }
+.obs-callout.warning { border-color: #ffa020; }
+.obs-callout.danger  { border-color: #ff3c3c; }
+.obs-callout.info    { border-color: #28b4c8; }
+.obs-callout.quote   { border-color: var(--ac); }
+.obs-callout-title { font-weight: 700; margin-bottom: 5px; font-size: .92em; display: flex; align-items: center; gap: 5px; color: var(--pt); }
+.obs-callout-body  { line-height: 1.7; color: var(--pt); }
+/* TOC */
+#bk-toc { background: var(--paper); border-left: 1px solid var(--pbd); overflow-y: auto; padding: 13px 9px; flex-shrink: 0; display: none; min-width: 100px; max-width: 340px; width: 190px; transition: background .2s; }
+#bk-toc.open { display: block; }
+#bk-toc h3 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--pm); margin-bottom: 8px; }
+.bk-ti { display: block; color: var(--pm); font-size: 11px; padding: 3px 0 3px 6px; cursor: pointer; line-height: 1.4; border-left: 2px solid transparent; margin-bottom: 1px; }
+.bk-ti:hover { color: var(--pt); border-color: var(--ac); }
+.bk-ti.h3 { padding-left: 14px; } .bk-ti.h4 { padding-left: 22px; }
+/* 하이라이트 */
+.hl { cursor: pointer; border-radius: 2px; }
+.hl-yellow { background: rgba(255,220,80,.5); }
+.hl-green  { background: rgba(100,200,120,.4); }
+.hl-blue   { background: rgba(80,160,255,.4); }
+.hl-pink   { background: rgba(255,100,150,.4); }
+/* 밑줄 팝업 — 텍스트 선택 시 즉시 표시 */
+#bk-hlpop {
+  position: fixed; background: var(--paper); border: 1px solid var(--pbd);
+  border-radius: 10px; padding: 8px 10px; box-shadow: 0 6px 22px rgba(0,0,0,.2);
+  display: none; z-index: 700; gap: 8px; align-items: center; flex-wrap: wrap;
+  min-width: 200px; max-width: 280px;
+}
+#bk-hlpop.show { display: flex; }
+.bk-hlpop-colors { display: flex; gap: 6px; align-items: center; }
+.bk-hlpop-c {
+  width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: transform .12s, border-color .12s;
+  flex-shrink: 0;
+}
+.bk-hlpop-c:hover { transform: scale(1.15); }
+.bk-hlpop-c.on { border-color: var(--pt); transform: scale(1.1); }
+.bk-hlpop-divider { width: 1px; height: 20px; background: var(--pbd); }
+.bk-hlpop-btn {
+  background: none; border: 1px solid var(--pbd); border-radius: 6px;
+  padding: 3px 9px; font-size: 11px; color: var(--pm); cursor: pointer;
+  white-space: nowrap; transition: all .12s;
+}
+.bk-hlpop-btn:hover { background: var(--pb); color: var(--pt); border-color: var(--pm); }
+.bk-hlpop-btn.hl-save { background: var(--ac); color: #fff; border-color: var(--ac2); }
+.bk-hlpop-btn.hl-save:hover { background: var(--ac2); }
+#bk-hlpop-note {
+  width: 100%; border: 1px solid var(--pbd); border-radius: 6px;
+  padding: 5px 8px; font-size: 12px; outline: none;
+  background: var(--pb); color: var(--pt); font-family: inherit;
+}
+/* 밑줄 패널 */
+#bk-annot {
+  position: fixed; top: 96px; right: 14px; background: var(--paper);
+  border: 1px solid var(--pbd); border-radius: 10px; width: 310px; max-height: 480px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.18); display: none; flex-direction: column; z-index: 400; overflow: hidden;
+  transition: background .2s;
+}
+#bk-annot.open { display: flex; }
+.bk-an-hd { padding: 9px 13px; border-bottom: 1px solid var(--pbd); font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; align-items: center; color: var(--pt); }
+.bk-an-close { cursor: pointer; color: var(--pm); font-size: 15px; }
+#bk-an-list { overflow-y: auto; flex: 1; padding: 6px 0; }
+.bk-an-item { padding: 8px 13px; border-bottom: 1px solid var(--pbd); cursor: pointer; transition: background .1s; }
+.bk-an-item:hover { background: rgba(196,164,90,.06); }
+.bk-an-bar { height: 3px; border-radius: 2px; margin-bottom: 5px; }
+.bk-an-text { font-size: 13px; color: var(--pt); line-height: 1.5; font-family: Georgia, serif; }
+.bk-an-note { font-size: 11px; color: var(--pm); margin-top: 3px; font-style: italic; }
+.bk-an-del { float: right; background: none; border: none; color: var(--pm); cursor: pointer; font-size: 12px; padding: 0 2px; margin-left: 6px; }
+.bk-an-del:hover { color: #d44; }
+.bk-an-empty { padding: 20px; text-align: center; color: var(--pm); font-size: 13px; line-height: 1.7; }
+/* 검색 오버레이 */
+#bk-search-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 399; }
+#bk-search-overlay.open { display: block; }
+#bk-search {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -54%);
+  background: var(--paper); border: 1px solid var(--pbd);
+  border-radius: 12px; width: min(480px, 92vw); max-height: 60vh;
+  box-shadow: 0 12px 40px rgba(0,0,0,.28);
+  display: none; flex-direction: column; z-index: 400; overflow: hidden;
+  transition: background .2s;
+}
+#bk-search.open { display: flex; }
+.bk-sw { display: flex; align-items: center; border-bottom: 1px solid var(--pbd); }
+.bk-si { padding: 0 10px; color: var(--pm); font-size: 14px; }
+#bk-sinp { flex: 1; border: none; padding: 12px 6px; font-size: 14px; outline: none; background: transparent; color: var(--pt); }
+.bk-sc { padding: 0 12px; color: var(--pm); cursor: pointer; font-size: 16px; }
+#bk-sres { overflow-y: auto; flex: 1; }
+.bk-sri { padding: 9px 14px; cursor: pointer; border-bottom: 1px solid var(--pbd); }
+.bk-sri:hover { background: var(--pb); }
+.bk-srt { font-weight: 600; font-size: 13px; color: var(--pt); }
+.bk-srp { font-size: 11px; color: var(--pm); }
+.bk-sre { font-size: 12px; color: var(--pm); margin-top: 3px; line-height: 1.4; }
+.bk-sre mark { background: rgba(255,220,80,.55); border-radius: 2px; color: #1e1608; }
+.bk-srs { padding: 18px; text-align: center; color: var(--pm); font-size: 13px; }
+/* 프로그레스 */
+#bk-prog { height: 2px; background: var(--ac); position: fixed; top: 0; left: 0; z-index: 999; transition: width .15s; pointer-events: none; }
+/* setup */
+.bk-setup { text-align: center; padding: 48px 24px; color: var(--pm); display: flex; flex-direction: column; align-items: center; }
+.bk-setup h2 { font-size: 1.7em; color: var(--ac); margin-bottom: 9px; font-family: Georgia, serif; }
+.bk-setup > p { font-size: 13px; line-height: 1.7; max-width: 380px; margin-bottom: 18px; }
+.bk-setup-card { background: var(--paper); border: 1px solid var(--pbd); border-radius: 10px; padding: 20px 24px; max-width: 420px; width: 100%; text-align: left; }
+.bk-setup-card h3 { color: var(--pt); margin-bottom: 11px; font-size: 14px; }
+.bk-go { width: 100%; background: var(--ac); color: #fff; border: none; border-radius: 7px; padding: 9px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 7px; }
+.bk-go:hover { background: var(--ac2); }
+.bk-spin { text-align: center; padding: 48px; color: var(--pm); font-size: 14px; line-height: 2; }
+/* TTS */
+.bible-tts-btn { background: none; border: 1px solid var(--ac); color: var(--ac2); border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; margin-left: 6px; transition: all .12s; }
+.bible-tts-btn:hover, .bible-tts-btn.playing { background: var(--ac); color: #fff; }
+
+/* ══════════════════════════════════════
+   PDF 패널
+══════════════════════════════════════ */
+#panel-pdf { height: calc(100vh - 48px); display: none; flex-direction: column; overflow: hidden; }
+#panel-pdf.on { display: flex; }
+#pdf-wrap {
+  flex: 1; display: flex; overflow: hidden; height: 100%;
+  background: var(--ui-bg); color: var(--ui-text);
+}
+/* 사이드바는 책보기와 동일한 .bk-sbh 등 스타일 재사용 */
+#pdf-sidebar {
+  width: 240px; min-width: 80px; max-width: 400px;
+  --sb-bg: #2c2820; --sb-bg2: #3a3428; --sb-bg3: #484038;
+  --sb-text: #c8c2b4; --sb-text2: #8a7a5a; --sb-acc: #c4a45a; --sb-bdr: #3a3428;
+  background: var(--sb-bg); display: flex; flex-direction: column;
+  height: 100%; overflow: hidden; flex-shrink: 0; border-right: 1px solid var(--sb-bdr);
+}
+html:not([data-dark]) #pdf-sidebar {
+  --sb-bg: #f0ece4; --sb-bg2: #e4dfd5; --sb-bg3: #d8d0c4;
+  --sb-text: #2c2010; --sb-text2: #7a6a50; --sb-acc: #8a6010; --sb-bdr: #d0c8b8;
+}
+html[data-dark] #pdf-sidebar {
+  --sb-bg: #0e0c08; --sb-bg2: #1a1610; --sb-bg3: #252018;
+  --sb-text: #c8c2b4; --sb-text2: #6a5a40; --sb-acc: #c4a45a; --sb-bdr: #1e1a12;
+}
+#pdf-ftree { flex: 1; overflow-y: auto; padding: 4px 0; }
+#pdf-ftree::-webkit-scrollbar { width: 3px; }
+#pdf-ftree::-webkit-scrollbar-thumb { background: var(--sb-bg3); }
+/* PDF 뷰어 컬럼 */
+#pdf-viewer-col { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+#pdf-topbar {
+  background: var(--paper); border-bottom: 1px solid var(--pbd);
+  padding: 0 10px; height: 44px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  transition: background .2s;
+}
+#pdf-title { flex: 1; font-size: 12px; color: var(--pm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pdf-title strong { color: var(--pt); }
+#pdf-viewer-wrap { flex: 1; overflow: hidden; position: relative; background: var(--ui-bg2); }
+#pdf-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ui-text3); text-align: center; padding: 24px; }
+#pdf-iframe { width: 100%; height: 100%; border: none; display: none; background: var(--ui-bg); }
+/* ══════════════════════════════════════
+   단어공부 — 책보기와 동일한 레이아웃
+══════════════════════════════════════ */
+/* 단어 카드 */
+.sw-card {
+  background: var(--ui-bg2); border: 1px solid var(--ui-border);
+  border-radius: 12px; margin-bottom: 14px; overflow: hidden;
+  transition: border-color .15s;
+}
+.sw-card:hover { border-color: var(--ui-accent); }
+.sw-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-bg3);
+}
+.sw-lao {
+  flex: 1; font-family: "Noto Sans Lao", Georgia, serif;
+  font-size: calc(var(--study-fs) + 3px);
+  color: var(--ui-accent); font-weight: 700;
+  cursor: pointer; transition: filter .15s;
+}
+.sw-pron { font-size: 12px; color: var(--ui-text3); margin-top: 2px; }
+.sw-audio-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--ui-border); background: var(--ui-bg);
+  color: var(--ui-text2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; transition: all .13s; flex-shrink: 0;
+}
+.sw-audio-btn:hover { background: var(--ui-accent3); color: #000; border-color: var(--ui-accent3); }
+.sw-audio-btn:disabled { opacity: .3; cursor: not-allowed; }
+.sw-body { padding: 10px 16px 6px; display: flex; flex-direction: column; gap: 8px; }
+.sw-row { display: flex; align-items: center; gap: 10px; }
+.sw-label {
+  font-size: 10px; font-weight: 700; color: var(--ui-text3);
+  text-transform: uppercase; letter-spacing: .5px; width: 28px; flex-shrink: 0;
+}
+.sw-val {
+  flex: 1; font-size: var(--study-fs); color: var(--ui-text);
+  cursor: pointer; transition: filter .15s; line-height: 1.4;
+}
+.sw-val.eng { color: var(--ui-accent2); }
+.sw-val.vis-hidden { filter: blur(5px); pointer-events: auto; }
+.sw-val.vis-hidden:hover { filter: blur(2px); }
+.sw-lao.vis-hidden { filter: blur(5px); pointer-events: auto; }
+.sw-lao.vis-hidden:hover { filter: blur(2px); }
+.sw-tts-btn {
+  background: none; border: 1px solid var(--ui-border);
+  border-radius: 5px; padding: 2px 8px; font-size: 11px;
+  color: var(--ui-text3); cursor: pointer; transition: all .12s; flex-shrink: 0;
+}
+.sw-tts-btn:hover, .sw-tts-btn.playing {
+  background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2);
+}
+.sw-foot {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-top: 1px solid var(--ui-border);
+}
+.sw-count-label { font-size: 11px; color: var(--ui-text3); }
+.sw-count-num {
+  font-size: 18px; font-weight: 700; color: var(--ui-accent);
+  font-family: monospace; min-width: 28px; text-align: center;
+  transition: transform .2s;
+}
+.sw-count-num.bump { transform: scale(1.6); }
+.sw-count-btns { display: flex; gap: 4px; }
+.sw-cbtn {
+  width: 28px; height: 28px; border-radius: 7px;
+  border: 1px solid var(--ui-border); background: var(--ui-bg3);
+  color: var(--ui-text2); cursor: pointer; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; transition: all .13s;
+}
+.sw-cbtn.inc:hover { background: var(--ui-accent3); color: #000; border-color: var(--ui-accent3); }
+.sw-cbtn.dec:hover { background: var(--ui-danger); color: #fff; border-color: var(--ui-danger); }
+/* 저장 버튼 강조 */
+#study-save-btn.dirty {
+  border-color: var(--ui-accent3) !important; color: var(--ui-accent3) !important;
+  font-weight: 700; animation: savePulse 1.8s ease-in-out infinite;
+}
+@keyframes savePulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(125,211,168,.5); }
+  50%     { box-shadow: 0 0 0 5px rgba(125,211,168,0); }
+}
+/* 토글 버튼 (topbar용) */
+.tog-btn { padding: 3px 10px; border-radius: 16px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--ui-border); background: var(--ui-bg3); color: var(--ui-text2); transition: all .13s; white-space: nowrap; }
+.tog-btn.on { background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2); }
+.tog-btn:hover:not(.on) { border-color: var(--ui-text2); color: var(--ui-text); }
+.play-all-btn { padding: 3px 10px; border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--ui-accent3); background: transparent; color: var(--ui-accent3); display: flex; align-items: center; gap: 4px; transition: all .13s; white-space: nowrap; }
+.play-all-btn:hover { background: var(--ui-accent3); color: #fff; }
+/* 상태 */
+.s-status { text-align: center; padding: 56px 18px; color: var(--ui-text3); }
+.s-icon { font-size: 38px; margin-bottom: 10px; }
+.s-status h3 { font-size: 14px; color: var(--ui-text2); font-weight: 400; margin-bottom: 6px; }
+.s-status p { font-size: 13px; line-height: 1.6; }
+.s-loader { width: 28px; height: 28px; border: 3px solid var(--ui-border); border-top-color: var(--ui-accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+</style>
+</head>
+<body>
+
+<div id="bk-prog" style="width:0"></div>
+<div id="toast"></div>
+
+<!-- ══ 통합 설정 모달 ══ -->
+<div id="cfg-overlay">
+  <div id="cfg-box">
+    <div id="cfg-tabs">
+      <div class="cfg-tab on" onclick="switchCfgTab('github',this)">🔑 GitHub</div>
+      <div class="cfg-tab" onclick="switchCfgTab('reader',this)">📖 책보기</div>
+      <div class="cfg-tab" onclick="switchCfgTab('study',this)">✏️ 단어공부</div>
+    </div>
+    <!-- GitHub 탭 -->
+    <div class="cfg-pane on" id="cfgp-github">
+      <label class="cfg-label">사용자명 (owner)</label>
+      <input class="cfg-input" id="cfg-user" placeholder="예: ki-ahn">
+      <label class="cfg-label">저장소 이름 (repo)</label>
+      <input class="cfg-input" id="cfg-repo" placeholder="예: Blog">
+      <label class="cfg-label">브랜치</label>
+      <input class="cfg-input" id="cfg-branch" value="main">
+      <label class="cfg-label">성경 데이터 폴더</label>
+      <input class="cfg-input" id="cfg-bible" value="Bible">
+      <label class="cfg-label">Personal Access Token <small style="text-transform:none;color:var(--ui-text3)">(쓰기 시 필요)</small></label>
+      <input class="cfg-input" id="cfg-token" type="password" placeholder="ghp_xxxx…">
+      <div class="cfg-hint">Settings → Developer Settings → Personal access tokens (repo 권한)<br>밑줄 GitHub 저장·공부횟수 업데이트에 필요합니다.</div>
+    </div>
+    <!-- 책보기 탭 -->
+    <div class="cfg-pane" id="cfgp-reader">
+      <label class="cfg-label">책보기 루트 폴더 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체)</small></label>
+      <input class="cfg-input" id="cfg-root" placeholder="예: Notes">
+      <hr class="cfg-divider">
+      <div class="cfg-setr">
+        <div class="cfg-setl">글자 크기</div>
+        <div class="cfg-fsb">
+          <button class="cfg-fsbtn"    onclick="bkFontSize(17,this)">S</button>
+          <button class="cfg-fsbtn on" onclick="bkFontSize(19,this)" id="cfg-fs-m">M</button>
+          <button class="cfg-fsbtn"    onclick="bkFontSize(21,this)">L</button>
+          <button class="cfg-fsbtn"    onclick="bkFontSize(24,this)">XL</button>
+        </div>
+      </div>
+      <div class="cfg-secs">성경 버전</div>
+      <div class="cfg-vcbs" id="bk-vcbs"></div>
+      <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
+    </div>
+ 
+    <div class="cfg-row">
+      <button class="btn-cancel" onclick="closeCfg()">취소</button>
+      <button class="btn-ok"     onclick="saveCfg()">저장 &amp; 적용</button>
+    </div>
+  </div>
+</div>
+
+<!-- 밑줄 팝업: 색상 클릭 → 즉시 저장 / 사전 / 메모(선택) -->
+<div id="bk-dict-popup" onclick="bkHideDictPopup()">
+  <div id="bk-dict-content" onclick="event.stopPropagation()">
+    <div id="bk-dict-header">
+      <span id="bk-dict-word"></span>
+      <button onclick="bkHideDictPopup()">✕</button>
+    </div>
+    <div id="bk-dict-body"></div>
+  </div>
+</div>
+
+<div id="bk-hlpop">
+  <div class="bk-hlpop-colors">
+    <div class="bk-hlpop-c on" style="background:#ffdc50" title="노랑 밑줄" onclick="bkSaveHlColor('yellow',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#64c878" title="초록 밑줄" onclick="bkSaveHlColor('green',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#50a0ff" title="파랑 밑줄" onclick="bkSaveHlColor('blue',this)"></div>
+    <div class="bk-hlpop-c"    style="background:#ff6496" title="분홍 밑줄" onclick="bkSaveHlColor('pink',this)"></div>
+  </div>
+  <div class="bk-hlpop-divider"></div>
+  <button class="bk-hlpop-btn" onclick="bkLookup()" title="네이버 사전 검색">사전</button>
+  <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()" title="메모 추가">메모</button>
+  <input id="bk-hlpop-note" placeholder="메모 후 Enter…" style="display:none"
+    onkeydown="if(event.key==='Enter'){bkSaveHlWithMemo();} if(event.key==='Escape'){bkHideHlPop();}">
+</div>
+
+<!-- 밑줄 패널 -->
+<div id="bk-annot">
+  <div class="bk-an-hd">🖊 밑줄 목록 <span class="bk-an-close" onclick="bkTogAnnot()">✕</span></div>
+  <div id="bk-an-list"><div class="bk-an-empty">밑줄이 없습니다</div></div>
+</div>
+
+<!-- 검색 오버레이 -->
+<div id="bk-search-overlay" onclick="bkTogSearch()"></div>
+<div id="bk-search">
+  <div class="bk-sw">
+    <span class="bk-si">🔍</span>
+    <input id="bk-sinp" placeholder="전체 검색… (Ctrl+K)" oninput="bkDoSearch(this.value)">
+    <span class="bk-sc" onclick="bkTogSearch()">✕</span>
+  </div>
+  <div id="bk-sres"><div class="bk-srs">검색어를 입력하세요</div></div>
+</div>
+
+<!-- ══ 1단 탭 ══ -->
+<nav id="main-tabs">
+  <div class="main-tab on" id="tab-book"  onclick="switchTab('book')">📖 책보기</div>
+  <div class="main-tab"    id="tab-pdf"   onclick="switchTab('pdf')">📄 PDF</div>
+  <div id="tabs-right">
+    <span id="dark-label">🌙</span>
+    <div id="dark-toggle" onclick="toggleDark()" title="다크모드"></div>
+    <button class="tab-icon-btn" onclick="openCfg()">⚙ 설정</button>
+  </div>
+</nav>
+
+<!-- ══ 책보기 패널 ══ -->
+<div class="panel on" id="panel-book">
+  <div id="book-wrap">
+    <div id="bk-main-col">
+      <div id="bk-topbar">
+        <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
+        <div id="bk-title"><span style="color:var(--pm)">파일 목록을 불러오는 중…</span></div>
+        <!-- 단어장 전용 컨트롤 (단어장 파일 열릴 때만 표시) -->
+        <div id="bk-word-ctrl" style="display:none;align-items:center;gap:5px">
+          <button class="tog-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오</button>
+          <button class="tog-btn on" id="wctrl-eng" onclick="wTogCol('eng')">영어</button>
+          <button class="tog-btn on" id="wctrl-kor" onclick="wTogCol('kor')">한글</button>
+          <div style="width:1px;height:18px;background:var(--pbd);margin:0 2px"></div>
+          <button class="bk-btn" onclick="wFontSize(-1)" title="글자 작게">A－</button>
+          <button class="bk-btn" onclick="wFontSize(1)"  title="글자 크게">A＋</button>
+        </div>
+        <!-- 일반 노트 컨트롤 -->
+        <div id="bk-width-wrap" title="본문 너비 조절">
+          <label>너비</label>
+          <input id="bk-width-sl" type="range" min="400" max="1200" value="740" step="20" oninput="bkSetWidth(this.value)">
+        </div>
+        <button class="bk-btn" id="bk-tocbtn" onclick="bkTogToc()">목차</button>
+        <button class="bk-btn" id="bk-annotbtn" onclick="bkTogAnnot()">🖊 밑줄</button>
+        <button class="bk-btn" onclick="bkTogSearch()">🔍</button>
+      </div>
+      <div id="bk-content">
+        <div id="bk-sidebar">
+          <div class="bk-sbh"><h1>📖 Book Reader</h1><p id="bk-repo-lbl">저장소를 연결하세요</p></div>
+          <div class="bk-sbs"><input placeholder="파일 필터…" oninput="bkFilterTree(this.value)"></div>
+          <div id="bk-ftree"><div style="padding:16px;color:#5a5040;font-size:12px;text-align:center">저장소를 연결하세요</div></div>
+          <div class="bk-sbf">
+            <button class="bk-sbb" onclick="bkRefresh()">↺ 새로고침</button>
+          </div>
+        </div>
+        <div class="bk-spl" id="bk-spl-l" onmousedown="bkDragStart(event,'l')" style="display:none"></div>
+        <div id="bk-rw"><div id="bk-reader"></div></div>
+        <div class="bk-spl" id="bk-spl-r" onmousedown="bkDragStart(event,'r')" style="display:none"></div>
+        <div id="bk-toc"><h3>목차</h3><div id="bk-toclist"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PDF 패널 ══ -->
+<div class="panel" id="panel-pdf">
+  <div id="pdf-wrap">
+    <!-- 사이드바 -->
+    <div id="pdf-sidebar">
+      <div class="bk-sbh"><h1>📄 PDF 보기</h1><p id="pdf-repo-lbl">저장소를 연결하세요</p></div>
+      <div class="bk-sbs"><input placeholder="파일 필터…" oninput="pdfFilterTree(this.value)"></div>
+      <div id="pdf-ftree"><div style="padding:16px;color:#5a5040;font-size:12px;text-align:center">저장소를 연결하세요</div></div>
+      <div class="bk-sbf">
+        <button class="bk-sbb" onclick="pdfRefresh()">↺ 새로고침</button>
+        <button class="bk-sbb" onclick="pdfOpenExternal()" id="pdf-ext-btn" style="display:none">↗ 외부</button>
+      </div>
+    </div>
+    <div class="bk-spl" id="pdf-spl" onmousedown="pdfDragStart(event)" style="display:block"></div>
+    <!-- 뷰어 영역 -->
+    <div id="pdf-viewer-col">
+      <div id="pdf-topbar">
+        <button class="bk-btn" id="pdf-sbbtn" onclick="pdfTogSidebar()">☰</button>
+        <div id="pdf-title"><span style="color:var(--pm)">PDF를 선택하세요</span></div>
+        <button class="bk-btn" onclick="pdfOpenExternal()" id="pdf-newwin-btn" style="display:none" title="새 탭에서 열기">↗ 새 탭</button>
+      </div>
+      <div id="pdf-viewer-wrap">
+        <div id="pdf-placeholder">
+          <div style="font-size:48px;margin-bottom:16px">📄</div>
+          <div style="font-size:15px;color:var(--pm)">좌측 목록에서 PDF를 선택하세요</div>
+          <div style="font-size:12px;color:var(--pm);margin-top:8px;line-height:1.7">
+            • 브라우저 내장 PDF 뷰어로 표시됩니다<br>
+            • 안드로이드에서는 외부 앱으로 열립니다
+          </div>
+        </div>
+        <iframe id="pdf-iframe" src="" style="display:none"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+/* ══ AppToast ══ */
+const AppToast = {
+  _t: null,
+  show(msg, type='') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type==='success' ? ' ok' : type==='error' ? ' err' : '');
+    clearTimeout(this._t);
+    this._t = setTimeout(() => el.classList.remove('show'), 3200);
+  }
+};
+
+/* ══ 전역 다크모드 ══ */
+function applyDark(on) {
+  document.documentElement.dataset.dark = on ? '1' : '';
+  if (!on) delete document.documentElement.dataset.dark;
+  // bible 모듈에도 전달
+  if (window.BibleModule?.setDark) BibleModule.setDark(on);
+}
+function toggleDark() {
+  const isDark = !document.documentElement.hasAttribute('data-dark') ||
+                  document.documentElement.dataset.dark !== '1';
+  applyDark(isDark);
+  _bkS.dark = isDark;
+  bkSaveStore();
+}
+
+/* ══ 탭 전환 ══ */
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('panel-' + name).classList.add('on');
+  document.getElementById('tab-' + name).classList.add('on');
+}
+
+/* ══ 설정 모달 ══ */
+function switchCfgTab(name, el) {
+  document.querySelectorAll('.cfg-tab').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.cfg-pane').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  const pane = document.getElementById('cfgp-' + name);
+  pane.classList.add('on');
+  pane.scrollTop = 0;
+  // 안드로이드/iOS: 탭 전환 후 첫 input에 포커스 (키보드 활성화)
+  setTimeout(() => {
+    const first = pane.querySelector('input.cfg-input:not([type="password"])');
+    if (first) {
+      first.focus();
+      // iOS Safari: focus 후 blur/focus 반복으로 키보드 강제 활성화
+      first.blur();
+      setTimeout(() => first.focus(), 50);
+    }
+  }, 150);
+}
+function openCfg() {
+  const c = GitHubModule.get();
+  document.getElementById('cfg-user').value   = c.user || '';
+  document.getElementById('cfg-repo').value   = c.repo || '';
+  document.getElementById('cfg-branch').value = c.branch || 'main';
+  document.getElementById('cfg-words').value  = c.wordsFolder || '';
+  document.getElementById('cfg-root').value   = c.rootFolder || '';
+  document.getElementById('cfg-bible').value  = c.bibleFolder || 'Bible';
+  document.getElementById('cfg-token').value  = c.token || '';
+  updateEtcLabel();
+  document.getElementById('cfg-overlay').classList.add('open');
+}
+function closeCfg() { document.getElementById('cfg-overlay').classList.remove('open'); }
+function saveCfg() {
+  const user = document.getElementById('cfg-user').value.trim();
+  const repo = document.getElementById('cfg-repo').value.trim();
+  if (!user || !repo) { AppToast.show('사용자명과 저장소를 입력하세요', 'error'); return; }
+  GitHubModule.configure({
+    user, repo,
+    branch:      document.getElementById('cfg-branch').value.trim() || 'main',
+    wordsFolder: document.getElementById('cfg-words').value.trim().replace(/^\/+|\/+$/g, ''),
+    rootFolder:  document.getElementById('cfg-root').value.trim().replace(/^\/+|\/+$/g, ''),
+    bibleFolder: document.getElementById('cfg-bible').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible',
+    token:       document.getElementById('cfg-token').value.trim(),
+  });
+  closeCfg();
+  updateEtcLabel();
+  bkSyncBible();
+  const c2 = GitHubModule.get();
+  if (document.getElementById('st-repo-lbl'))
+    document.getElementById('st-repo-lbl').textContent = `${c2.user}/${c2.repo}`;
+  bkLoadFiles();
+  StudyModule.loadNotebooks();
+}
+function updateEtcLabel() {
+  const c = GitHubModule.get();
+  const el = document.getElementById('etc-gh-label');
+  if (el) el.textContent = c.user && c.repo ? `${c.user}/${c.repo}` : '미설정';
+}
+
+/* ── 단어공부 글자크기 ── */
+function studyFontSize(sz, btn) {
+  StudyModule.setFontSize(sz);
+  document.querySelectorAll('#cfgp-study .cfg-fsbtn').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
+}
+function studyFontSizeRestore() {
+  const sz = parseInt(localStorage.getItem('study-fs') || '19');
+  StudyModule.setFontSize(sz);
+  const sizes = [17, 19, 21, 24];
+  const idx = sizes.indexOf(sz);
+  const btns = document.querySelectorAll('#cfgp-study .cfg-fsbtn');
+  btns.forEach(b => b.classList.remove('on'));
+  if (btns[idx >= 0 ? idx : 1]) btns[idx >= 0 ? idx : 1].classList.add('on');
+}
+
+/* ══════════════════════════════════════
+   책보기 모듈
+══════════════════════════════════════ */
+const BIBLE_VERSIONS = ['개역개정', '새번역', 'ESV', 'NIV', 'LAO', 'Henry', 'Hokma'];
+const _bkS = { dark: false, fs: 19, vers: ['개역개정', 'ESV'], readerW: 740 };
+let _bkFiles = [], _bkCur = null, _bkContent = '';
+let _bkHls = {}, _bkPos = {};
+let _bkHlCol = 'yellow', _bkSelR = null, _bkSelText = '';
+let _bkSrIdx = [], _bkSrReady = false;
+let _bkDrag = null;
+
+function bkLoadStore() {
+  try {
+    const c = localStorage.getItem('obr-cfg'); if (c) Object.assign(_bkS, JSON.parse(c));
+    const h = localStorage.getItem('obr-hl');  if (h) _bkHls = JSON.parse(h);
+    const p = localStorage.getItem('obr-pos'); if (p) _bkPos = JSON.parse(p);
+  } catch(e) {}
+}
+function bkSaveStore() {
+  localStorage.setItem('obr-cfg', JSON.stringify(_bkS));
+  localStorage.setItem('obr-hl',  JSON.stringify(_bkHls));
+  localStorage.setItem('obr-pos', JSON.stringify(_bkPos));
+}
+function bkApplyTheme() {
+  // 글꼴 크기
+  const r = document.getElementById('bk-reader');
+  if (r) r.style.fontSize = _bkS.fs + 'px';
+  // 너비
+  if (_bkS.readerW && r) r.style.maxWidth = _bkS.readerW + 'px';
+  const sl = document.getElementById('bk-width-sl');
+  if (sl && _bkS.readerW) sl.value = _bkS.readerW;
+  // 성경 버전 체크박스
+  const vcbs = document.getElementById('bk-vcbs');
+  if (vcbs) vcbs.innerHTML = BIBLE_VERSIONS.map(v =>
+    `<label class="cfg-vcb"><input type="checkbox" ${_bkS.vers.includes(v)?'checked':''} onchange="bkTogVer('${v}',this.checked)"> ${v}</label>`
+  ).join('');
+  // 폰트 크기 버튼 active — 책보기 탭 버튼만 대상
+  document.querySelectorAll('#cfgp-reader .cfg-fsbtn').forEach(b => b.classList.remove('on'));
+  const sizes = [17, 19, 21, 24];
+  const idx = sizes.indexOf(_bkS.fs);
+  document.querySelectorAll('#cfgp-reader .cfg-fsbtn')[idx >= 0 ? idx : 1]?.classList.add('on');
+}
+function bkTogVer(v, on) {
+  if (on && !_bkS.vers.includes(v)) _bkS.vers.push(v);
+  if (!on) _bkS.vers = _bkS.vers.filter(x => x !== v);
+  bkSaveStore(); bkSyncBible(); if (_bkCur) bkRender();
+}
+function bkSyncBible() {
+  const c = GitHubModule.get();
+  BibleModule.configure({
+    user: c.user, repo: c.repo, branch: c.branch, token: c.token,
+    bibleFolder: c.bibleFolder || 'Bible',
+    enabledVersions: _bkS.vers,
+  });
+}
+function bkFontSize(sz, btn) {
+  _bkS.fs = sz;
+  const r = document.getElementById('bk-reader');
+  if (r) r.style.fontSize = sz + 'px';
+  bkSaveStore();
+  document.querySelectorAll('.cfg-fsbtn').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
+}
+function bkResetSettings() {
+  if (!confirm('책보기 설정을 초기화하시겠습니까?')) return;
+  _bkS.dark = false; _bkS.fs = 17; _bkS.vers = ['개역개정','ESV']; _bkS.readerW = 740;
+  localStorage.removeItem('obr-cfg');
+  applyDark(false); bkApplyTheme();
+}
+
+/* 파일 목록 */
+async function bkLoadFiles() {
+  document.getElementById('bk-ftree').innerHTML = '<div class="bk-spin" style="padding:14px;font-size:12px">🔍 로딩 중…</div>';
+  const c = GitHubModule.get();
+  if (!c.user || !c.repo) {
+    document.getElementById('bk-ftree').innerHTML = '<div style="padding:16px;color:#5a5040;font-size:12px;text-align:center">저장소를 설정하세요</div>';
+    document.getElementById('bk-title').innerHTML = '<span style="color:var(--pm)">⚙ 설정에서 저장소를 연결하세요</span>';
+    return;
+  }
+  try {
+    const tree = await GitHubModule.fetchTree();
+    const allFiles = tree.tree
+      .filter(f => f.type==='blob' && (f.path.endsWith('.md') || f.path.endsWith('.pdf')))
+      .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
+      .filter(f => !c.rootFolder  || f.path.startsWith(c.rootFolder + '/'))
+      .filter(f => !c.bibleFolder || !f.path.startsWith(c.bibleFolder + '/'))
+      .filter(f => !c.wordsFolder || !f.path.startsWith(c.wordsFolder + '/'))
+      .map(f => f.path);
+    _bkFiles = allFiles;  // md + pdf 모두 포함
+    bkRenderTree(_bkFiles);
+    AppToast.show(`📚 ${_bkFiles.filter(f=>f.endsWith('.md')).length}개 노트, ${_bkFiles.filter(f=>f.endsWith('.pdf')).length}개 PDF 로드됨`);
+    bkBuildSrIdx();
+    // PDF 패널 파일 목록도 동기화
+    pdfSyncFiles(allFiles);
+    // 이전에 열었던 파일 자동 오픈
+    const last = localStorage.getItem('bk-last-file');
+    if (last && _bkFiles.includes(last)) {
+      bkOpen(last);
+    } else {
+      document.getElementById('bk-title').innerHTML = '<span style="color:var(--pm)">파일을 선택하세요</span>';
+    }
+  } catch(e) {
+    document.getElementById('bk-ftree').innerHTML = `<div style="padding:14px;color:#e66;font-size:12px;line-height:1.9">오류: ${e.message}</div>`;
+    AppToast.show(e.message, 'error');
+  }
+}
+function bkRefresh() { bkLoadFiles(); }
+/* 단어장 파일 렌더링 */
+function bkRenderWordFile(text) {
+  const html = bkRenderWordTable(text);
+  const reader = document.getElementById('bk-reader');
+  if (!html) { bkRender(); return; }
+  // 폰트 크기 복원
+  _wFontSize = parseInt(localStorage.getItem('word-fs') || '17');
+  reader.innerHTML = html;
+  reader.style.setProperty('--word-fs', _wFontSize + 'px');
+  // 열 표시 상태 초기화
+  _wColVis.lao = true; _wColVis.eng = true; _wColVis.kor = true;
+  ['lao','eng','kor'].forEach(col => {
+    document.getElementById('wctrl-' + col)?.classList.add('on');
+  });
+  bkTrackProg();
+}
+
+function bkRenderTree(files) {
+  const tree = {};
+  files.forEach(path => {
+    const parts = path.split('/'); let node = tree;
+    parts.forEach((p, i) => {
+      if (i === parts.length - 1) { (node.__f__ = node.__f__ || []).push({name:p, path}); }
+      else { node[p] = node[p] || {}; node = node[p]; }
+    });
+  });
+  document.getElementById('bk-ftree').innerHTML = bkRNode(tree, 0);
+}
+function bkRNode(node, d) {
+  let html = ''; const pad = 10 + d * 10;
+  Object.keys(node).filter(k => k !== '__f__').sort().forEach(k => {
+    html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${bkRNode(node[k], d+1)}</div>`;
+  });
+  (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
+    const isPdf = f.path.endsWith('.pdf');
+    const name  = f.name.replace(/\.(md|pdf)$/, '');
+    const icon  = isPdf ? '📄' : '📝';
+    const click = isPdf
+      ? `switchTab('pdf');pdfOpenFile('${f.path}')`
+      : `bkOpen('${f.path}')`;
+    html += `<div class="bk-fi" style="padding-left:${pad+12}px" data-path="${f.path}" onclick="${click}" title="${f.path}">${icon} ${name}</div>`;
+  });
+  return html;
+}
+function bkFilterTree(q) {
+  q = q.toLowerCase();
+  if (!q) { bkRenderTree(_bkFiles); return; }
+  bkRenderTree(_bkFiles.filter(p => p.toLowerCase().includes(q)));
+}
+async function bkOpen(path) {
+  document.querySelectorAll('.bk-fi').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.bk-fi[data-path="${CSS.escape(path)}"]`);
+  if (el) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
+  if (_bkCur && _bkCur !== path) { _bkPos[_bkCur] = document.getElementById('bk-rw').scrollTop; bkSaveStore(); }
+  _bkCur = path;
+  localStorage.setItem('bk-last-file', path);
+  const fname = path.split('/').pop().replace(/\.md$/, '');
+  document.getElementById('bk-title').innerHTML = `<strong>${fname}</strong>`;
+  document.getElementById('bk-reader').innerHTML = '<div class="bk-spin">📖 불러오는 중…</div>';
+
+  // 단어장 / 일반 노트 컨트롤 전환
+  const isWord = bkIsWordFile(path);
+  document.getElementById('bk-word-ctrl').style.display  = isWord ? 'flex' : 'none';
+  document.getElementById('bk-width-wrap').style.display = isWord ? 'none' : 'flex';
+  document.getElementById('bk-tocbtn').style.display     = isWord ? 'none' : '';
+  document.getElementById('bk-annotbtn').style.display   = isWord ? 'none' : '';
+
+  try {
+    _bkContent = await GitHubModule.readFile(path);
+    if (isWord && bkIsWordTable(_bkContent)) {
+      bkRenderWordFile(_bkContent);
+    } else {
+      bkRender();
+    }
+    if (_bkPos[path]) setTimeout(() => { document.getElementById('bk-rw').scrollTop = _bkPos[path]; }, 150);
+    else document.getElementById('bk-rw').scrollTop = 0;
+  } catch(e) {
+    document.getElementById('bk-reader').innerHTML = `<div style="padding:28px;color:#e66">오류: ${e.message}</div>`;
+  }
+}
+function bkRender() {
+  let md = _bkContent;
+  md = md.replace(/^---[\s\S]*?---\n?/, '');
+
+  // ![[image.png]] 또는 ![[image.png|300]] 옵시디언 이미지 임베드
+  md = md.replace(/!\[\[([^\]|#]+\.(png|jpe?g|gif|svg|webp|bmp))(\|(\d+))?\]\]/gi,
+    (_, imgPath, ext, sizeFull, width) => {
+      const alt = imgPath.split('/').pop();
+      const w = width ? `|${width}` : '';
+      return `![${alt}](bk-img://${encodeURIComponent(imgPath.trim())}${w})`;
+    });
+
+  // [[노트명]] 또는 [[노트명|표시텍스트]] → 클릭 가능한 마크다운 링크 (이미지 처리 후 실행)
+  md = md.replace(/\[\[([^\]|#]+)(#[^\]|]*)?(\|[^\]]+)?\]\]/g, (_, noteName, heading, alias) => {
+    const display = alias ? alias.slice(1) : (heading ? noteName + heading : noteName);
+    const encoded = encodeURIComponent(noteName.trim());
+    const headingPart = heading ? encodeURIComponent(heading) : '';
+    return `[${display}](obsidian://${encoded}${headingPart})`;
+  });
+
+  // 일반 마크다운 이미지의 상대경로를 bk-img:// 로 변환 (http/https/data 제외)
+  md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (full, alt, src) => {
+    if (/^(https?:|data:|bk-img:)/.test(src)) return full;
+    try { src = decodeURIComponent(src); } catch(e) {}
+    return `![${alt}](bk-img://${encodeURIComponent(src)})`;
+  });
+
+  md = md.replace(/^(> \[!(\w+)\][^\n]*\n(?:>.*\n?)*)/gm, m => {
+    const lines = m.split('\n');
+    const tm = lines[0].match(/\[!(\w+)\](.*)/);
+    const type = tm ? tm[1].toLowerCase() : 'note';
+    const title = tm ? tm[2].trim() : '';
+    const body = lines.slice(1).map(l => l.replace(/^> ?/, '')).join('\n').trim();
+    const icons = {note:'📝',tip:'💡',warning:'⚠️',danger:'🚨',info:'ℹ️',quote:'💬',important:'❗'};
+    return `\n\n<div class="obs-callout ${type}"><div class="obs-callout-title">${icons[type]||'📌'} ${title||type}</div><div class="obs-callout-body">${body}</div></div>\n\n`;
+  });
+
+  bkSyncBible();
+  md = BibleModule.protectRefs(md);
+  let html = '';
+  try { html = marked.parse(md, {gfm:true, breaks:false}); }
+  catch(e) { html = '<pre>' + md.replace(/</g,'&lt;') + '</pre>'; }
+  html = BibleModule.restoreRefs(html);
+  const reader = document.getElementById('bk-reader');
+  reader.innerHTML = html;
+  reader.style.fontSize = _bkS.fs + 'px';
+  if (_bkS.readerW) reader.style.maxWidth = _bkS.readerW + 'px';
+  BibleModule.processDom(reader);
+  bkApplyHls(); bkBuildToc(); bkTrackProg();
+  bkColorTags(reader);
+  bkBindLinks(reader);
+  bkResolveImages(reader);  // 이미지 로딩
+}
+
+/* ── 이미지 로딩 ── */
+const _bkImgCache = new Map();  // path → blobUrl 캐시
+
+async function bkResolveImages(reader) {
+  const imgs = Array.from(reader.querySelectorAll('img[src^="bk-img://"]'));
+  if (!imgs.length) return;
+
+  await Promise.all(imgs.map(async img => {
+    const raw = img.getAttribute('src').replace('bk-img://', '');
+    // 너비 지정 분리 (encodeURIComponent된 경로|너비)
+    const parts = raw.split('|');
+    let imgPath = decodeURIComponent(parts[0]);
+    const width = parts[1];
+
+    // 로딩 placeholder
+    img.style.opacity = '0.3';
+    img.style.background = 'var(--ui-bg3, #eee)';
+    img.style.minHeight = '60px';
+    if (width) img.style.width = width + 'px';
+
+    try {
+      const fullPath = bkResolveImagePath(imgPath);
+      if (_bkImgCache.has(fullPath)) {
+        img.src = _bkImgCache.get(fullPath);
+        img.style.opacity = '1';
+        return;
+      }
+
+      const cfg = GitHubModule.get();
+      let fetchPath = fullPath;
+      let meta;
+      try {
+        meta = await GitHubModule.fetchContents(fetchPath);
+      } catch(e1) {
+        const fname = imgPath.split('/').pop().toLowerCase();
+        const tree = await GitHubModule.fetchTree();
+        const match = tree.tree.find(f =>
+          f.type === 'blob' && f.path.split('/').pop().toLowerCase() === fname
+        );
+        if (!match) throw e1;
+        fetchPath = match.path;
+        meta = await GitHubModule.fetchContents(fetchPath);
+      }
+
+      let bytes;
+      if (meta.encoding === 'base64' && meta.content) {
+        const b64 = meta.content.replace(/\n/g, '');
+        const rawStr = atob(b64);
+        bytes = new Uint8Array(rawStr.length);
+        for (let i = 0; i < rawStr.length; i++) bytes[i] = rawStr.charCodeAt(i);
+      } else {
+        const sha = meta.sha;
+        const blobUrl = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/git/blobs/${sha}`;
+        const headers = { 'Accept': 'application/vnd.github.raw' };
+        if (cfg.token) headers['Authorization'] = 'token ' + cfg.token;
+        const res = await fetch(blobUrl, { headers });
+        if (!res.ok) throw new Error('이미지 로드 실패');
+        bytes = new Uint8Array(await res.arrayBuffer());
+      }
+
+      const ext = (fetchPath.split('.').pop() || 'png').toLowerCase();
+      const mimeMap = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', svg:'image/svg+xml', webp:'image/webp', bmp:'image/bmp' };
+      const blob = new Blob([bytes], { type: mimeMap[ext] || 'image/png' });
+      const blobUrl = URL.createObjectURL(blob);
+      _bkImgCache.set(fullPath, blobUrl);
+
+      img.src = blobUrl;
+      img.style.opacity = '1';
+      img.style.background = 'none';
+    } catch(e) {
+      img.alt = `⚠ 이미지 로드 실패: ${imgPath}`;
+      img.style.opacity = '1';
+      img.style.background = 'none';
+      img.style.border = '1px dashed var(--ui-danger, #e05555)';
+      img.style.padding = '8px';
+      img.style.fontSize = '12px';
+      img.style.color = 'var(--ui-danger, #e05555)';
+    }
+  }));
+}
+
+/* 이미지 경로를 저장소 절대 경로로 변환 */
+function bkResolveImagePath(imgPath) {
+  // 이미 절대 경로(/ 로 시작)면 그대로
+  if (imgPath.startsWith('/')) return imgPath.slice(1);
+  // http(s):// 면 처리 안 함 (이미 위에서 걸러짐)
+  // 옵시디언은 보통 첨부파일을 attachments/ 또는 같은 폴더에 둠
+  // 1순위: 현재 파일과 같은 폴더 기준 상대경로
+  if (_bkCur) {
+    const curDir = _bkCur.includes('/') ? _bkCur.substring(0, _bkCur.lastIndexOf('/')) : '';
+    if (curDir) return curDir + '/' + imgPath;
+  }
+  return imgPath;
+}
+
+/* ── 내부 링크 처리 ── */
+function bkBindLinks(reader) {
+  reader.querySelectorAll('a').forEach(a => {
+    const href = a.getAttribute('href') || '';
+
+    // obsidian:// 위키링크
+    if (href.startsWith('obsidian://')) {
+      a.style.cursor = 'pointer';
+      a.style.color = 'var(--ac2)';
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const noteName = decodeURIComponent(href.replace('obsidian://', '').split('%23')[0]);
+        const heading  = href.includes('%23') ? decodeURIComponent(href.split('%23')[1]) : null;
+        bkOpenByName(noteName, heading);
+      });
+    }
+    // 일반 http 링크는 새 탭
+    else if (href.startsWith('http')) {
+      a.target = '_blank';
+      a.rel = 'noopener';
+    }
+    // 상대 경로 .md 링크
+    else if (href.endsWith('.md') || (!href.startsWith('#') && !href.includes('://'))) {
+      a.style.cursor = 'pointer';
+      a.style.color = 'var(--ac2)';
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const name = decodeURIComponent(href).replace(/\.md$/, '');
+        bkOpenByName(name, null);
+      });
+    }
+  });
+}
+
+/* 노트 이름으로 파일 찾아서 열기 */
+async function bkOpenByName(noteName, heading) {
+  // 파일 목록에서 이름 매칭 (경로 마지막 부분으로 검색)
+  const lower = noteName.toLowerCase().trim();
+  let found = _bkFiles.find(p => {
+    const fname = p.split('/').pop().replace(/\.md$/, '').toLowerCase();
+    return fname === lower;
+  });
+  // 정확히 못 찾으면 포함 검색
+  if (!found) {
+    found = _bkFiles.find(p => {
+      const fname = p.split('/').pop().replace(/\.md$/, '').toLowerCase();
+      return fname.includes(lower) || lower.includes(fname);
+    });
+  }
+  if (!found) {
+    AppToast.show(`"${noteName}" 노트를 찾을 수 없습니다`, 'error');
+    return;
+  }
+  await bkOpen(found);
+  // 헤딩으로 스크롤
+  if (heading) {
+    setTimeout(() => {
+      const hs = document.querySelectorAll('#bk-reader h1,#bk-reader h2,#bk-reader h3,#bk-reader h4');
+      const target = Array.from(hs).find(h =>
+        h.textContent.toLowerCase().trim() === heading.toLowerCase().trim()
+      );
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 400);
+  }
+}
+
+/* ── 밑줄 ── */
+// 텍스트 선택 → 즉시 팝업 (모드 버튼 없음)
+document.addEventListener('mouseup', e => {
+  // 팝업 자체 클릭 무시
+  if (e.target.closest('#bk-hlpop')) return;
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+    // 클릭이 팝업 밖이면 닫기
+    if (!e.target.closest('#bk-hlpop')) bkHideHlPop();
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  if (!document.getElementById('bk-reader').contains(range.commonAncestorContainer)) return;
+  _bkSelR = range.cloneRange();
+  _bkSelText = sel.toString().trim();
+  const rect = range.getBoundingClientRect();
+  const pop = document.getElementById('bk-hlpop');
+  // 메모 입력창 초기화
+  const note = document.getElementById('bk-hlpop-note');
+  note.style.display = 'none'; note.value = '';
+  document.getElementById('bk-hlpop-memo-btn').textContent = '메모';
+  // 위치 결정
+  const pw = 280, ph = 46;
+  let left = rect.left + rect.width/2 - pw/2;
+  let top  = rect.top - ph - 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+  if (top < 8) top = rect.bottom + 8;
+  pop.style.left = left + 'px';
+  pop.style.top  = top + 'px';
+  pop.classList.add('show');
+});
+document.addEventListener('touchend', e => {
+  if (e.target.closest('#bk-hlpop')) return;
+  setTimeout(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+    const range = sel.getRangeAt(0);
+    if (!document.getElementById('bk-reader').contains(range.commonAncestorContainer)) return;
+    _bkSelR = range.cloneRange();
+    _bkSelText = sel.toString().trim();
+    const rect = range.getBoundingClientRect();
+    const pop = document.getElementById('bk-hlpop');
+    const note = document.getElementById('bk-hlpop-note');
+    note.style.display = 'none'; note.value = '';
+    document.getElementById('bk-hlpop-memo-btn').textContent = '메모';
+    let left = rect.left + rect.width/2 - 140;
+    let top  = rect.top - 54;
+    left = Math.max(8, Math.min(left, window.innerWidth - 288));
+    if (top < 8) top = rect.bottom + 8;
+    pop.style.left = left + 'px';
+    pop.style.top  = top + 'px';
+    pop.classList.add('show');
+  }, 100);
+});
+/* ── #태그 색상 처리 ── */
+function bkColorTags(el) {
+  // 이미 처리된 태그 span 안은 건너뜀
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const p = node.parentNode;
+      if (p.closest('.hl, .bk-tag, code, pre, .bible-callout')) return NodeFilter.FILTER_REJECT;
+      return /#[^\s#\u200b.,!?;:'"()\[\]{}<>]{1,40}/.test(node.textContent)
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+    }
+  }, false);
+  const nodes = [];
+  let n;
+  while (n = walker.nextNode()) nodes.push(n);
+  nodes.forEach(tn => {
+    const frag = document.createDocumentFragment();
+    const parts = tn.textContent.split(/(#[^\s#\u200b.,!?;:'"()\[\]{}<>]{1,40})/g);
+    parts.forEach(part => {
+      if (/^#[^\s]{1,40}$/.test(part)) {
+        const span = document.createElement('span');
+        span.className = 'bk-tag';
+        span.textContent = part;
+        frag.appendChild(span);
+      } else {
+        frag.appendChild(document.createTextNode(part));
+      }
+    });
+    tn.parentNode.replaceChild(frag, tn);
+  });
+}
+function bkHideHlPop() {
+  document.getElementById('bk-hlpop').classList.remove('show');
+  window.getSelection()?.removeAllRanges();
+  _bkSelR = null; _bkSelText = '';
+}
+
+// 색상 클릭 → 즉시 밑줄 저장 (메모 없이)
+async function bkSaveHlColor(col, btn) {
+  if (!_bkSelText) return; // 이미 저장됐거나 선택 없으면 무시
+  document.querySelectorAll('.bk-hlpop-c').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
+  _bkHlCol = col;
+  const note = document.getElementById('bk-hlpop-note');
+  // 메모 입력창이 열려있고 내용 있으면 메모도 같이 저장
+  const memoVal = (note.style.display !== 'none') ? note.value.trim() : '';
+  await bkDoSaveHl(memoVal);
+}
+
+// 메모 Enter → 현재 색상으로 저장
+async function bkSaveHlWithMemo() {
+  if (!_bkSelText) return; // 이미 저장됐으면 무시
+  const note = document.getElementById('bk-hlpop-note').value.trim();
+  await bkDoSaveHl(note);
+}
+
+// 실제 저장 로직 — 저장 즉시 _bkSelText 초기화로 중복 방지
+async function bkDoSaveHl(note) {
+  if (!_bkSelR || !_bkCur || !_bkSelText) { bkHideHlPop(); return; }
+  // 중복 저장 방지: 저장 시작 전에 선택 텍스트 초기화
+  const textToSave = _bkSelText;
+  _bkSelText = '';
+  if (!_bkHls[_bkCur]) _bkHls[_bkCur] = [];
+  const id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+  _bkHls[_bkCur].push({ id, text: textToSave, color: _bkHlCol, note, date: new Date().toISOString() });
+  bkSaveStore();
+  bkApplyHls();
+  bkHideHlPop();
+  AppToast.show(note ? '✏️ 밑줄+메모 저장됨' : '✏️ 밑줄 저장됨');
+  // GitHub 저장은 비동기 (UI 블록 안 함)
+  bkSaveHlToGitHub(_bkCur).catch(() => {});
+}
+
+function bkHlColor(col, btn) {
+  _bkHlCol = col;
+  document.querySelectorAll('.bk-hlpop-c').forEach(b => b.classList.remove('on'));
+  btn?.classList.add('on');
+}
+
+function bkTogMemo() {
+  const note = document.getElementById('bk-hlpop-note');
+  const btn  = document.getElementById('bk-hlpop-memo-btn');
+  if (note.style.display === 'none') {
+    note.style.display = 'block';
+    note.value = '';
+    // 팝업 너비 조금 늘려서 입력 편하게
+    document.getElementById('bk-hlpop').style.flexWrap = 'wrap';
+    note.focus();
+    btn.textContent = '메모▲';
+    // 안내: 색상 클릭하면 메모와 함께 저장
+    note.placeholder = '메모 입력 후 색상 클릭 또는 Enter…';
+  } else {
+    note.style.display = 'none';
+    btn.textContent = '메모';
+  }
+}
+
+function bkLookup() {
+  if (!_bkSelText) return;
+  window.open(`https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`, '_blank');
+  bkHideHlPop();
+}
+async function bkSaveHlToGitHub(filePath) {
+  if (!GitHubModule.get().token) return;
+  try {
+    const hlPath = '_highlights/' + filePath.replace(/\//g, '_').replace(/\.md$/, '') + '_hl.json';
+    const data = JSON.stringify(_bkHls[filePath] || [], null, 2);
+    // writeFile은 파일이 없으면 생성, 있으면 업데이트
+    await GitHubModule.writeFile(hlPath, data, `밑줄 업데이트: ${filePath.split('/').pop()}`);
+  } catch(e) {
+    // GitHub 저장 실패해도 로컬은 이미 저장됨
+    console.warn('밑줄 GitHub 저장 실패:', e.message);
+  }
+}
+async function bkLoadHlFromGitHub(filePath) {
+  if (!GitHubModule.get().token) return;
+  try {
+    const hlPath = '_highlights/' + filePath.replace(/\//g, '_').replace(/\.md$/, '') + '_hl.json';
+    const text = await GitHubModule.readFile(hlPath);
+    const data = JSON.parse(text);
+    if (Array.isArray(data) && data.length > 0) {
+      _bkHls[filePath] = data;
+      bkSaveStore();
+    }
+  } catch(e) { /* 파일 없으면 무시 */ }
+}
+function bkApplyHls() {
+  if (!_bkCur || !_bkHls[_bkCur]) return;
+  const reader = document.getElementById('bk-reader');
+  _bkHls[_bkCur].forEach(h => { try { bkHlDom(reader, h.text, h.color, h.id, h.note); } catch(e) {} });
+}
+function bkHlDom(el, text, color, id, note) {
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+  const nodes = []; let n;
+  while (n = w.nextNode()) nodes.push(n);
+  for (const tn of nodes) {
+    const idx = tn.textContent.indexOf(text);
+    if (idx === -1) continue;
+    if (tn.parentNode.classList?.contains('hl')) continue;
+    const span = document.createElement('span');
+    span.className = `hl hl-${color}`; span.dataset.hlId = id; span.title = note || '';
+    const r = document.createRange();
+    r.setStart(tn, idx); r.setEnd(tn, idx + text.length);
+    try { r.surroundContents(span); break; } catch(e) {}
+  }
+}
+/* 밑줄 패널 */
+function bkShowAnnot() { bkTogAnnot(); }
+function bkTogAnnot() {
+  const panel = document.getElementById('bk-annot');
+  panel.classList.toggle('open');
+  document.getElementById('bk-annotbtn').classList.toggle('on', panel.classList.contains('open'));
+  if (panel.classList.contains('open')) bkRenderAnnot();
+  document.getElementById('bk-search').classList.remove('open');
+  document.getElementById('bk-search-overlay').classList.remove('open');
+}
+function bkRenderAnnot() {
+  const list = document.getElementById('bk-an-list');
+  const cmap = { yellow:'#ffdc50', green:'#64c878', blue:'#50a0ff', pink:'#ff6496' };
+  const entries = [];
+  const files = _bkCur
+    ? [_bkCur, ...Object.keys(_bkHls).filter(f => f !== _bkCur)]
+    : Object.keys(_bkHls);
+  files.forEach(file => { (_bkHls[file]||[]).forEach(h => entries.push({...h, file})); });
+  if (!entries.length) {
+    list.innerHTML = '<div class="bk-an-empty">아직 밑줄이 없습니다.<br>텍스트를 선택하면 팝업이 나타납니다.</div>';
+    return;
+  }
+  list.innerHTML = entries.map(h => {
+    const fname = h.file.split('/').pop().replace(/\.md$/, '');
+    return `<div class="bk-an-item" onclick="bkOpenAnnot('${h.file}','${h.id}')">
+      <div class="bk-an-bar" style="background:${cmap[h.color]||'#ffdc50'}">
+        <button class="bk-an-del" onclick="event.stopPropagation();bkDelAnnot('${h.file}','${h.id}')" title="삭제">✕</button>
+      </div>
+      <div class="bk-an-text">${h.text.slice(0,120)}${h.text.length>120?'…':''}</div>
+      ${h.note ? `<div class="bk-an-note">💬 ${h.note}</div>` : ''}
+      <div style="font-size:10px;color:var(--pm);margin-top:3px">📄 ${fname}</div>
+    </div>`;
+  }).join('');
+}
+async function bkOpenAnnot(file, id) {
+  document.getElementById('bk-annot').classList.remove('open');
+  document.getElementById('bk-annotbtn').classList.remove('on');
+  if (_bkCur !== file) await bkOpen(file);
+  setTimeout(() => {
+    const el = document.querySelector(`[data-hl-id="${id}"]`);
+    if (el) el.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 400);
+}
+async function bkDelAnnot(file, id) {
+  if (!_bkHls[file]) return;
+  _bkHls[file] = _bkHls[file].filter(h => h.id !== id);
+  if (!_bkHls[file].length) delete _bkHls[file];
+  bkSaveStore();
+  await bkSaveHlToGitHub(file);
+  bkRenderAnnot();
+  if (_bkCur === file) bkRender();
+}
+
+/* TOC */
+function bkBuildToc() {
+  const hs = document.querySelectorAll('#bk-reader h1,#bk-reader h2,#bk-reader h3,#bk-reader h4');
+  const list = document.getElementById('bk-toclist');
+  if (!hs.length) { list.innerHTML = '<div style="font-size:12px;color:var(--pm);padding:5px 0">제목 없음</div>'; return; }
+  list.innerHTML = Array.from(hs).map((h, i) => {
+    h.id = `bkh-${i}`;
+    return `<div class="bk-ti ${h.tagName.toLowerCase()}" onclick="document.getElementById('bkh-${i}').scrollIntoView({behavior:'smooth'})">${h.textContent}</div>`;
+  }).join('');
+}
+function bkTogToc() {
+  const p = document.getElementById('bk-toc'); p.classList.toggle('open');
+  document.getElementById('bk-tocbtn').classList.toggle('on', p.classList.contains('open'));
+  document.getElementById('bk-spl-r').style.display = p.classList.contains('open') ? 'block' : 'none';
+}
+function bkTogSidebar() {
+  const sb = document.getElementById('bk-sidebar'); sb.classList.toggle('open');
+  const open = sb.classList.contains('open');
+  document.getElementById('bk-spl-l').style.display = open ? 'block' : 'none';
+  document.getElementById('bk-sbbtn').classList.toggle('on', open);
+}
+
+/* 검색 */
+async function bkBuildSrIdx() {
+  _bkSrIdx = []; _bkSrReady = false;
+  const batch = 8;
+  for (let i = 0; i < _bkFiles.length; i += batch) {
+    await Promise.all(_bkFiles.slice(i, i+batch).map(async path => {
+      try {
+        const text = await GitHubModule.readFile(path);
+        _bkSrIdx.push({ path, title: path.split('/').pop().replace(/\.md$/,''), content: text.replace(/---[\s\S]*?---/,'').replace(/[#*`[\]]/g,' ') });
+      } catch(e) {}
+    }));
+    await new Promise(r => setTimeout(r, 60));
+  }
+  _bkSrReady = true;
+}
+function bkTogSearch() {
+  const p = document.getElementById('bk-search');
+  const ov = document.getElementById('bk-search-overlay');
+  const open = !p.classList.contains('open');
+  p.classList.toggle('open', open);
+  ov.classList.toggle('open', open);
+  document.getElementById('bk-annot').classList.remove('open');
+  document.getElementById('bk-annotbtn').classList.remove('on');
+  if (open) {
+    document.getElementById('bk-sinp').value = '';
+    document.getElementById('bk-sinp').focus();
+    document.getElementById('bk-sres').innerHTML = `<div class="bk-srs">${_bkSrReady?'검색어를 입력하세요':'인덱싱 중…'}</div>`;
+  }
+}
+function bkDoSearch(q) {
+  q = q.trim(); const res = document.getElementById('bk-sres');
+  if (!q) { res.innerHTML = '<div class="bk-srs">검색어를 입력하세요</div>'; return; }
+  if (q.length < 2) { res.innerHTML = '<div class="bk-srs">두 글자 이상</div>'; return; }
+  const low = q.toLowerCase();
+  const hits = _bkSrIdx.filter(f => f.title.toLowerCase().includes(low) || f.content.toLowerCase().includes(low)).slice(0, 30);
+  if (!hits.length) { res.innerHTML = '<div class="bk-srs">결과 없음</div>'; return; }
+  const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  res.innerHTML = hits.map(f => {
+    const idx = f.content.toLowerCase().indexOf(low);
+    const ex  = idx > -1 ? f.content.slice(Math.max(0,idx-50), idx+80).trim().replace(/\n/g,' ') : '';
+    const hi  = ex.replace(new RegExp(esc,'gi'), m => `<mark>${m}</mark>`);
+    return `<div class="bk-sri" onclick="bkOpen('${f.path}');document.getElementById('bk-search').classList.remove('open');document.getElementById('bk-search-overlay').classList.remove('open')">
+      <div class="bk-srt">${f.title}</div><div class="bk-srp">${f.path}</div>
+      ${hi ? `<div class="bk-sre">${hi}…</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+/* 본문 너비 */
+function bkSetWidth(val) {
+  document.getElementById('bk-reader').style.maxWidth = val + 'px';
+  _bkS.readerW = parseInt(val);
+  bkSaveStore();
+}
+
+/* 프로그레스 */
+function bkTrackProg() {
+  const wrap = document.getElementById('bk-rw'); let t = null;
+  wrap.onscroll = () => {
+    const tot = wrap.scrollHeight - wrap.clientHeight;
+    document.getElementById('bk-prog').style.width = (tot>0 ? wrap.scrollTop/tot*100 : 0) + '%';
+    if (t) clearTimeout(t);
+    t = setTimeout(() => { if (_bkCur) { _bkPos[_bkCur] = wrap.scrollTop; bkSaveStore(); } }, 400);
+  };
+}
+
+/* 드래그 리사이즈 */
+function bkDragStart(e, side) {
+  e.preventDefault();
+  const splId = side==='l' ? 'bk-spl-l' : 'bk-spl-r';
+  document.getElementById(splId).classList.add('drag');
+  if (side === 'l') {
+    const sb = document.getElementById('bk-sidebar');
+    const sx = e.clientX, sw = sb.offsetWidth;
+    _bkDrag = { move(e){sb.style.width=Math.max(80,Math.min(460,sw+(e.clientX-sx)))+'px';}, up(){document.getElementById(splId).classList.remove('drag');_bkDrag=null;} };
+  } else {
+    const toc = document.getElementById('bk-toc');
+    const sx = e.clientX, sw = toc.offsetWidth;
+    _bkDrag = { move(e){toc.style.width=Math.max(90,Math.min(380,sw-(e.clientX-sx)))+'px';}, up(){document.getElementById(splId).classList.remove('drag');_bkDrag=null;} };
+  }
+}
+document.addEventListener('mousemove', e => {
+  if (_bkDrag)  _bkDrag.move(e);
+  if (_pdfDrag) _pdfDrag.move(e);
+  if (_stDrag)  _stDrag.move(e);
+});
+document.addEventListener('mouseup', e => {
+  if (_bkDrag)  _bkDrag.up(e);
+  if (_pdfDrag) _pdfDrag.up(e);
+  if (_stDrag)  _stDrag.up(e);
+});
+
+/* 키보드 */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    bkHideHlPop();
+    bkHideDictPopup();
+    document.getElementById('bk-search').classList.remove('open');
+    document.getElementById('bk-search-overlay').classList.remove('open');
+    document.getElementById('bk-annot').classList.remove('open');
+    document.getElementById('bk-annotbtn').classList.remove('on');
+    document.getElementById('cfg-overlay').classList.remove('open');
+  }
+  if ((e.metaKey||e.ctrlKey) && e.key==='k') { e.preventDefault(); bkTogSearch(); }
+});
+
+/* ══════════════════════════════════════
+   단어장 기능
+══════════════════════════════════════ */
+
+/* 단어장 파일 감지 — 테이블 행 3개 이상이면 단어장 */
+function bkIsWordTable(text) {
+  const lines = text.split('\n').filter(l => l.trim().startsWith('|'));
+  return lines.length >= 3;
+}
+
+/* 단어장 렌더링 */
+function bkRenderWordTable(text) {
+  // 마크다운 테이블 파싱
+  const lines = text.split('\n');
+  const rows = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t.startsWith('|')) continue;
+    if (/^\|[-:\s|]+\|$/.test(t)) continue; // 구분선 스킵
+    const cells = t.split('|').slice(1, -1).map(c => c.trim());
+    if (cells.length >= 2) rows.push(cells);
+  }
+  if (!rows.length) return null;
+
+  // 헤더 감지 (첫 줄이 라오어/영어/한글 인지 확인)
+  let dataRows = rows;
+  let headers  = ['라오어', '영어', '한글'];
+  if (rows[0].some(h => /라오|Lao|영어|English|한글|Korean/i.test(h))) {
+    headers  = rows[0];
+    dataRows = rows.slice(1);
+  }
+
+  const colVis = { lao: true, eng: true, kor: true };
+  window._wColVis = colVis;
+
+  let html = `<table class="word-table" id="bk-word-table">`;
+  dataRows.forEach((cells, ri) => {
+    const lao = cells[0] || '';
+    const eng = cells[1] || '';
+    const kor = cells[2] || '';
+    html += `<tr>
+      <td class="w-lao" data-col="lao" onclick="wTogCell(this)">
+        <button class="w-lookup-btn" onclick="event.stopPropagation();bkDictLookup('${esc(lao)}')" title="사전 찾기">🔍</button>${esc(lao)}
+      </td>
+      <td class="w-eng" data-col="eng" onclick="wTogCell(this)">${esc(eng)}</td>
+      <td class="w-kor" data-col="kor" onclick="wTogCell(this)">${esc(kor)}</td>
+    </tr>`;
+  });
+  html += `</table>`;
+  return html;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* 열 전체 토글 */
+const _wColVis = { lao: true, eng: true, kor: true };
+
+function wTogCol(col) {
+  _wColVis[col] = !_wColVis[col];
+  const btn = document.getElementById('wctrl-' + col);
+  if (btn) btn.classList.toggle('on', _wColVis[col]);
+  document.querySelectorAll(`#bk-word-table td[data-col="${col}"]`).forEach(td => {
+    td.classList.toggle('vis-hidden', !_wColVis[col]);
+  });
+}
+
+/* 개별 셀 토글 */
+function wTogCell(td) {
+  td.classList.toggle('vis-hidden');
+}
+
+/* 폰트 크기 조절 */
+let _wFontSize = 17;
+function wFontSize(delta) {
+  _wFontSize = Math.min(28, Math.max(12, _wFontSize + delta * 2));
+  document.getElementById('bk-reader').style.setProperty('--word-fs', _wFontSize + 'px');
+  localStorage.setItem('word-fs', _wFontSize);
+}
+
+/* 사전 파일 캐시 */
+let _dictData = null;
+let _dictFile = null;
+
+async function bkDictLookup(word) {
+  if (!word) return;
+  document.getElementById('bk-dict-word').textContent = word;
+  document.getElementById('bk-dict-body').innerHTML =
+    '<div class="dict-none">🔍 검색 중…</div>';
+  document.getElementById('bk-dict-popup').classList.add('open');
+
+  try {
+    // 사전 파일 로드 (캐시)
+    if (!_dictData) await bkLoadDict();
+
+    if (!_dictData || !_dictData.length) {
+      document.getElementById('bk-dict-body').innerHTML =
+        '<div class="dict-none">사전 파일을 찾을 수 없습니다<br><small>단어장 폴더에 "라오어 사전.md" 파일이 있어야 합니다</small></div>';
+      return;
+    }
+
+    // 단어 검색 (라오어 정확 일치 → 포함 검색)
+    const q = word.trim();
+    let results = _dictData.filter(e => e.lao === q);
+    if (!results.length) results = _dictData.filter(e => e.lao.includes(q) || q.includes(e.lao));
+
+    if (!results.length) {
+      document.getElementById('bk-dict-body').innerHTML =
+        `<div class="dict-none">"${esc(q)}"에 해당하는 단어를 찾을 수 없습니다</div>`;
+      return;
+    }
+
+    document.getElementById('bk-dict-body').innerHTML = results.map(e => `
+      <div class="dict-entry">
+        <div class="dict-lao">${esc(e.lao)}</div>
+        ${e.pron ? `<div class="dict-pron">${esc(e.pron)}</div>` : ''}
+        ${e.eng  ? `<div class="dict-eng">🇺🇸 ${esc(e.eng)}</div>` : ''}
+        ${e.kor  ? `<div class="dict-kor">🇰🇷 ${esc(e.kor)}</div>` : ''}
+        ${e.opp  ? `<div class="dict-pron">반대말: ${esc(e.opp)}</div>` : ''}
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('bk-dict-body').innerHTML =
+      `<div class="dict-none">오류: ${esc(e.message)}</div>`;
+  }
+}
+
+async function bkLoadDict() {
+  // 저장소에서 "라오어 사전" 또는 "lao" 포함 md 파일 찾기
+  const dictPath = _bkFiles.find(p =>
+    /라오어.사전|lao.*dict|dict.*lao/i.test(p.split('/').pop())
+  ) || _bkFiles.find(p => /사전/i.test(p));
+
+  if (!dictPath) { _dictData = []; return; }
+  _dictFile = dictPath;
+
+  const text = await GitHubModule.readFile(dictPath);
+  _dictData = parseDictMd(text);
+}
+
+function parseDictMd(text) {
+  // "---" 구분자 블록 방식
+  const entries = [];
+  let cur = [];
+  for (const line of text.split('\n')) {
+    if (/^\s*---\s*$/.test(line)) {
+      if (cur.length) entries.push(parseEntry(cur.join('\n')));
+      cur = [];
+    } else cur.push(line);
+  }
+  if (cur.length) entries.push(parseEntry(cur.join('\n')));
+  return entries.filter(e => e.lao);
+}
+
+function parseEntry(block) {
+  const e = {};
+  for (const line of block.split('\n')) {
+    const m = line.match(/^([^:：]+)[：:]\s*(.*)$/);
+    if (!m) continue;
+    const k = m[1].trim(), v = m[2].trim();
+    if (k==='라오')   e.lao  = v;
+    if (k==='발음')   e.pron = v;
+    if (k==='영어')   e.eng  = v;
+    if (k==='한글')   e.kor  = v;
+    if (k==='반대말') e.opp  = v;
+  }
+  return e;
+}
+
+function bkHideDictPopup() {
+  document.getElementById('bk-dict-popup').classList.remove('open');
+}
+
+/* bkRender에서 단어장 분기 처리 */
+function bkIsWordFile(path) {
+  if (!path) return false;
+  const cfg = GitHubModule.get();
+  if (cfg.wordsFolder) {
+    const folder = cfg.wordsFolder.replace(/^\/+|\/+$/g,'').toLowerCase();
+    if (path.toLowerCase().startsWith(folder + '/')) return true;
+  }
+  // 파일명에 단어/word/vocab 포함 시도
+  const fname = path.split('/').pop().toLowerCase();
+  return /단어|word|vocab|lao.*\d|ls-\d/i.test(fname);
+}
+let _pdfFiles   = [];   // pdf 파일 목록
+let _pdfCurPath = null; // 현재 열린 pdf 경로
+let _pdfDrag    = null;
+
+function pdfSyncFiles(allFiles) {
+  // 책보기에서 로드한 전체 파일에서 pdf만 추출
+  _pdfFiles = allFiles.filter(f => f.endsWith('.pdf'));
+  pdfRenderTree(_pdfFiles);
+  const lbl = document.getElementById('pdf-repo-lbl');
+  const c   = GitHubModule.get();
+  if (lbl && c.user && c.repo) lbl.textContent = `${c.user}/${c.repo}`;
+}
+
+async function pdfRefresh() {
+  const c = GitHubModule.get();
+  if (!c.user || !c.repo) { AppToast.show('저장소를 먼저 설정하세요', 'error'); return; }
+  try {
+    const tree = await GitHubModule.fetchTree();
+    const allFiles = tree.tree
+      .filter(f => f.type === 'blob' && f.path.endsWith('.pdf'))
+      .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
+      .map(f => f.path);
+    _pdfFiles = allFiles;
+    pdfRenderTree(_pdfFiles);
+    AppToast.show(`📄 ${_pdfFiles.length}개 PDF 로드됨`);
+  } catch(e) {
+    AppToast.show(e.message, 'error');
+  }
+}
+
+function pdfRenderTree(files) {
+  const tree = {};
+  files.forEach(path => {
+    const parts = path.split('/'); let node = tree;
+    parts.forEach((p, i) => {
+      if (i === parts.length - 1) { (node.__f__ = node.__f__ || []).push({name:p, path}); }
+      else { node[p] = node[p] || {}; node = node[p]; }
+    });
+  });
+  const el = document.getElementById('pdf-ftree');
+  if (!el) return;
+  if (!files.length) {
+    el.innerHTML = '<div style="padding:14px;color:var(--sb-text2);font-size:12px;text-align:center">PDF 파일이 없습니다</div>';
+    return;
+  }
+  el.innerHTML = pdfRNode(tree, 0);
+}
+
+function pdfRNode(node, d) {
+  let html = ''; const pad = 10 + d * 10;
+  Object.keys(node).filter(k => k !== '__f__').sort().forEach(k => {
+    html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${pdfRNode(node[k], d+1)}</div>`;
+  });
+  (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
+    const name = f.name.replace(/\.pdf$/, '');
+    html += `<div class="bk-fi" style="padding-left:${pad+12}px" data-path="${f.path}" onclick="pdfOpenFile('${f.path}')" title="${f.path}">📄 ${name}</div>`;
+  });
+  return html;
+}
+
+function pdfFilterTree(q) {
+  q = q.toLowerCase();
+  if (!q) { pdfRenderTree(_pdfFiles); return; }
+  pdfRenderTree(_pdfFiles.filter(p => p.toLowerCase().includes(q)));
+}
+
+function pdfTogSidebar() {
+  const sb   = document.getElementById('pdf-sidebar');
+  const spl  = document.getElementById('pdf-spl');
+  const open = sb.style.display !== 'none' && sb.offsetWidth > 0;
+  if (open) {
+    sb.style.display = 'none';
+    spl.style.display = 'none';
+  } else {
+    sb.style.display = 'flex';
+    spl.style.display = 'block';
+  }
+  document.getElementById('pdf-sbbtn').classList.toggle('on', !open);
+}
+
+async function pdfOpenFile(path) {
+  _pdfCurPath = path;
+  localStorage.setItem('pdf-last-file', path);
+
+  // 활성 표시
+  document.querySelectorAll(`#pdf-ftree .bk-fi[data-path], #bk-ftree .bk-fi[data-path]`).forEach(el => {
+    el.classList.toggle('active', el.dataset.path === path);
+  });
+  const el = document.querySelector(`#pdf-ftree .bk-fi[data-path="${CSS.escape(path)}"]`);
+  if (el) el.scrollIntoView({block:'nearest'});
+
+  const fname   = path.split('/').pop().replace(/\.pdf$/, '');
+  const titleEl = document.getElementById('pdf-title');
+  titleEl.innerHTML = `<strong>📄 ${fname}</strong> <span style="color:var(--pm);font-size:11px">로딩 중…</span>`;
+
+  const iframe = document.getElementById('pdf-iframe');
+  const ph     = document.getElementById('pdf-placeholder');
+  const extBtn = document.getElementById('pdf-newwin-btn');
+  extBtn.style.display = 'flex';
+
+  const isAndroid = /android/i.test(navigator.userAgent);
+
+  // 오류 표시 헬퍼
+  function showErr(msg) {
+    titleEl.innerHTML = `<strong>📄 ${fname}</strong>`;
+    ph.style.display  = 'flex';
+    ph.innerHTML = `
+      <div style="font-size:36px;margin-bottom:10px">⚠️</div>
+      <div style="font-size:13px;color:var(--ui-text2);margin-bottom:6px">${msg}</div>
+      <button class="bk-go" style="max-width:220px;margin-top:10px" onclick="pdfOpenExternal()">↗ 새 탭에서 열기</button>`;
+    iframe.style.display = 'none';
+  }
+
+  try {
+    // 1. GitHub API로 파일 메타 조회 (sha, size 확인)
+    const meta = await GitHubModule.fetchContents(path);
+    const cfg  = GitHubModule.get();
+
+    if (isAndroid) {
+      // ── 안드로이드: Google Docs 뷰어 ──
+      // download_url은 토큰 필요 시 작동 안 할 수 있으므로
+      // GitHub Pages URL 또는 google viewer에 raw URL 사용
+      const rawUrl = `https://raw.githubusercontent.com/${cfg.user}/${cfg.repo}/${cfg.branch||'main'}/${path}`;
+      const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(rawUrl)}&embedded=true`;
+      iframe.src = viewerUrl;
+      iframe.style.display = 'block';
+      ph.style.display = 'none';
+      titleEl.innerHTML = `<strong>📄 ${fname}</strong>`;
+      AppToast.show('📄 Google Docs 뷰어로 표시 중…');
+      return;
+    }
+
+    // ── 데스크탑/iOS: Blob URL 방식 ──
+    let pdfBytes;
+
+    if (meta.encoding === 'base64' && meta.content) {
+      // 1MB 이하: 바로 base64 디코딩
+      const b64 = meta.content.replace(/\n/g, '');
+      const raw = atob(b64);
+      pdfBytes  = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) pdfBytes[i] = raw.charCodeAt(i);
+
+    } else {
+      // 1MB 초과: Git Blobs API로 재시도
+      // GET /repos/{owner}/{repo}/git/blobs/{sha}
+      // Accept: application/vnd.github.raw → raw bytes 직접 수신
+      const sha      = meta.sha;
+      const blobUrl  = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/git/blobs/${sha}`;
+      const headers  = { 'Accept': 'application/vnd.github.raw' };
+      if (cfg.token) headers['Authorization'] = 'token ' + cfg.token;
+
+      AppToast.show('📄 대용량 PDF 다운로드 중…');
+      const res = await fetch(blobUrl, { headers });
+      if (!res.ok) throw new Error(`다운로드 실패 (${res.status}): 토큰 권한을 확인하세요`);
+      const buf = await res.arrayBuffer();
+      pdfBytes  = new Uint8Array(buf);
+    }
+
+    // Blob URL 생성
+    const blob       = new Blob([pdfBytes], { type: 'application/pdf' });
+    const objectUrl  = URL.createObjectURL(blob);
+
+    // 이전 Blob URL 해제
+    if (iframe._blobUrl) { URL.revokeObjectURL(iframe._blobUrl); }
+    iframe._blobUrl  = objectUrl;
+
+    iframe.src = objectUrl;
+    iframe.style.display = 'block';
+    ph.style.display  = 'none';
+    titleEl.innerHTML = `<strong>📄 ${fname}</strong>`;
+
+  } catch(e) {
+    showErr(e.message);
+    AppToast.show(e.message, 'error');
+  }
+}
+
+async function pdfOpenExternal() {
+  if (!_pdfCurPath) return;
+  const cfg = GitHubModule.get();
+  try {
+    AppToast.show('다운로드 중…');
+    const meta    = await GitHubModule.fetchContents(_pdfCurPath);
+    const sha     = meta.sha;
+    const blobUrl = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/git/blobs/${sha}`;
+    const headers = { 'Accept': 'application/vnd.github.raw' };
+    if (cfg.token) headers['Authorization'] = 'token ' + cfg.token;
+
+    const res = await fetch(blobUrl, { headers });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const buf  = await res.arrayBuffer();
+    const blob = new Blob([buf], { type: 'application/pdf' });
+    const url  = URL.createObjectURL(blob);
+
+    // 새 탭에서 열기
+    const a = document.createElement('a');
+    a.href = url; a.target = '_blank';
+    a.download = _pdfCurPath.split('/').pop();
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch(e) {
+    AppToast.show('열기 실패: ' + e.message, 'error');
+  }
+}
+
+// PDF 사이드바 드래그 리사이즈
+function pdfDragStart(e) {
+  e.preventDefault();
+  const sb = document.getElementById('pdf-sidebar');
+  const sx = e.clientX, sw = sb.offsetWidth;
+  _pdfDrag = {
+    move(e) { sb.style.width = Math.max(80, Math.min(400, sw + (e.clientX - sx))) + 'px'; },
+    up()    { _pdfDrag = null; }
+  };
+}
+/* ── 단어공부 사이드바 드래그 리사이즈 ── */
+let _stDrag = null;
+function stDragStart(e) {
+  e.preventDefault();
+  const sb = document.getElementById('st-sidebar');
+  const sx = e.clientX, sw = sb.offsetWidth;
+  _stDrag = {
+    move(e) { sb.style.width = Math.max(80, Math.min(400, sw + (e.clientX - sx))) + 'px'; },
+    up()    { _stDrag = null; }
+  };
+}
+(function init() {
+  GitHubModule.load();
+  bkLoadStore();
+  if (_bkS.dark) applyDark(true);
+  bkApplyTheme();
+  bkSyncBible();
+  BibleModule.injectStyles();
+  const c = GitHubModule.get();
+  if (c.user && c.repo) {
+    document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
+    if (document.getElementById('pdf-repo-lbl'))
+      document.getElementById('pdf-repo-lbl').textContent = `${c.user}/${c.repo}`;
+    if (document.getElementById('st-repo-lbl'))
+      document.getElementById('st-repo-lbl').textContent = `${c.user}/${c.repo}`;
+    bkTogSidebar();
+    bkLoadFiles();
+  } else {
+    document.getElementById('bk-title').innerHTML = '<span style="color:var(--pm)">⚙ 설정에서 저장소를 연결하세요</span>';
+  }
+  updateEtcLabel();
+})();
+</script>
+</body>
+</html>
