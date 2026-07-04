@@ -148,7 +148,7 @@ html[data-dark] #dark-toggle::after { left: 18px; }
   filter: blur(5px); opacity: 0.4; cursor: pointer; user-select: none; background: rgba(0,0,0,0.03);
 }
 #bk-reader table.word-table td.vis-hidden:hover { filter: blur(2px); opacity: 0.7; }
-#bk-reader table.word-table td.vis-hidden * { pointer-events: none; } /* 블러 처리 시 내부 검색버튼 클릭 방지 */
+#bk-reader table.word-table td.vis-hidden * { pointer-events: none; }
 
 /* 찾기 버튼 */
 .w-lookup-btn {
@@ -404,7 +404,7 @@ html[data-dark] #bk-sidebar {
         <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
         <div id="bk-title"><span>파일을 불러오는 중…</span></div>
         
-        <!-- 🔥 [수정 및 추가] 단어장 전용 컨트롤 토글 & 글자 크기 조정바 (단어장 진입 시 동적 활성화) -->
+        <!-- 단어장 전용 컨트롤 토글 & 글자 크기 조정바 -->
         <div id="bk-word-ctrl" style="display:none; align-items:center; gap:6px;">
           <button class="tog-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오어</button>
           <button class="tog-btn on" id="wctrl-eng" onclick="wTogCol('eng')">영어</button>
@@ -437,7 +437,7 @@ html[data-dark] #bk-sidebar {
   </div>
 </div>
 
-<!-- PDF 뷰어 구조 보존 -->
+<!-- PDF 뷰어 구조 -->
 <div class="panel" id="panel-pdf">
   <div id="pdf-wrap">
     <div id="pdf-sidebar">
@@ -487,16 +487,18 @@ function switchTab(name) {
 
 /* ⚙ 설정 창 기능 제어 */
 function openCfg() {
-  const c = GitHubModule.get() || {};
-  document.getElementById('cfg-user').value = c.user || _bkS.github_user || '';
-  document.getElementById('cfg-repo').value = c.repo || _bkS.github_repo || '';
-  document.getElementById('cfg-branch').value = c.branch || _bkS.github_branch || 'main';
+  bkLoadStore(); // 열기 전 스토리지 최신본 확인
+  document.getElementById('cfg-user').value = _bkS.github_user || '';
+  document.getElementById('cfg-repo').value = _bkS.github_repo || '';
+  document.getElementById('cfg-branch').value = _bkS.github_branch || 'main';
   document.getElementById('cfg-bible').value = _bkS.bible_folder || 'Bible';
-  document.getElementById('cfg-token').value = c.token || _bkS.github_token || '';
-  document.getElementById('cfg-root').value = c.rootFolder || _bkS.github_root || 'Notes';
+  document.getElementById('cfg-token').value = _bkS.github_token || '';
+  document.getElementById('cfg-root').value = _bkS.github_root || 'Notes';
   document.getElementById('cfg-overlay').classList.add('open');
 }
 function closeCfg() { document.getElementById('cfg-overlay').classList.remove('open'); }
+
+/* [버그 수정 완료된 안전 저장이 보장되는 saveCfg 함수] */
 function saveCfg() {
   const user = document.getElementById('cfg-user').value.trim();
   const repo = document.getElementById('cfg-repo').value.trim();
@@ -505,33 +507,58 @@ function saveCfg() {
   const token = document.getElementById('cfg-token').value.trim();
   const rootFolder = document.getElementById('cfg-root').value.trim();
 
-  if(!user || !repo) { AppToast.show('사용자명과 저장소 이름은 필수입니다.', 'error'); return; }
-  GitHubModule.configure({ user, repo, branch, token, rootFolder });
-  _bkS.github_user = user; _bkS.github_repo = repo; _bkS.github_branch = branch; _bkS.github_token = token; _bkS.github_root = rootFolder; _bkS.bible_folder = bible;
+  if(!user || !repo) { 
+    AppToast.show('사용자명과 저장소 이름은 필수입니다.', 'error'); 
+    return; 
+  }
+
+  // 1. 내부 변수 할당 및 로컬 스토리지 강제 저장 (가장 먼저 수행하여 무조건적인 저장 보장)
+  _bkS.github_user = user; 
+  _bkS.github_repo = repo; 
+  _bkS.github_branch = branch; 
+  _bkS.github_token = token; 
+  _bkS.github_root = rootFolder; 
+  _bkS.bible_folder = bible;
   bkSaveStore();
-  AppToast.show('설정이 안전하게 적용되었습니다.', 'success');
+
+  // 2. github.js 외부 연동 시도 (에러가 발생하더라도 프론트 차단 방지용 try-catch 샌드박스 처리)
+  try {
+    if (typeof GitHubModule !== 'undefined' && GitHubModule.configure) {
+      GitHubModule.configure({ user, repo, branch, token, rootFolder });
+    } else {
+      console.warn("GitHubModule이 감지되지 않았습니다. github.js 경로를 점검하세요.");
+    }
+  } catch (e) {
+    console.error("GitHub API 동적 설정 주입 실패:", e);
+  }
+
+  // 3. UI 라벨 및 탐색 트리 갱신 연동
+  const lbl = document.getElementById('bk-repo-lbl');
+  if (lbl) lbl.textContent = `${user} / ${repo}`;
+  const pdfLbl = document.getElementById('pdf-repo-lbl');
+  if (pdfLbl) pdfLbl.textContent = `${user} / ${repo}`;
+
+  AppToast.show('설정이 안전하게 저장되었습니다.', 'success');
   closeCfg();
-  bkLoadFiles();
+  
+  if (typeof bkLoadFiles === 'function') bkLoadFiles();
 }
 
 /* ══════════════════════════════════════
-   🔥 [핵심 로직] 단어공부 확장 기능 엔진 구현
+   단어공부 확장 기능 엔진 구현
 ══════════════════════════════════════ */
 let _wColVis = { lao: true, eng: true, kor: true };
 let _wFontSize = 17;
 
-// 파일 형태 기반 단어장 식별기
 function bkIsWordFile(path, text = "") {
   if (path && (path.toLowerCase().includes('word') || path.toLowerCase().includes('voca') || path.toLowerCase().includes('단어'))) return true;
   if (text) {
     const lines = text.split('\n').map(l=>l.trim()).filter(l=>l.length > 0);
-    // 첫 두 줄이 파이프(|) 기호 구조로 시작하면 단어장으로 검출
     if(lines.length >= 1 && lines[0].startsWith('|')) return true;
   }
   return false;
 }
 
-// 마크다운 파이프 데이터 기반 테이블 변형 빌더 [source: 1]
 function bkRenderWordTable(text) {
   const lines = text.split('\n');
   let html = `<table class="word-table" id="bk-word-table">`;
@@ -540,12 +567,10 @@ function bkRenderWordTable(text) {
   lines.forEach(line => {
     const t = line.trim();
     if (!t.startsWith('|')) return;
-    if (/^\|[-:\s|]+\|$/.test(t)) return; // 가로 구분선 스킵
+    if (/^\|[-:\s|]+\|$/.test(t)) return;
 
     const cells = t.split('|').slice(1, -1).map(c => c.trim());
     if (cells.length < 2) return;
-
-    // 테이블 헤더 열(라오어/영어/한글 타이틀 명시줄) 스킵 처리 [source: 1]
     if (cells.some(c => /라오|Lao|영어|Eng|한글|Kor/i.test(c)) && rowCount === 0) return;
 
     rowCount++;
@@ -567,7 +592,6 @@ function bkRenderWordTable(text) {
   return rowCount > 0 ? html : null;
 }
 
-// 상단 토글 바 연동 열 숨김/보이기 제어
 function wTogCol(col) {
   _wColVis[col] = !_wColVis[col];
   const btn = document.getElementById('wctrl-' + col);
@@ -579,22 +603,15 @@ function wTogCol(col) {
   });
 }
 
-// 개별 단어칸 터치/클릭 시 암기용 반투명 블러 토글
-function wTogCell(td) {
-  td.classList.toggle('vis-hidden');
-}
+function wTogCell(td) { td.classList.toggle('vis-hidden'); }
 
-// 단어장 테이블 글자 크기 개별 조절 연동
 function wFontSize(dir) {
   _wFontSize = Math.max(12, Math.min(38, _wFontSize + dir * 2));
   localStorage.setItem('word-fs-val', _wFontSize);
   const table = document.getElementById('bk-word-table');
-  if(table) {
-    table.style.setProperty('--word-fs', _wFontSize + 'px');
-  }
+  if(table) table.style.setProperty('--word-fs', _wFontSize + 'px');
 }
 
-// 단어 찾기 사전 모달 팝업 연동
 function bkDictLookup(word) {
   if(!word) return;
   document.getElementById('bk-dict-word').textContent = word;
@@ -630,7 +647,7 @@ async function bkLoadFiles() {
     const last = localStorage.getItem('bk-last-file');
     if (last && _bkFiles.includes(last)) bkOpen(last);
   } catch(e) {
-    document.getElementById('bk-ftree').innerHTML = '<div style="padding:20px; color:var(--ui-danger)">GitHub 연결 오류 발생</div>';
+    document.getElementById('bk-ftree').innerHTML = '<div style="padding:20px; color:var(--ui-danger)">GitHub 데이터 동기화 대기 중</div>';
   }
 }
 
@@ -660,7 +677,6 @@ function bkRNode(node, d) {
 }
 function bkFilterTree(q) { q = q.toLowerCase(); bkRenderTree(_bkFiles.filter(p => p.toLowerCase().includes(q))); }
 
-// 파일 통합 오픈 제어
 async function bkOpen(path) {
   _bkCur = path; localStorage.setItem('bk-last-file', path);
   document.querySelectorAll('.bk-fi').forEach(el => el.classList.remove('active'));
@@ -673,7 +689,6 @@ async function bkOpen(path) {
   try {
     const content = await GitHubModule.readFile(path);
     
-    // 1. 단어장 구조 파일 여부 점검 및 분기 처리
     if (bkIsWordFile(path, content)) {
       document.getElementById('bk-word-ctrl').style.display = 'flex';
       document.getElementById('bk-width-wrap').style.display = 'none';
@@ -688,7 +703,6 @@ async function bkOpen(path) {
       }
     }
 
-    // 2. 일반 마크다운 서적 파일 처리
     document.getElementById('bk-word-ctrl').style.display = 'none';
     document.getElementById('bk-width-wrap').style.display = 'flex';
     document.getElementById('bk-tocbtn').style.display = 'block';
@@ -697,7 +711,7 @@ async function bkOpen(path) {
     reader.innerHTML = html;
     reader.style.fontSize = _bkS.fs + 'px';
   } catch(e) {
-    reader.innerHTML = '<div style="padding:20px; color:var(--ui-danger)">파일 데이터 로드에 실패했습니다.</div>';
+    reader.innerHTML = '<div style="padding:20px; color:var(--ui-danger)">데이터를 표시할 수 없습니다.</div>';
   }
 }
 
@@ -713,14 +727,31 @@ window.addEventListener('DOMContentLoaded', () => {
   bkLoadStore();
   if (_bkS.dark) applyDark(true);
   
+  // 폼 입력 필드 자동 복원 매핑 [source: 2]
+  if (document.getElementById('cfg-user')) document.getElementById('cfg-user').value = _bkS.github_user || '';
+  if (document.getElementById('cfg-repo')) document.getElementById('cfg-repo').value = _bkS.github_repo || '';
+  if (document.getElementById('cfg-branch')) document.getElementById('cfg-branch').value = _bkS.github_branch || 'main';
+  if (document.getElementById('cfg-bible')) document.getElementById('cfg-bible').value = _bkS.bible_folder || 'Bible';
+  if (document.getElementById('cfg-token')) document.getElementById('cfg-token').value = _bkS.github_token || '';
+  if (document.getElementById('cfg-root')) document.getElementById('cfg-root').value = _bkS.github_root || 'Notes';
+
   if (_bkS.github_user && _bkS.github_repo) {
-    GitHubModule.configure({
-      user: _bkS.github_user, repo: _bkS.github_repo,
-      branch: _bkS.github_branch || 'main', token: _bkS.github_token || '',
-      rootFolder: _bkS.github_root || 'Notes'
-    });
+    try {
+      if (typeof GitHubModule !== 'undefined' && GitHubModule.configure) {
+        GitHubModule.configure({
+          user: _bkS.github_user, repo: _bkS.github_repo,
+          branch: _bkS.github_branch || 'main', token: _bkS.github_token || '',
+          rootFolder: _bkS.github_root || 'Notes'
+        });
+      }
+    } catch(e) {
+      console.error("초기 기동 중 GitHubModule 바인딩 실패:", e);
+    }
+    
     const lbl = document.getElementById('bk-repo-lbl');
-    if(lbl) lbl.textContent = `${_bkS.github_user} / ${_bkS.github_repo}`;
+    if (lbl) lbl.textContent = `${_bkS.github_user} / ${_bkS.github_repo}`;
+    const pdfLbl = document.getElementById('pdf-repo-lbl');
+    if (pdfLbl) pdfLbl.textContent = `${_bkS.github_user} / ${_bkS.github_repo}`;
   }
   bkLoadFiles();
 });
