@@ -124,7 +124,83 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 #toast.ok  { border-color: var(--ui-accent3); color: var(--ui-accent3); }
 #toast.err { border-color: var(--ui-danger);  color: var(--ui-danger); }
 
-/* ══ #태그 색상 — 옵시디언 스타일 ══ */
+/* ══ 단어장 테이블 스타일 ══ */
+:root { --word-fs: 17px; }
+#bk-reader table.word-table { width: 100%; border-collapse: collapse; margin: .5em 0; }
+#bk-reader table.word-table td {
+  padding: 8px 12px; border: 1px solid var(--pbd);
+  font-size: var(--word-fs); vertical-align: middle;
+  transition: filter .15s;
+}
+#bk-reader table.word-table tr:hover { background: rgba(128,100,50,.04); }
+#bk-reader table.word-table td.w-lao {
+  font-family: "Noto Sans Lao", Georgia, serif;
+  color: var(--ac); font-weight: 700;
+  font-size: calc(var(--word-fs) + 2px);
+}
+#bk-reader table.word-table td.w-eng { color: var(--ac2); }
+#bk-reader table.word-table td.w-kor { color: var(--pt); }
+#bk-reader table.word-table td.vis-hidden {
+  filter: blur(6px); cursor: pointer; user-select: none;
+}
+#bk-reader table.word-table td.vis-hidden:hover { filter: blur(3px); }
+/* 찾기 버튼 */
+.w-lookup-btn {
+  background: none; border: 1px solid var(--pbd); border-radius: 4px;
+  padding: 1px 6px; font-size: 10px; color: var(--pm); cursor: pointer;
+  margin-right: 4px; transition: all .12s; vertical-align: middle;
+  white-space: nowrap;
+}
+.w-lookup-btn:hover { background: var(--ac); color: #fff; border-color: var(--ac2); }
+/* topbar 토글 버튼 */
+.tog-btn {
+  padding: 3px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1px solid var(--ui-border);
+  background: var(--ui-bg3); color: var(--ui-text2);
+  transition: all .13s; white-space: nowrap;
+}
+.tog-btn.on { background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2); }
+.tog-btn:hover:not(.on) { border-color: var(--ui-text2); color: var(--ui-text); }
+/* 사전 팝업 */
+#bk-dict-popup {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 700;
+  align-items: center; justify-content: center; padding: 20px;
+}
+#bk-dict-popup.open { display: flex; }
+#bk-dict-content {
+  background: var(--paper); border: 1px solid var(--pbd);
+  border-radius: 12px; width: min(500px, 92vw);
+  max-height: 70vh; display: flex; flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,.25); overflow: hidden;
+}
+#bk-dict-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--pbd);
+  font-family: "Noto Sans Lao", serif; font-size: 20px;
+  color: var(--ac); font-weight: 700; flex-shrink: 0;
+}
+#bk-dict-header button {
+  background: none; border: none; color: var(--pm);
+  font-size: 18px; cursor: pointer; padding: 0 4px;
+}
+#bk-dict-body {
+  overflow-y: auto; padding: 14px 16px;
+  font-size: 14px; line-height: 1.8; color: var(--pt);
+  -webkit-overflow-scrolling: touch;
+}
+#bk-dict-body .dict-entry {
+  padding: 10px 0; border-bottom: 1px solid var(--pbd);
+}
+#bk-dict-body .dict-entry:last-child { border-bottom: none; }
+#bk-dict-body .dict-lao {
+  font-family: "Noto Sans Lao", serif; font-size: 18px;
+  color: var(--ac); font-weight: 700; margin-bottom: 4px;
+}
+#bk-dict-body .dict-eng { color: var(--ac2); font-size: 14px; }
+#bk-dict-body .dict-kor { color: var(--pt); font-size: 14px; }
+#bk-dict-body .dict-pron { color: var(--pm); font-size: 12px; }
+#bk-dict-body .dict-none { color: var(--pm); text-align: center; padding: 20px; }
 .bk-tag {
   color: #7c6cfc !important;           /* 옵시디언 태그 보라 */
   background: rgba(124,108,252,.10);
@@ -165,20 +241,24 @@ html[data-dark] .bk-tag {
   color: var(--ui-text2); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
 }
 .cfg-tab.on { color: var(--ui-accent); border-bottom-color: var(--ui-accent); }
-.cfg-pane { display: none; overflow-y: auto; padding: 20px 24px; }
+.cfg-pane { display: none; overflow-y: auto; padding: 20px 24px; max-height: 60vh; -webkit-overflow-scrolling: touch; }
 .cfg-pane.on { display: block; }
 .cfg-label { display: block; font-size: 11px; color: var(--ui-text2); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .5px; }
 .cfg-input {
   width: 100%; background: var(--ui-bg2); border: 1px solid var(--ui-border);
   color: var(--ui-text); padding: 10px 11px; border-radius: 7px;
-  font-size: 16px;        /* 안드로이드: 16px 미만이면 자동 줌 발생 → 키보드 이슈 */
-  font-family: monospace;
-  -webkit-user-select: text; user-select: text;  /* 선택/입력 허용 */
-  touch-action: manipulation;                     /* 더블탭 줌 방지 */
+  font-size: 16px; font-family: monospace;
+  -webkit-user-select: text; user-select: text;
+  touch-action: manipulation;
   cursor: text;
-  -webkit-appearance: none; appearance: none;     /* 브라우저 기본 스타일 제거 */
+  -webkit-appearance: none; appearance: none;
+  pointer-events: auto;
 }
-.cfg-input:focus { outline: 2px solid var(--ui-accent2); outline-offset: 0; border-color: var(--ui-accent2); }
+.cfg-input:focus {
+  outline: 2px solid var(--ui-accent2);
+  outline-offset: 0;
+  border-color: var(--ui-accent2);
+}
 .cfg-hint { font-size: 11px; color: var(--ui-text3); margin-top: 5px; line-height: 1.5; }
 .cfg-row { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; flex-shrink: 0; padding: 0 24px 20px; }
 .btn-ok { padding: 8px 20px; background: var(--ui-accent); color: #fff; border: none; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -487,37 +567,6 @@ html[data-dark] #pdf-sidebar {
 /* ══════════════════════════════════════
    단어공부 — 책보기와 동일한 레이아웃
 ══════════════════════════════════════ */
-#panel-study { height: calc(100vh - 48px); display: none; flex-direction: column; overflow: hidden; }
-#panel-study.on { display: flex; }
-#study-wrap { flex: 1; display: flex; overflow: hidden; height: 100%; background: var(--ui-bg); }
-/* 사이드바 */
-#st-sidebar {
-  width: 240px; min-width: 80px; max-width: 400px;
-  --sb-bg: #f0ece4; --sb-bg2: #e4dfd5; --sb-bg3: #d8d0c4;
-  --sb-text: #2c2010; --sb-text2: #7a6a50; --sb-acc: #8a6010; --sb-bdr: #d0c8b8;
-  background: var(--sb-bg); display: flex; flex-direction: column;
-  height: 100%; overflow: hidden; flex-shrink: 0; border-right: 1px solid var(--sb-bdr);
-}
-html[data-dark] #st-sidebar {
-  --sb-bg: #0e0c08; --sb-bg2: #1a1610; --sb-bg3: #252018;
-  --sb-text: #c8c2b4; --sb-text2: #6a5a40; --sb-acc: #c4a45a; --sb-bdr: #1e1a12;
-}
-#st-ftree { flex: 1; overflow-y: auto; padding: 4px 0; }
-#st-ftree::-webkit-scrollbar { width: 3px; }
-#st-ftree::-webkit-scrollbar-thumb { background: var(--sb-bg3); }
-/* 메인 */
-#st-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-#st-topbar {
-  background: var(--ui-bg2); border-bottom: 1px solid var(--ui-border);
-  padding: 0 10px; height: 44px; display: flex; align-items: center; gap: 6px;
-  flex-shrink: 0;
-}
-#st-title { flex: 1; font-size: 12px; color: var(--ui-text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-#st-title strong { color: var(--ui-text); }
-#st-reader-wrap { flex: 1; overflow-y: auto; background: var(--ui-bg); }
-#st-reader-wrap::-webkit-scrollbar { width: 5px; }
-#st-reader-wrap::-webkit-scrollbar-thumb { background: var(--ui-border); border-radius: 3px; }
-#st-reader { max-width: 800px; margin: 0 auto; padding: 16px; --study-fs: 19px; }
 /* 단어 카드 */
 .sw-card {
   background: var(--ui-bg2); border: 1px solid var(--ui-border);
@@ -688,6 +737,16 @@ html[data-dark] #st-sidebar {
 </div>
 
 <!-- 밑줄 팝업: 색상 클릭 → 즉시 저장 / 사전 / 메모(선택) -->
+<div id="bk-dict-popup" onclick="bkHideDictPopup()">
+  <div id="bk-dict-content" onclick="event.stopPropagation()">
+    <div id="bk-dict-header">
+      <span id="bk-dict-word"></span>
+      <button onclick="bkHideDictPopup()">✕</button>
+    </div>
+    <div id="bk-dict-body"></div>
+  </div>
+</div>
+
 <div id="bk-hlpop">
   <div class="bk-hlpop-colors">
     <div class="bk-hlpop-c on" style="background:#ffdc50" title="노랑 밑줄" onclick="bkSaveHlColor('yellow',this)"></div>
@@ -723,7 +782,6 @@ html[data-dark] #st-sidebar {
 <nav id="main-tabs">
   <div class="main-tab on" id="tab-book"  onclick="switchTab('book')">📖 책보기</div>
   <div class="main-tab"    id="tab-pdf"   onclick="switchTab('pdf')">📄 PDF</div>
-  <div class="main-tab"    id="tab-study" onclick="switchTab('study')">✏️ 단어공부</div>
   <div id="tabs-right">
     <span id="dark-label">🌙</span>
     <div id="dark-toggle" onclick="toggleDark()" title="다크모드"></div>
@@ -738,6 +796,16 @@ html[data-dark] #st-sidebar {
       <div id="bk-topbar">
         <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
         <div id="bk-title"><span style="color:var(--pm)">파일 목록을 불러오는 중…</span></div>
+        <!-- 단어장 전용 컨트롤 (단어장 파일 열릴 때만 표시) -->
+        <div id="bk-word-ctrl" style="display:none;align-items:center;gap:5px">
+          <button class="tog-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오</button>
+          <button class="tog-btn on" id="wctrl-eng" onclick="wTogCol('eng')">영어</button>
+          <button class="tog-btn on" id="wctrl-kor" onclick="wTogCol('kor')">한글</button>
+          <div style="width:1px;height:18px;background:var(--pbd);margin:0 2px"></div>
+          <button class="bk-btn" onclick="wFontSize(-1)" title="글자 작게">A－</button>
+          <button class="bk-btn" onclick="wFontSize(1)"  title="글자 크게">A＋</button>
+        </div>
+        <!-- 일반 노트 컨트롤 -->
         <div id="bk-width-wrap" title="본문 너비 조절">
           <label>너비</label>
           <input id="bk-width-sl" type="range" min="400" max="1200" value="740" step="20" oninput="bkSetWidth(this.value)">
@@ -800,12 +868,6 @@ html[data-dark] #st-sidebar {
   </div>
 </div>
 
-<!-- ══ 단어공부 패널 ══ -->
-<div class="panel" id="panel-study">
-  <div id="study-wrap">
-    <!-- 사이드바: 노트 목록 -->
-    <div id="st-sidebar">
-      <div class="bk-sbh"><h1>✏️ 단어공부</h1><p id="st-repo-lbl">저장소를 연결하세요</p></div>
       <div class="bk-sbs"><input placeholder="파일 필터…" oninput="StudyModule.filterTree(this.value)"></div>
       <div id="st-ftree"><div style="padding:16px;color:var(--sb-text2);font-size:12px;text-align:center">저장소를 연결하세요</div></div>
       <div class="bk-sbf">
@@ -884,11 +946,17 @@ function switchCfgTab(name, el) {
   el.classList.add('on');
   const pane = document.getElementById('cfgp-' + name);
   pane.classList.add('on');
-  // 안드로이드: 탭 전환 후 첫 번째 input에 포커스 → 키보드 활성화 대기
+  pane.scrollTop = 0;
+  // 안드로이드/iOS: 탭 전환 후 첫 input에 포커스 (키보드 활성화)
   setTimeout(() => {
-    const first = pane.querySelector('input.cfg-input');
-    if (first) first.focus();
-  }, 100);
+    const first = pane.querySelector('input.cfg-input:not([type="password"])');
+    if (first) {
+      first.focus();
+      // iOS Safari: focus 후 blur/focus 반복으로 키보드 강제 활성화
+      first.blur();
+      setTimeout(() => first.focus(), 50);
+    }
+  }, 150);
 }
 function openCfg() {
   const c = GitHubModule.get();
@@ -1053,6 +1121,23 @@ async function bkLoadFiles() {
   }
 }
 function bkRefresh() { bkLoadFiles(); }
+/* 단어장 파일 렌더링 */
+function bkRenderWordFile(text) {
+  const html = bkRenderWordTable(text);
+  const reader = document.getElementById('bk-reader');
+  if (!html) { bkRender(); return; }
+  // 폰트 크기 복원
+  _wFontSize = parseInt(localStorage.getItem('word-fs') || '17');
+  reader.innerHTML = html;
+  reader.style.setProperty('--word-fs', _wFontSize + 'px');
+  // 열 표시 상태 초기화
+  _wColVis.lao = true; _wColVis.eng = true; _wColVis.kor = true;
+  ['lao','eng','kor'].forEach(col => {
+    document.getElementById('wctrl-' + col)?.classList.add('on');
+  });
+  bkTrackProg();
+}
+
 function bkRenderTree(files) {
   const tree = {};
   files.forEach(path => {
@@ -1095,9 +1180,21 @@ async function bkOpen(path) {
   const fname = path.split('/').pop().replace(/\.md$/, '');
   document.getElementById('bk-title').innerHTML = `<strong>${fname}</strong>`;
   document.getElementById('bk-reader').innerHTML = '<div class="bk-spin">📖 불러오는 중…</div>';
+
+  // 단어장 / 일반 노트 컨트롤 전환
+  const isWord = bkIsWordFile(path);
+  document.getElementById('bk-word-ctrl').style.display  = isWord ? 'flex' : 'none';
+  document.getElementById('bk-width-wrap').style.display = isWord ? 'none' : 'flex';
+  document.getElementById('bk-tocbtn').style.display     = isWord ? 'none' : '';
+  document.getElementById('bk-annotbtn').style.display   = isWord ? 'none' : '';
+
   try {
     _bkContent = await GitHubModule.readFile(path);
-    bkRender();
+    if (isWord && bkIsWordTable(_bkContent)) {
+      bkRenderWordFile(_bkContent);
+    } else {
+      bkRender();
+    }
     if (_bkPos[path]) setTimeout(() => { document.getElementById('bk-rw').scrollTop = _bkPos[path]; }, 150);
     else document.getElementById('bk-rw').scrollTop = 0;
   } catch(e) {
@@ -1689,6 +1786,7 @@ document.addEventListener('mouseup', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     bkHideHlPop();
+    bkHideDictPopup();
     document.getElementById('bk-search').classList.remove('open');
     document.getElementById('bk-search-overlay').classList.remove('open');
     document.getElementById('bk-annot').classList.remove('open');
@@ -1699,8 +1797,190 @@ document.addEventListener('keydown', e => {
 });
 
 /* ══════════════════════════════════════
-   PDF 모듈
+   단어장 기능
 ══════════════════════════════════════ */
+
+/* 단어장 파일 감지 — 테이블 행 3개 이상이면 단어장 */
+function bkIsWordTable(text) {
+  const lines = text.split('\n').filter(l => l.trim().startsWith('|'));
+  return lines.length >= 3;
+}
+
+/* 단어장 렌더링 */
+function bkRenderWordTable(text) {
+  // 마크다운 테이블 파싱
+  const lines = text.split('\n');
+  const rows = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t.startsWith('|')) continue;
+    if (/^\|[-:\s|]+\|$/.test(t)) continue; // 구분선 스킵
+    const cells = t.split('|').slice(1, -1).map(c => c.trim());
+    if (cells.length >= 2) rows.push(cells);
+  }
+  if (!rows.length) return null;
+
+  // 헤더 감지 (첫 줄이 라오어/영어/한글 인지 확인)
+  let dataRows = rows;
+  let headers  = ['라오어', '영어', '한글'];
+  if (rows[0].some(h => /라오|Lao|영어|English|한글|Korean/i.test(h))) {
+    headers  = rows[0];
+    dataRows = rows.slice(1);
+  }
+
+  const colVis = { lao: true, eng: true, kor: true };
+  window._wColVis = colVis;
+
+  let html = `<table class="word-table" id="bk-word-table">`;
+  dataRows.forEach((cells, ri) => {
+    const lao = cells[0] || '';
+    const eng = cells[1] || '';
+    const kor = cells[2] || '';
+    html += `<tr>
+      <td class="w-lao" data-col="lao" onclick="wTogCell(this)">
+        <button class="w-lookup-btn" onclick="event.stopPropagation();bkDictLookup('${esc(lao)}')" title="사전 찾기">🔍</button>${esc(lao)}
+      </td>
+      <td class="w-eng" data-col="eng" onclick="wTogCell(this)">${esc(eng)}</td>
+      <td class="w-kor" data-col="kor" onclick="wTogCell(this)">${esc(kor)}</td>
+    </tr>`;
+  });
+  html += `</table>`;
+  return html;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* 열 전체 토글 */
+const _wColVis = { lao: true, eng: true, kor: true };
+
+function wTogCol(col) {
+  _wColVis[col] = !_wColVis[col];
+  const btn = document.getElementById('wctrl-' + col);
+  if (btn) btn.classList.toggle('on', _wColVis[col]);
+  document.querySelectorAll(`#bk-word-table td[data-col="${col}"]`).forEach(td => {
+    td.classList.toggle('vis-hidden', !_wColVis[col]);
+  });
+}
+
+/* 개별 셀 토글 */
+function wTogCell(td) {
+  td.classList.toggle('vis-hidden');
+}
+
+/* 폰트 크기 조절 */
+let _wFontSize = 17;
+function wFontSize(delta) {
+  _wFontSize = Math.min(28, Math.max(12, _wFontSize + delta * 2));
+  document.getElementById('bk-reader').style.setProperty('--word-fs', _wFontSize + 'px');
+  localStorage.setItem('word-fs', _wFontSize);
+}
+
+/* 사전 파일 캐시 */
+let _dictData = null;
+let _dictFile = null;
+
+async function bkDictLookup(word) {
+  if (!word) return;
+  document.getElementById('bk-dict-word').textContent = word;
+  document.getElementById('bk-dict-body').innerHTML =
+    '<div class="dict-none">🔍 검색 중…</div>';
+  document.getElementById('bk-dict-popup').classList.add('open');
+
+  try {
+    // 사전 파일 로드 (캐시)
+    if (!_dictData) await bkLoadDict();
+
+    if (!_dictData || !_dictData.length) {
+      document.getElementById('bk-dict-body').innerHTML =
+        '<div class="dict-none">사전 파일을 찾을 수 없습니다<br><small>단어장 폴더에 "라오어 사전.md" 파일이 있어야 합니다</small></div>';
+      return;
+    }
+
+    // 단어 검색 (라오어 정확 일치 → 포함 검색)
+    const q = word.trim();
+    let results = _dictData.filter(e => e.lao === q);
+    if (!results.length) results = _dictData.filter(e => e.lao.includes(q) || q.includes(e.lao));
+
+    if (!results.length) {
+      document.getElementById('bk-dict-body').innerHTML =
+        `<div class="dict-none">"${esc(q)}"에 해당하는 단어를 찾을 수 없습니다</div>`;
+      return;
+    }
+
+    document.getElementById('bk-dict-body').innerHTML = results.map(e => `
+      <div class="dict-entry">
+        <div class="dict-lao">${esc(e.lao)}</div>
+        ${e.pron ? `<div class="dict-pron">${esc(e.pron)}</div>` : ''}
+        ${e.eng  ? `<div class="dict-eng">🇺🇸 ${esc(e.eng)}</div>` : ''}
+        ${e.kor  ? `<div class="dict-kor">🇰🇷 ${esc(e.kor)}</div>` : ''}
+        ${e.opp  ? `<div class="dict-pron">반대말: ${esc(e.opp)}</div>` : ''}
+      </div>`).join('');
+  } catch(e) {
+    document.getElementById('bk-dict-body').innerHTML =
+      `<div class="dict-none">오류: ${esc(e.message)}</div>`;
+  }
+}
+
+async function bkLoadDict() {
+  // 저장소에서 "라오어 사전" 또는 "lao" 포함 md 파일 찾기
+  const dictPath = _bkFiles.find(p =>
+    /라오어.사전|lao.*dict|dict.*lao/i.test(p.split('/').pop())
+  ) || _bkFiles.find(p => /사전/i.test(p));
+
+  if (!dictPath) { _dictData = []; return; }
+  _dictFile = dictPath;
+
+  const text = await GitHubModule.readFile(dictPath);
+  _dictData = parseDictMd(text);
+}
+
+function parseDictMd(text) {
+  // "---" 구분자 블록 방식
+  const entries = [];
+  let cur = [];
+  for (const line of text.split('\n')) {
+    if (/^\s*---\s*$/.test(line)) {
+      if (cur.length) entries.push(parseEntry(cur.join('\n')));
+      cur = [];
+    } else cur.push(line);
+  }
+  if (cur.length) entries.push(parseEntry(cur.join('\n')));
+  return entries.filter(e => e.lao);
+}
+
+function parseEntry(block) {
+  const e = {};
+  for (const line of block.split('\n')) {
+    const m = line.match(/^([^:：]+)[：:]\s*(.*)$/);
+    if (!m) continue;
+    const k = m[1].trim(), v = m[2].trim();
+    if (k==='라오')   e.lao  = v;
+    if (k==='발음')   e.pron = v;
+    if (k==='영어')   e.eng  = v;
+    if (k==='한글')   e.kor  = v;
+    if (k==='반대말') e.opp  = v;
+  }
+  return e;
+}
+
+function bkHideDictPopup() {
+  document.getElementById('bk-dict-popup').classList.remove('open');
+}
+
+/* bkRender에서 단어장 분기 처리 */
+function bkIsWordFile(path) {
+  if (!path) return false;
+  const cfg = GitHubModule.get();
+  if (cfg.wordsFolder) {
+    const folder = cfg.wordsFolder.replace(/^\/+|\/+$/g,'').toLowerCase();
+    if (path.toLowerCase().startsWith(folder + '/')) return true;
+  }
+  // 파일명에 단어/word/vocab 포함 시도
+  const fname = path.split('/').pop().toLowerCase();
+  return /단어|word|vocab|lao.*\d|ls-\d/i.test(fname);
+}
 let _pdfFiles   = [];   // pdf 파일 목록
 let _pdfCurPath = null; // 현재 열린 pdf 경로
 let _pdfDrag    = null;
@@ -1930,11 +2210,9 @@ function stDragStart(e) {
 }
 (function init() {
   GitHubModule.load();
-  StudyModule.init();
   bkLoadStore();
   if (_bkS.dark) applyDark(true);
   bkApplyTheme();
-  studyFontSizeRestore();   // ← 단어공부 글자크기 복원
   bkSyncBible();
   BibleModule.injectStyles();
   const c = GitHubModule.get();
@@ -1946,7 +2224,6 @@ function stDragStart(e) {
       document.getElementById('st-repo-lbl').textContent = `${c.user}/${c.repo}`;
     bkTogSidebar();
     bkLoadFiles();
-    StudyModule.loadNotebooks();
   } else {
     document.getElementById('bk-title').innerHTML = '<span style="color:var(--pm)">⚙ 설정에서 저장소를 연결하세요</span>';
   }
