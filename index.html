@@ -1098,7 +1098,7 @@ async function bkLoadFiles() {
       .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
       .filter(f => !c.rootFolder  || f.path.startsWith(c.rootFolder + '/'))
       .filter(f => !c.bibleFolder || !f.path.startsWith(c.bibleFolder + '/'))
-      .filter(f => !c.wordsFolder || !f.path.startsWith(c.wordsFolder + '/'))
+      //.filter(f => !c.wordsFolder || !f.path.startsWith(c.wordsFolder + '/'))
       .map(f => f.path);
     _bkFiles = allFiles;  // md + pdf 모두 포함
     bkRenderTree(_bkFiles);
