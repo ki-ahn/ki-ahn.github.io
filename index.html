@@ -59,6 +59,11 @@ html[data-dark] {
   --pbd: #302818;
   --ac: #c4a45a;
   --ac2: #a08030;
+
+    /* 단어장 각 언어별 독립 폰트 크기 */
+  --word-fs-lao: 20px;
+  --word-fs-eng: 17px;
+  --word-fs-kor: 17px;
 }
 
 /* ══ 리셋 ══ */
@@ -133,13 +138,22 @@ html[data-dark] #dark-toggle::after { left: 18px; }
   transition: filter .15s;
 }
 #bk-reader table.word-table tr:hover { background: rgba(128,100,50,.04); }
+
+/* 각 열 레이아웃 폰트 맵핑 */
 #bk-reader table.word-table td.w-lao {
   font-family: "Noto Sans Lao", Georgia, serif;
   color: var(--ac); font-weight: 700;
-  font-size: calc(var(--word-fs) + 2px);
+  font-size: var(--word-fs-lao); width: 38%;
 }
-#bk-reader table.word-table td.w-eng { color: var(--ac2); }
-#bk-reader table.word-table td.w-kor { color: var(--pt); }
+#bk-reader table.word-table td.w-eng { 
+  color: var(--ac2); 
+  font-size: var(--word-fs-eng); width: 31%;
+}
+#bk-reader table.word-table td.w-kor { 
+  color: var(--pt); 
+  font-size: var(--word-fs-kor); width: 31%;
+}
+
 #bk-reader table.word-table td.vis-hidden {
   filter: blur(6px); cursor: pointer; user-select: none;
 }
@@ -1124,7 +1138,8 @@ function bkRenderWordFile(text) {
   // 폰트 크기 복원
   _wFontSize = parseInt(localStorage.getItem('word-fs') || '17');
   reader.innerHTML = html;
-  reader.style.setProperty('--word-fs', _wFontSize + 'px');
+  // reader.style.setProperty('--word-fs', _wFontSize + 'px');
+  wApplyLoadedSizes(); // 단어장 렌더링 즉시 개별 글자 크기 주입
   // 열 표시 상태 초기화
   _wColVis.lao = true; _wColVis.eng = true; _wColVis.kor = true;
   ['lao','eng','kor'].forEach(col => {
@@ -1861,10 +1876,31 @@ function wTogCell(td) {
 
 /* 폰트 크기 조절 */
 let _wFontSize = 17;
-function wFontSize(delta) {
+function wFontSize1(delta) {
   _wFontSize = Math.min(28, Math.max(12, _wFontSize + delta * 2));
   document.getElementById('bk-reader').style.setProperty('--word-fs', _wFontSize + 'px');
   localStorage.setItem('word-fs', _wFontSize);
+}
+
+// 각 언어군별 완벽한 폰트 크기 독립 분리 연산기
+function wFontSize(lang, dir) {
+  _wSizes[lang] = Math.max(11, Math.min(50, _wSizes[lang] + dir * 2));
+  localStorage.setItem(`w-fs-${lang}`, _wSizes[lang]);
+  document.getElementById('bk-word-table')?.style.setProperty(`--word-fs-${lang}`, _wSizes[lang] + 'px');
+}
+
+// 브라우저 저장 세팅값 동적 컴포넌트 강제 튜닝 로드
+function wApplyLoadedSizes() {
+  _wSizes.lao = parseInt(localStorage.getItem('w-fs-lao') || '20');
+  _wSizes.eng = parseInt(localStorage.getItem('w-fs-eng') || '17');
+  _wSizes.kor = parseInt(localStorage.getItem('w-fs-kor') || '17');
+  
+  const table = document.getElementById('bk-word-table');
+  if(table) {
+    table.style.setProperty('--word-fs-lao', _wSizes.lao + 'px');
+    table.style.setProperty('--word-fs-eng', _wSizes.eng + 'px');
+    table.style.setProperty('--word-fs-kor', _wSizes.kor + 'px');
+  }
 }
 
 /* 사전 파일 캐시 */
