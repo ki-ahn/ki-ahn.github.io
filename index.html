@@ -1875,7 +1875,8 @@ function wTogCell(td) {
 }
 
 /* 폰트 크기 조절 */
-let _wFontSize = 17;
+
+let _wSizes = { lao: 20, eng: 17, kor: 17 };
 function wFontSize1(delta) {
   _wFontSize = Math.min(28, Math.max(12, _wFontSize + delta * 2));
   document.getElementById('bk-reader').style.setProperty('--word-fs', _wFontSize + 'px');
