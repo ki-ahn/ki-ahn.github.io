@@ -672,7 +672,6 @@ html[data-dark] #pdf-sidebar {
     <div id="cfg-tabs">
       <div class="cfg-tab on" onclick="switchCfgTab('github',this)">🔑 GitHub</div>
       <div class="cfg-tab" onclick="switchCfgTab('reader',this)">📖 책보기</div>
-      <div class="cfg-tab" onclick="switchCfgTab('study',this)">✏️ 단어공부</div>
     </div>
     <!-- GitHub 탭 -->
     <div class="cfg-pane on" id="cfgp-github">
@@ -692,6 +691,8 @@ html[data-dark] #pdf-sidebar {
     <div class="cfg-pane" id="cfgp-reader">
       <label class="cfg-label">책보기 루트 폴더 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체)</small></label>
       <input class="cfg-input" id="cfg-root" placeholder="예: Notes">
+      <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
+      <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
       <hr class="cfg-divider">
       <div class="cfg-setr">
         <div class="cfg-setl">글자 크기</div>
@@ -705,29 +706,6 @@ html[data-dark] #pdf-sidebar {
       <div class="cfg-secs">성경 버전</div>
       <div class="cfg-vcbs" id="bk-vcbs"></div>
       <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
-    </div>
-    <!-- 단어공부 탭 -->
-    <div class="cfg-pane" id="cfgp-study">
-      <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
-      <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
-      <hr class="cfg-divider">
-      <div class="cfg-setr">
-        <div class="cfg-setl">글자 크기</div>
-        <div class="cfg-fsb">
-          <button class="cfg-fsbtn" onclick="studyFontSize(17,this)">S</button>
-          <button class="cfg-fsbtn on" onclick="studyFontSize(19,this)" id="sfs-m">M</button>
-          <button class="cfg-fsbtn" onclick="studyFontSize(21,this)">L</button>
-          <button class="cfg-fsbtn" onclick="studyFontSize(24,this)">XL</button>
-        </div>
-      </div>
-      <hr class="cfg-divider">
-      <div style="font-size:13px;color:var(--ui-text2);line-height:1.7">
-        공부횟수 저장:<br>
-        • <b style="color:var(--ui-accent2)">원본 .md 파일</b>에만 저장됩니다<br>
-        • GitHub 토큰 설정 시 ＋/－ 버튼으로 즉시 업데이트
-      </div>
-      <hr class="cfg-divider">
-      <div style="font-size:13px;color:var(--ui-text2)">현재 저장소: <code id="etc-gh-label" style="color:var(--ui-accent)">미설정</code></div>
     </div>
     <div class="cfg-row">
       <button class="btn-cancel" onclick="closeCfg()">취소</button>
@@ -799,12 +777,27 @@ html[data-dark] #pdf-sidebar {
 
         <!-- 단어장 토글 (단어장 파일 열릴 때만) -->
         <div id="bk-word-ctrl" style="display:none;align-items:center;gap:4px;flex-shrink:0">
-          <button class="tog-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오</button>
-          <button class="tog-btn on" id="wctrl-eng" onclick="wTogCol('eng')">영어</button>
-          <button class="tog-btn on" id="wctrl-kor" onclick="wTogCol('kor')">한글</button>
-          <div style="width:1px;height:16px;background:var(--pbd);margin:0 2px"></div>
-          <button class="bk-btn" onclick="wFontSize(-1)" title="글자 작게" style="padding:2px 7px">A－</button>
-          <button class="bk-btn" onclick="wFontSize(1)"  title="글자 크게" style="padding:2px 7px">A＋</button>
+          
+          <button class="w-ctrl-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오</button>
+          <div class="w-size-group">
+            <span class="w-size-label">라오</span>
+            <button class="w-size-btn" onclick="wFontSize('lao',-1)">-</button>
+            <button class="w-size-btn" onclick="wFontSize('lao',1)">+</button>
+          </div>
+          
+          <button class="w-ctrl-btn on" id="wctrl-eng" onclick="wTogCol('eng')">영어</button>
+          <div class="w-size-group">
+            <span class="w-size-label">영</span>
+            <button class="w-size-btn" onclick="wFontSize('eng',-1)">-</button>
+            <button class="w-size-btn" onclick="wFontSize('eng',1)">+</button>
+          </div>
+          
+          <button class="w-ctrl-btn on" id="wctrl-kor" onclick="wTogCol('kor')">한글</button>
+          <div class="w-size-group">
+            <span class="w-size-label">한</span>
+            <button class="w-size-btn" onclick="wFontSize('kor',-1)">-</button>
+            <button class="w-size-btn" onclick="wFontSize('kor',1)">+</button>
+          </div>
         </div>
 
         <!-- 공통 컨트롤 -->
