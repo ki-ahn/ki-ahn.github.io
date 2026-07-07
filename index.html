@@ -38,10 +38,6 @@
   --pbd: #ccc0a0;
   --ac: #b8943a;
   --ac2: #7a5c10;
-  /* 단어장 각 언어별 독립 폰트 크기 기본값 */
-  --word-fs-lao: 20px;
-  --word-fs-eng: 17px;
-  --word-fs-kor: 17px;
 }
 html[data-dark] {
   --ui-bg:      #0f1117;
@@ -130,7 +126,7 @@ html[data-dark] #dark-toggle::after { left: 18px; }
 
 /* ══ 단어장 테이블 스타일 ══ */
 :root { --word-fs: 17px; }
-#bk-reader table.word-table { width: 100%; border-collapse: collapse; margin: .5em 0; table-layout: fixed;}
+#bk-reader table.word-table { width: 100%; border-collapse: collapse; margin: .5em 0; }
 #bk-reader table.word-table td {
   padding: 8px 12px; border: 1px solid var(--pbd);
   font-size: var(--word-fs); vertical-align: middle;
@@ -676,7 +672,8 @@ html[data-dark] #pdf-sidebar {
     <div id="cfg-tabs">
       <div class="cfg-tab on" onclick="switchCfgTab('github',this)">🔑 GitHub</div>
       <div class="cfg-tab" onclick="switchCfgTab('reader',this)">📖 책보기</div>
-     </div>
+      <div class="cfg-tab" onclick="switchCfgTab('study',this)">✏️ 단어공부</div>
+    </div>
     <!-- GitHub 탭 -->
     <div class="cfg-pane on" id="cfgp-github">
       <label class="cfg-label">사용자명 (owner)</label>
@@ -695,8 +692,6 @@ html[data-dark] #pdf-sidebar {
     <div class="cfg-pane" id="cfgp-reader">
       <label class="cfg-label">책보기 루트 폴더 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체)</small></label>
       <input class="cfg-input" id="cfg-root" placeholder="예: Notes">
-      <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
-      <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
       <hr class="cfg-divider">
       <div class="cfg-setr">
         <div class="cfg-setl">글자 크기</div>
@@ -711,7 +706,29 @@ html[data-dark] #pdf-sidebar {
       <div class="cfg-vcbs" id="bk-vcbs"></div>
       <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
     </div>
-
+    <!-- 단어공부 탭 -->
+    <div class="cfg-pane" id="cfgp-study">
+      <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
+      <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
+      <hr class="cfg-divider">
+      <div class="cfg-setr">
+        <div class="cfg-setl">글자 크기</div>
+        <div class="cfg-fsb">
+          <button class="cfg-fsbtn" onclick="studyFontSize(17,this)">S</button>
+          <button class="cfg-fsbtn on" onclick="studyFontSize(19,this)" id="sfs-m">M</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(21,this)">L</button>
+          <button class="cfg-fsbtn" onclick="studyFontSize(24,this)">XL</button>
+        </div>
+      </div>
+      <hr class="cfg-divider">
+      <div style="font-size:13px;color:var(--ui-text2);line-height:1.7">
+        공부횟수 저장:<br>
+        • <b style="color:var(--ui-accent2)">원본 .md 파일</b>에만 저장됩니다<br>
+        • GitHub 토큰 설정 시 ＋/－ 버튼으로 즉시 업데이트
+      </div>
+      <hr class="cfg-divider">
+      <div style="font-size:13px;color:var(--ui-text2)">현재 저장소: <code id="etc-gh-label" style="color:var(--ui-accent)">미설정</code></div>
+    </div>
     <div class="cfg-row">
       <button class="btn-cancel" onclick="closeCfg()">취소</button>
       <button class="btn-ok"     onclick="saveCfg()">저장 &amp; 적용</button>
@@ -779,38 +796,25 @@ html[data-dark] #pdf-sidebar {
       <div id="bk-topbar">
         <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
         <div id="bk-title"><span style="color:var(--pm)">파일 목록을 불러오는 중…</span></div>
-        <!-- 단어장 전용 컨트롤 (단어장 파일 열릴 때만 표시) -->
-<div id="bk-word-ctrl">
-          <button class="w-ctrl-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오어</button>
-          <div class="w-size-group">
-            <span class="w-size-label">라오</span>
-            <button class="w-size-btn" onclick="wFontSize('lao',-1)">-</button>
-            <button class="w-size-btn" onclick="wFontSize('lao',1)">+</button>
-          </div>
-          
-          <button class="w-ctrl-btn on" id="wctrl-eng" onclick="wTogCol('eng')">영어</button>
-          <div class="w-size-group">
-            <span class="w-size-label">영</span>
-            <button class="w-size-btn" onclick="wFontSize('eng',-1)">-</button>
-            <button class="w-size-btn" onclick="wFontSize('eng',1)">+</button>
-          </div>
-          
-          <button class="w-ctrl-btn on" id="wctrl-kor" onclick="wTogCol('kor')">한글</button>
-          <div class="w-size-group">
-            <span class="w-size-label">한</span>
-            <button class="w-size-btn" onclick="wFontSize('kor',-1)">-</button>
-            <button class="w-size-btn" onclick="wFontSize('kor',1)">+</button>
-          </div>
-        </div>       
-        
-        <!-- 일반 노트 컨트롤 -->
+
+        <!-- 단어장 토글 (단어장 파일 열릴 때만) -->
+        <div id="bk-word-ctrl" style="display:none;align-items:center;gap:4px;flex-shrink:0">
+          <button class="tog-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오</button>
+          <button class="tog-btn on" id="wctrl-eng" onclick="wTogCol('eng')">영어</button>
+          <button class="tog-btn on" id="wctrl-kor" onclick="wTogCol('kor')">한글</button>
+          <div style="width:1px;height:16px;background:var(--pbd);margin:0 2px"></div>
+          <button class="bk-btn" onclick="wFontSize(-1)" title="글자 작게" style="padding:2px 7px">A－</button>
+          <button class="bk-btn" onclick="wFontSize(1)"  title="글자 크게" style="padding:2px 7px">A＋</button>
+        </div>
+
+        <!-- 공통 컨트롤 -->
         <div id="bk-width-wrap" title="본문 너비 조절">
           <label>너비</label>
           <input id="bk-width-sl" type="range" min="400" max="1200" value="740" step="20" oninput="bkSetWidth(this.value)">
         </div>
-        <button class="bk-btn" id="bk-tocbtn" onclick="bkTogToc()">목차</button>
-        <button class="bk-btn" id="bk-annotbtn" onclick="bkTogAnnot()">🖊 밑줄</button>
-        <button class="bk-btn" onclick="bkTogSearch()">🔍</button>
+        <button class="bk-btn" id="bk-tocbtn"    onclick="bkTogToc()">목차</button>
+        <button class="bk-btn" id="bk-annotbtn"  onclick="bkTogAnnot()">🖊</button>
+        <button class="bk-btn"                   onclick="bkTogSearch()">🔍</button>
       </div>
       <div id="bk-content">
         <div id="bk-sidebar">
@@ -1098,7 +1102,7 @@ async function bkLoadFiles() {
       .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
       .filter(f => !c.rootFolder  || f.path.startsWith(c.rootFolder + '/'))
       .filter(f => !c.bibleFolder || !f.path.startsWith(c.bibleFolder + '/'))
-      //.filter(f => !c.wordsFolder || !f.path.startsWith(c.wordsFolder + '/'))
+      .filter(f => !c.wordsFolder || !f.path.startsWith(c.wordsFolder + '/'))
       .map(f => f.path);
     _bkFiles = allFiles;  // md + pdf 모두 포함
     bkRenderTree(_bkFiles);
@@ -1182,7 +1186,6 @@ async function bkOpen(path) {
   // 단어장 / 일반 노트 컨트롤 전환
   const isWord = bkIsWordFile(path);
   document.getElementById('bk-word-ctrl').style.display  = isWord ? 'flex' : 'none';
-  document.getElementById('bk-width-wrap').style.display = isWord ? 'none' : 'flex';
   document.getElementById('bk-tocbtn').style.display     = isWord ? 'none' : '';
   document.getElementById('bk-annotbtn').style.display   = isWord ? 'none' : '';
 
@@ -1806,37 +1809,33 @@ function bkIsWordTable(text) {
 
 /* 단어장 렌더링 */
 function bkRenderWordTable(text) {
-  // 마크다운 테이블 파싱
   const lines = text.split('\n');
   const rows = [];
   for (const line of lines) {
     const t = line.trim();
     if (!t.startsWith('|')) continue;
-    if (/^\|[-:\s|]+\|$/.test(t)) continue; // 구분선 스킵
+    if (/^\|[-:\s|]+\|$/.test(t)) continue;
     const cells = t.split('|').slice(1, -1).map(c => c.trim());
     if (cells.length >= 2) rows.push(cells);
   }
   if (!rows.length) return null;
 
-  // 헤더 감지 (첫 줄이 라오어/영어/한글 인지 확인)
+  // 헤더 감지
   let dataRows = rows;
-  let headers  = ['라오어', '영어', '한글'];
   if (rows[0].some(h => /라오|Lao|영어|English|한글|Korean/i.test(h))) {
-    headers  = rows[0];
     dataRows = rows.slice(1);
   }
 
-  const colVis = { lao: true, eng: true, kor: true };
-  window._wColVis = colVis;
-
   let html = `<table class="word-table" id="bk-word-table">`;
-  dataRows.forEach((cells, ri) => {
+  dataRows.forEach(cells => {
     const lao = cells[0] || '';
     const eng = cells[1] || '';
     const kor = cells[2] || '';
+    // 라오어 셀에만 사전 찾기 버튼
+    const laoEscaped = lao.replace(/'/g, "\\'").replace(/"/g, '&quot;');
     html += `<tr>
       <td class="w-lao" data-col="lao" onclick="wTogCell(this)">
-        <button class="w-lookup-btn" onclick="event.stopPropagation();bkDictLookup('${esc(lao)}')" title="사전 찾기">🔍</button>${esc(lao)}
+        ${lao ? `<button class="w-lookup-btn" onclick="event.stopPropagation();bkDictLookup('${laoEscaped}')" title="사전 찾기">🔍</button>` : ''}${esc(lao)}
       </td>
       <td class="w-eng" data-col="eng" onclick="wTogCell(this)">${esc(eng)}</td>
       <td class="w-kor" data-col="kor" onclick="wTogCell(this)">${esc(kor)}</td>
@@ -1869,17 +1868,10 @@ function wTogCell(td) {
 
 /* 폰트 크기 조절 */
 let _wFontSize = 17;
-function wFontSize1(delta) {
+function wFontSize(delta) {
   _wFontSize = Math.min(28, Math.max(12, _wFontSize + delta * 2));
   document.getElementById('bk-reader').style.setProperty('--word-fs', _wFontSize + 'px');
   localStorage.setItem('word-fs', _wFontSize);
-}
-
-// 각 언어군별 완벽한 폰트 크기 독립 분리 연산기
-function wFontSize(lang, dir) {
-  _wSizes[lang] = Math.max(11, Math.min(50, _wSizes[lang] + dir * 2));
-  localStorage.setItem(`w-fs-${lang}`, _wSizes[lang]);
-  document.getElementById('bk-word-table')?.style.setProperty(`--word-fs-${lang}`, _wSizes[lang] + 'px');
 }
 
 /* 사전 파일 캐시 */
@@ -1972,20 +1964,6 @@ function parseEntry(block) {
 
 function bkHideDictPopup() {
   document.getElementById('bk-dict-popup').classList.remove('open');
-}
-
-// 6. 저장되어 있던 크기 값을 로드하여 테이블 CSS 변수에 주입
-function wApplyLoadedSizes() {
-  _wSizes.lao = parseInt(localStorage.getItem('w-fs-lao') || '20');
-  _wSizes.eng = parseInt(localStorage.getItem('w-fs-eng') || '17');
-  _wSizes.kor = parseInt(localStorage.getItem('w-fs-kor') || '17');
-  
-  const table = document.getElementById('bk-word-table');
-  if(table) {
-    table.style.setProperty('--word-fs-lao', _wSizes.lao + 'px');
-    table.style.setProperty('--word-fs-eng', _wSizes.eng + 'px');
-    table.style.setProperty('--word-fs-kor', _wSizes.kor + 'px');
-  }
 }
 
 /* bkRender에서 단어장 분기 처리 */
