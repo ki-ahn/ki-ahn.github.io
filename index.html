@@ -856,40 +856,6 @@ html[data-dark] #pdf-sidebar {
   </div>
 </div>
 
-      <div class="bk-sbs"><input placeholder="파일 필터…" oninput="StudyModule.filterTree(this.value)"></div>
-      <div id="st-ftree"><div style="padding:16px;color:var(--sb-text2);font-size:12px;text-align:center">저장소를 연결하세요</div></div>
-      <div class="bk-sbf">
-        <button class="bk-sbb" onclick="StudyModule.loadNotebooks()">↺ 새로고침</button>
-        <button class="bk-sbb" id="study-save-btn" onclick="StudyModule.saveNow()" title="공부횟수 저장">💾 저장</button>
-      </div>
-    </div>
-    <div class="bk-spl" id="st-spl" onmousedown="stDragStart(event)" style="display:block"></div>
-    <!-- 본문 영역 -->
-    <div id="st-main">
-      <!-- 상단 토글바 -->
-      <div id="st-topbar">
-        <button class="bk-btn" id="st-sb-btn" onclick="StudyModule.toggleSidebar()">☰</button>
-        <div id="st-title"><span style="color:var(--pm)">노트를 선택하세요</span></div>
-        <!-- 보기 토글 버튼 -->
-        <button class="tog-btn on" id="stog-lao" onclick="StudyModule.toggleCol('lao')">라오어</button>
-        <button class="tog-btn on" id="stog-eng" onclick="StudyModule.toggleCol('eng')">영어</button>
-        <button class="tog-btn on" id="stog-kor" onclick="StudyModule.toggleCol('kor')">한글</button>
-        <div style="flex:1"></div>
-        <button class="play-all-btn" style="padding:3px 10px;font-size:11px" onclick="StudyModule.playAll()">▶ 전체</button>
-      </div>
-      <!-- 단어 본문 스크롤 -->
-      <div id="st-reader-wrap">
-        <div id="st-reader">
-          <div class="s-status">
-            <div class="s-icon">⚙️</div>
-            <h3>설정에서 GitHub 저장소를 연결하세요</h3>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 
 <script>
 /* ══ AppToast ══ */
