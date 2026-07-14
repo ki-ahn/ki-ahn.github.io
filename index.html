@@ -806,7 +806,7 @@ html[data-dark] #pdf-sidebar {
         <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
         <div id="bk-title"><span style="color:var(--pm)">파일 목록을 불러오는 중…</span></div>
 
-        <!-- 단어공부 컨트롤 (본문에 <! ... !> 단어블록이 있는 문서에서만 표시) -->
+        <!-- 단어공부 컨트롤 (본문에 '|'로 시작하는 단어블록이 있는 문서에서만 표시) -->
         <div id="bk-word-ctrl" style="display:none;align-items:center;gap:4px;flex-shrink:0;flex-wrap:nowrap">
           <!-- 라오 토글 + 크기 -->
           <button class="tog-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오</button>
@@ -1207,24 +1207,48 @@ function bkRender() {
     return `\n\n<div class="obs-callout ${type}"><div class="obs-callout-title">${icons[type]||'📌'} ${title||type}</div><div class="obs-callout-body">${body}</div></div>\n\n`;
   });
 
-  // 단어공부 블록:
-  //   <!
-  //   |라오|영어|한글
-  //   |라오|영어|한글
-  //   !>
-  // <! 와 !> 는 각각 단독 줄, 그 사이에 |라오|영어|한글(|) 줄이 여러 개 올 수 있음.
-  // 패턴에 맞지 않는 줄(구분선 등)은 무시됨.
+  // 단어공부 블록: '|'로 시작하는 줄이 연속으로 나오면 그 구간 전체를 단어장으로 인식.
+  //   |ສະບາຍດີ|Hello|안녕하세요
+  //   |ຂອບໃຈ|Thank you|감사합니다
+  // 각 칸은 위치가 아니라 글자 내용(라오/영어/한글)을 보고 자동으로 분류함.
+  // 구분선(|---|---|)이나 "라오/영어/한글" 헤더행, 언어를 하나도 인식 못 한 구간은
+  // 일반 표일 수 있으니 원문 그대로 둠(단어카드로 바꾸지 않음).
   const vocabBlocks = [];
-  md = md.replace(/^<!\s*$\n([\s\S]*?)^!>\s*$/gm, (m, body) => {
-    const idx = vocabBlocks.length;
-    const entries = [];
-    body.split('\n').forEach(line => {
-      const mm = line.trim().match(/^\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|?$/);
-      if (mm) entries.push({ lao: mm[1].trim(), eng: mm[2].trim(), kor: mm[3].trim() });
-    });
-    vocabBlocks.push(entries);
-    return `@@VOCAB${idx}@@`;
-  });
+  {
+    const srcLines = md.split('\n');
+    const outLines = [];
+    let li = 0;
+    while (li < srcLines.length) {
+      if (/^\s*\|/.test(srcLines[li])) {
+        const blockLines = [];
+        while (li < srcLines.length && /^\s*\|/.test(srcLines[li])) {
+          blockLines.push(srcLines[li]);
+          li++;
+        }
+        const entries = [];
+        blockLines.forEach(bl => {
+          const t = bl.trim();
+          if (/^\|[-:\s|]*\|?$/.test(t)) return; // 구분선(|---|---|) 무시
+          let cells = t.replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+          if (cells.some(c => /^(라오|Lao|영어|English|한글|Korean)$/i.test(c))) return; // 헤더행 무시
+          cells = cells.filter(c => c !== '');
+          if (!cells.length) return;
+          entries.push(vClassifyCells(cells));
+        });
+        if (entries.length) {
+          const idx = vocabBlocks.length;
+          vocabBlocks.push(entries);
+          outLines.push(`@@VOCAB${idx}@@`);
+        } else {
+          outLines.push(...blockLines); // 언어를 못 찾으면 원문 표 그대로 보존
+        }
+      } else {
+        outLines.push(srcLines[li]);
+        li++;
+      }
+    }
+    md = outLines.join('\n');
+  }
   _bkVocab = vocabBlocks;
 
   bkSyncBible();
@@ -1795,13 +1819,13 @@ document.addEventListener('keydown', e => {
 });
 
 /* ══════════════════════════════════════
-   단어공부 기능 — 책 본문 중 아래 형식의 블록을 단어카드로 렌더링
-   <!
-   |라오어|영어|한글
-   |라오어|영어|한글
-   !>
-   ( <!, !> 는 각각 단독 줄. 사이에 |라오|영어|한글 줄이 여러 개 올 수 있고,
-     패턴에 맞지 않는 줄은 무시됨. 한글 뒤 파이프는 있어도 없어도 됨 )
+   단어공부 기능 — 책 본문 중 '|'로 시작하는 줄이 연속으로 나오면 그 구간을 단어카드로 렌더링
+   |ສະບາຍດີ|Hello|안녕하세요
+   |ຂອບໃຈ|Thank you|감사합니다
+   각 칸의 순서는 상관없고, 내용을 보고 라오어/영어/한글을 자동 판별해서 배치함.
+   (라오어 유니코드 범위, 한글 자모/음절, 영문자 개수를 비교해서 판별)
+   구분선(|---|---|)이나 "라오/영어/한글" 헤더행은 건너뛰고,
+   언어를 하나도 인식 못 한 구간은 원문 표 그대로 둠(일반 markdown 표 보존).
 ══════════════════════════════════════ */
 
 function esc(s) {
@@ -1822,6 +1846,33 @@ try {
   if (_savedVis) Object.assign(_wColVis, _savedVis);
 } catch(e) {}
 
+/* 텍스트에 포함된 문자로 라오어/한글/영어를 판별 (가장 많이 쓰인 문자체계 기준) */
+function vDetectLang(text) {
+  if (!text) return null;
+  const lao = (text.match(/[\u0E80-\u0EFF]/g) || []).length;
+  const kor = (text.match(/[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/g) || []).length;
+  const eng = (text.match(/[A-Za-z]/g) || []).length;
+  const max = Math.max(lao, kor, eng);
+  if (max === 0) return null;
+  if (lao === max) return 'lao';
+  if (kor === max) return 'kor';
+  return 'eng';
+}
+
+/* 한 줄의 셀 배열(위치 무관)을 언어별로 분류해서 {lao,eng,kor} 객체로 변환 */
+function vClassifyCells(cells) {
+  const entry = { lao: '', eng: '', kor: '' };
+  const leftover = [];
+  cells.forEach(c => {
+    const t = vDetectLang(c);
+    if (t && !entry[t]) entry[t] = c;
+    else leftover.push(c);
+  });
+  const emptySlots = ['lao', 'eng', 'kor'].filter(k => !entry[k]);
+  leftover.forEach((c, i) => { if (emptySlots[i]) entry[emptySlots[i]] = c; });
+  return entry;
+}
+
 /* 단어행(1개 항목) HTML 생성 (표시 순서 _vColOrder 적용) */
 function vVocabRowHtml(entry) {
   const cells = _vColOrder.map(col => {
@@ -1835,7 +1886,7 @@ function vVocabRowHtml(entry) {
   return `<div class="vocab-row">${cells}</div>`;
 }
 
-/* 단어공부 블록(<! ... !> 사이 여러 항목) HTML 생성 */
+/* 단어공부 블록('|'로 시작하는 연속된 줄 전체) HTML 생성 */
 function vVocabBlockHtml(entries) {
   if (!entries || !entries.length) return '';
   return `<div class="vocab-block">${entries.map(vVocabRowHtml).join('')}</div>`;
