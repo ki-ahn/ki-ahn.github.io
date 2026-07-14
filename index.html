@@ -151,6 +151,37 @@ html[data-dark] #dark-toggle::after { left: 18px; }
   white-space: nowrap;
 }
 .w-lookup-btn:hover { background: var(--ac); color: #fff; border-color: var(--ac2); }
+
+/* ══ 단어공부 블록 (<! |라오|영어|한글 ... !> 마커) ══ */
+.vocab-block {
+  display: block; background: rgba(184,148,58,.08);
+  border: 1px solid var(--pbd); border-radius: 8px;
+  padding: 4px 14px; margin: 10px 0;
+}
+.vocab-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px;
+  padding: 6px 0; border-bottom: 1px dashed var(--pbd);
+}
+.vocab-row:last-child { border-bottom: none; }
+.vocab-row .v-cell {
+  display: inline-flex; align-items: center; gap: 3px; cursor: pointer;
+  border-radius: 4px; transition: filter .15s;
+}
+.vocab-row .v-cell[data-col="lao"] .v-text {
+  font-family: "Noto Sans Lao", Georgia, serif; color: var(--ac); font-weight: 700;
+  font-size: var(--word-fs-lao);
+}
+.vocab-row .v-cell[data-col="eng"] .v-text { color: var(--ac2); font-size: var(--word-fs-eng); }
+.vocab-row .v-cell[data-col="kor"] .v-text { color: var(--pt);  font-size: var(--word-fs-kor); }
+.vocab-row .v-cell.vis-hidden { filter: blur(6px); user-select: none; }
+.vocab-row .v-cell.vis-hidden:hover { filter: blur(3px); }
+.vocab-row .v-copy {
+  background: none; border: 1px solid var(--pbd); border-radius: 4px;
+  padding: 1px 5px; font-size: 10px; color: var(--pm); cursor: pointer;
+  transition: all .12s; line-height: 1.4;
+}
+.vocab-row .v-copy:hover { background: var(--ac); color: #fff; border-color: var(--ac2); }
+
 /* topbar 토글 버튼 */
 .tog-btn {
   padding: 3px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;
@@ -775,7 +806,7 @@ html[data-dark] #pdf-sidebar {
         <button class="bk-btn" id="bk-sbbtn" onclick="bkTogSidebar()">☰</button>
         <div id="bk-title"><span style="color:var(--pm)">파일 목록을 불러오는 중…</span></div>
 
-        <!-- 단어장 토글 (단어장 파일 열릴 때만) -->
+        <!-- 단어공부 컨트롤 (본문에 <! ... !> 단어블록이 있는 문서에서만 표시) -->
         <div id="bk-word-ctrl" style="display:none;align-items:center;gap:4px;flex-shrink:0;flex-wrap:nowrap">
           <!-- 라오 토글 + 크기 -->
           <button class="tog-btn on" id="wctrl-lao" onclick="wTogCol('lao')">라오</button>
@@ -791,6 +822,16 @@ html[data-dark] #pdf-sidebar {
           <button class="tog-btn on" id="wctrl-kor" onclick="wTogCol('kor')">한글</button>
           <button class="bk-btn" onclick="wFontSize('kor',-1)" style="padding:2px 5px;font-size:10px">－</button>
           <button class="bk-btn" onclick="wFontSize('kor', 1)" style="padding:2px 5px;font-size:10px">＋</button>
+          <div style="width:1px;height:14px;background:var(--pbd);margin:0 2px"></div>
+          <!-- 표시 순서 -->
+          <select id="wctrl-order" class="bk-btn" style="padding:2px 4px;font-size:10px" onchange="vSetOrder(this.value)" title="표시 순서">
+            <option value="lao,eng,kor">라오·영어·한글</option>
+            <option value="eng,lao,kor">영어·라오·한글</option>
+            <option value="lao,kor,eng">라오·한글·영어</option>
+            <option value="kor,lao,eng">한글·라오·영어</option>
+            <option value="eng,kor,lao">영어·한글·라오</option>
+            <option value="kor,eng,lao">한글·영어·라오</option>
+          </select>
         </div>
 
         <!-- 공통 컨트롤 -->
@@ -974,6 +1015,7 @@ function studyFontSizeRestore() {
 const BIBLE_VERSIONS = ['개역개정', '새번역', 'ESV', 'NIV', 'LAO', 'Henry', 'Hokma'];
 const _bkS = { dark: false, fs: 19, vers: ['개역개정', 'ESV'], readerW: 740 };
 let _bkFiles = [], _bkCur = null, _bkContent = '';
+let _bkVocab = [];
 let _bkHls = {}, _bkPos = {};
 let _bkHlCol = 'yellow', _bkSelR = null, _bkSelText = '';
 let _bkSrIdx = [], _bkSrReady = false;
@@ -1075,21 +1117,6 @@ async function bkLoadFiles() {
   }
 }
 function bkRefresh() { bkLoadFiles(); }
-/* 단어장 파일 렌더링 */
-function bkRenderWordFile(text) {
-  const html = bkRenderWordTable(text);
-  const reader = document.getElementById('bk-reader');
-  if (!html) { bkRender(); return; }
-  reader.innerHTML = html;
-  // 열별 폰트 크기 복원
-  wRestoreFontSizes();
-  // 열 표시 상태 초기화 (모두 보이기)
-  _wColVis.lao = true; _wColVis.eng = true; _wColVis.kor = true;
-  ['lao','eng','kor'].forEach(col => {
-    document.getElementById('wctrl-' + col)?.classList.add('on');
-  });
-  bkTrackProg();
-}
 
 function bkRenderTree(files) {
   const tree = {};
@@ -1134,19 +1161,9 @@ async function bkOpen(path) {
   document.getElementById('bk-title').innerHTML = `<strong>${fname}</strong>`;
   document.getElementById('bk-reader').innerHTML = '<div class="bk-spin">📖 불러오는 중…</div>';
 
-  // 단어장 / 일반 노트 컨트롤 전환
-  const isWord = bkIsWordFile(path);
-  document.getElementById('bk-word-ctrl').style.display  = isWord ? 'flex' : 'none';
-  document.getElementById('bk-tocbtn').style.display     = isWord ? 'none' : '';
-  document.getElementById('bk-annotbtn').style.display   = isWord ? 'none' : '';
-
   try {
     _bkContent = await GitHubModule.readFile(path);
-    if (isWord && bkIsWordTable(_bkContent)) {
-      bkRenderWordFile(_bkContent);
-    } else {
-      bkRender();
-    }
+    bkRender();
     if (_bkPos[path]) setTimeout(() => { document.getElementById('bk-rw').scrollTop = _bkPos[path]; }, 150);
     else document.getElementById('bk-rw').scrollTop = 0;
   } catch(e) {
@@ -1190,12 +1207,33 @@ function bkRender() {
     return `\n\n<div class="obs-callout ${type}"><div class="obs-callout-title">${icons[type]||'📌'} ${title||type}</div><div class="obs-callout-body">${body}</div></div>\n\n`;
   });
 
+  // 단어공부 블록:
+  //   <!
+  //   |라오|영어|한글
+  //   |라오|영어|한글
+  //   !>
+  // <! 와 !> 는 각각 단독 줄, 그 사이에 |라오|영어|한글(|) 줄이 여러 개 올 수 있음.
+  // 패턴에 맞지 않는 줄(구분선 등)은 무시됨.
+  const vocabBlocks = [];
+  md = md.replace(/^<!\s*$\n([\s\S]*?)^!>\s*$/gm, (m, body) => {
+    const idx = vocabBlocks.length;
+    const entries = [];
+    body.split('\n').forEach(line => {
+      const mm = line.trim().match(/^\|([^|\n]*)\|([^|\n]*)\|([^|\n]*)\|?$/);
+      if (mm) entries.push({ lao: mm[1].trim(), eng: mm[2].trim(), kor: mm[3].trim() });
+    });
+    vocabBlocks.push(entries);
+    return `@@VOCAB${idx}@@`;
+  });
+  _bkVocab = vocabBlocks;
+
   bkSyncBible();
   md = BibleModule.protectRefs(md);
   let html = '';
   try { html = marked.parse(md, {gfm:true, breaks:false}); }
   catch(e) { html = '<pre>' + md.replace(/</g,'&lt;') + '</pre>'; }
   html = BibleModule.restoreRefs(html);
+  html = html.replace(/@@VOCAB(\d+)@@/g, (m, idx) => vVocabBlockHtml(vocabBlocks[+idx]));
   const reader = document.getElementById('bk-reader');
   reader.innerHTML = html;
   reader.style.fontSize = _bkS.fs + 'px';
@@ -1205,6 +1243,14 @@ function bkRender() {
   bkColorTags(reader);
   bkBindLinks(reader);
   bkResolveImages(reader);  // 이미지 로딩
+
+  // 단어공부 마커가 있는 문서면 컨트롤바 표시
+  const hasVocab = vocabBlocks.some(b => b.length > 0);
+  const wctrl = document.getElementById('bk-word-ctrl');
+  if (wctrl) {
+    wctrl.style.display = hasVocab ? 'flex' : 'none';
+    if (hasVocab) bkSyncWordCtrl();
+  }
 }
 
 /* ── 이미지 로딩 ── */
@@ -1749,72 +1795,75 @@ document.addEventListener('keydown', e => {
 });
 
 /* ══════════════════════════════════════
-   단어장 기능
+   단어공부 기능 — 책 본문 중 아래 형식의 블록을 단어카드로 렌더링
+   <!
+   |라오어|영어|한글
+   |라오어|영어|한글
+   !>
+   ( <!, !> 는 각각 단독 줄. 사이에 |라오|영어|한글 줄이 여러 개 올 수 있고,
+     패턴에 맞지 않는 줄은 무시됨. 한글 뒤 파이프는 있어도 없어도 됨 )
 ══════════════════════════════════════ */
-
-/* 단어장 파일 감지 — 테이블 행 3개 이상이면 단어장 */
-function bkIsWordTable(text) {
-  const lines = text.split('\n').filter(l => l.trim().startsWith('|'));
-  return lines.length >= 3;
-}
-
-/* 단어장 렌더링 */
-function bkRenderWordTable(text) {
-  const lines = text.split('\n');
-  const rows = [];
-  for (const line of lines) {
-    const t = line.trim();
-    if (!t.startsWith('|')) continue;
-    if (/^\|[-:\s|]+\|$/.test(t)) continue;
-    const cells = t.split('|').slice(1, -1).map(c => c.trim());
-    if (cells.length >= 2) rows.push(cells);
-  }
-  if (!rows.length) return null;
-
-  // 헤더 감지
-  let dataRows = rows;
-  if (rows[0].some(h => /라오|Lao|영어|English|한글|Korean/i.test(h))) {
-    dataRows = rows.slice(1);
-  }
-
-  let html = `<table class="word-table" id="bk-word-table">`;
-  dataRows.forEach(cells => {
-    const lao = cells[0] || '';
-    const eng = cells[1] || '';
-    const kor = cells[2] || '';
-    // 라오어 셀에만 사전 찾기 버튼
-    const laoEscaped = lao.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    html += `<tr>
-      <td class="w-lao" data-col="lao" onclick="wTogCell(this)">
-        ${lao ? `<button class="w-lookup-btn" onclick="event.stopPropagation();bkDictLookup('${laoEscaped}')" title="사전 찾기">🔍</button>` : ''}${esc(lao)}
-      </td>
-      <td class="w-eng" data-col="eng" onclick="wTogCell(this)">${esc(eng)}</td>
-      <td class="w-kor" data-col="kor" onclick="wTogCell(this)">${esc(kor)}</td>
-    </tr>`;
-  });
-  html += `</table>`;
-  return html;
-}
 
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* 열 전체 토글 */
-const _wColVis = { lao: true, eng: true, kor: true };
+/* 열 표시 순서 (기본 라오→영어→한글, localStorage 저장) */
+let _vColOrder = ['lao','eng','kor'];
+try {
+  const _savedOrder = localStorage.getItem('vocab-col-order');
+  if (_savedOrder) _vColOrder = _savedOrder.split(',');
+} catch(e) {}
 
+/* 열 표시/숨김 (localStorage 저장, 세션 간 유지) */
+const _wColVis = { lao: true, eng: true, kor: true };
+try {
+  const _savedVis = JSON.parse(localStorage.getItem('vocab-col-vis') || 'null');
+  if (_savedVis) Object.assign(_wColVis, _savedVis);
+} catch(e) {}
+
+/* 단어행(1개 항목) HTML 생성 (표시 순서 _vColOrder 적용) */
+function vVocabRowHtml(entry) {
+  const cells = _vColOrder.map(col => {
+    const text = entry[col] || '';
+    const hiddenCls = _wColVis[col] ? '' : ' vis-hidden';
+    const copyBtn = (col === 'lao' && text)
+      ? `<button class="v-copy" data-copy="${esc(text)}" title="복사" onclick="event.stopPropagation()">📋</button>`
+      : '';
+    return `<span class="v-cell${hiddenCls}" data-col="${col}" onclick="vTogCell(this)">${copyBtn}<span class="v-text">${esc(text)}</span></span>`;
+  }).join('');
+  return `<div class="vocab-row">${cells}</div>`;
+}
+
+/* 단어공부 블록(<! ... !> 사이 여러 항목) HTML 생성 */
+function vVocabBlockHtml(entries) {
+  if (!entries || !entries.length) return '';
+  return `<div class="vocab-block">${entries.map(vVocabRowHtml).join('')}</div>`;
+}
+
+/* 열 전체 토글 (본문 전체의 해당 열에 적용) */
 function wTogCol(col) {
   _wColVis[col] = !_wColVis[col];
   const btn = document.getElementById('wctrl-' + col);
   if (btn) btn.classList.toggle('on', _wColVis[col]);
-  document.querySelectorAll(`#bk-word-table td[data-col="${col}"]`).forEach(td => {
-    td.classList.toggle('vis-hidden', !_wColVis[col]);
+  document.querySelectorAll(`.vocab-block [data-col="${col}"]`).forEach(cell => {
+    cell.classList.toggle('vis-hidden', !_wColVis[col]);
   });
+  localStorage.setItem('vocab-col-vis', JSON.stringify(_wColVis));
 }
 
-/* 개별 셀 토글 */
-function wTogCell(td) {
-  td.classList.toggle('vis-hidden');
+/* 개별 셀 토글 (클릭 시 해당 카드의 그 열만) */
+function vTogCell(el) {
+  el.classList.toggle('vis-hidden');
+}
+// (구버전 호환용 별칭)
+function wTogCell(el) { vTogCell(el); }
+
+/* 표시 순서 변경 → 전체 다시 렌더 */
+function vSetOrder(val) {
+  _vColOrder = val.split(',');
+  localStorage.setItem('vocab-col-order', val);
+  bkRender();
 }
 
 /* 열별 폰트 크기 */
@@ -1835,7 +1884,32 @@ function wRestoreFontSizes() {
   });
 }
 
-/* 사전 파일 캐시 */
+/* 컨트롤바(토글 버튼·순서 select)를 현재 저장된 설정과 동기화 */
+function bkSyncWordCtrl() {
+  ['lao','eng','kor'].forEach(col => {
+    document.getElementById('wctrl-' + col)?.classList.toggle('on', _wColVis[col]);
+  });
+  const sel = document.getElementById('wctrl-order');
+  if (sel) sel.value = _vColOrder.join(',');
+  wRestoreFontSizes();
+}
+
+/* 라오어 등 텍스트 복사 버튼 (이벤트 위임 — 카드가 계속 다시 그려지므로 document에 한 번만 등록) */
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.v-copy');
+  if (!btn) return;
+  e.stopPropagation();
+  const text = btn.getAttribute('data-copy') || '';
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    AppToast.show('📋 복사됨: ' + text, 'success');
+    const old = btn.textContent;
+    btn.textContent = '✅';
+    setTimeout(() => { btn.textContent = old; }, 900);
+  }).catch(() => AppToast.show('복사 실패', 'error'));
+});
+
+/* 사전 파일 캐시 (추후 사용 예정 — 현재 단어카드에서는 사용하지 않음) */
 let _dictData = null;
 let _dictFile = null;
 
@@ -1927,18 +2001,6 @@ function bkHideDictPopup() {
   document.getElementById('bk-dict-popup').classList.remove('open');
 }
 
-/* bkRender에서 단어장 분기 처리 */
-function bkIsWordFile(path) {
-  if (!path) return false;
-  const cfg = GitHubModule.get();
-  if (cfg.wordsFolder) {
-    const folder = cfg.wordsFolder.replace(/^\/+|\/+$/g,'').toLowerCase();
-    if (path.toLowerCase().startsWith(folder + '/')) return true;
-  }
-  // 파일명에 단어/word/vocab 포함 시도
-  const fname = path.split('/').pop().toLowerCase();
-  return /단어|word|vocab|lao.*\d|ls-\d/i.test(fname);
-}
 let _pdfFiles   = [];   // pdf 파일 목록
 let _pdfCurPath = null; // 현재 열린 pdf 경로
 let _pdfDrag    = null;
