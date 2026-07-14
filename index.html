@@ -1131,10 +1131,10 @@ function bkRenderTree(files) {
 }
 function bkRNode(node, d) {
   let html = ''; const pad = 10 + d * 10;
-  Object.keys(node).filter(k => k !== '__f__').sort().forEach(k => {
+  Object.keys(node).filter(k => k !== '__f__').sort((a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:'base'})).forEach(k => {
     html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${bkRNode(node[k], d+1)}</div>`;
   });
-  (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
+  (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'})).forEach(f => {
     const isPdf = f.path.endsWith('.pdf');
     const name  = f.name.replace(/\.(md|pdf)$/, '');
     const icon  = isPdf ? '📄' : '📝';
@@ -2102,10 +2102,10 @@ function pdfRenderTree(files) {
 
 function pdfRNode(node, d) {
   let html = ''; const pad = 10 + d * 10;
-  Object.keys(node).filter(k => k !== '__f__').sort().forEach(k => {
+  Object.keys(node).filter(k => k !== '__f__').sort((a,b) => a.localeCompare(b, undefined, {numeric:true, sensitivity:'base'})).forEach(k => {
     html += `<div class="bk-tf" style="padding-left:${pad}px" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>📁 ${k}</div><div class="bk-tc">${pdfRNode(node[k], d+1)}</div>`;
   });
-  (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name)).forEach(f => {
+  (node.__f__ || []).sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'})).forEach(f => {
     const name = f.name.replace(/\.pdf$/, '');
     html += `<div class="bk-fi" style="padding-left:${pad+12}px" data-path="${f.path}" onclick="pdfOpenFile('${f.path}')" title="${f.path}">📄 ${name}</div>`;
   });
