@@ -58,6 +58,19 @@ const GitHubModule = (() => {
     return r.json();
   }
 
+  /* ── Git Blob 읽기 (1MB 초과 파일용) ──
+     Contents API는 1MB 넘는 파일의 content를 안 돌려주므로,
+     그 경우 blob sha로 Git Blob API를 다시 호출해서 받아온다. */
+  async function fetchBlob(sha) {
+    const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/git/blobs/${sha}`;
+    const r = await fetch(url, { headers: headers(), cache: 'no-store' });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error((e.message || `HTTP ${r.status}`) + '\nblob sha: ' + sha);
+    }
+    return r.json();
+  }
+
   /* ── Base64 디코드 (UTF-8 안전) ── */
   function decode64(b64) {
     const raw = atob(b64.replace(/\n/g, ''));
@@ -69,15 +82,27 @@ const GitHubModule = (() => {
   /* ── 파일 텍스트 읽기 ── */
   async function readFile(path) {
     const data = await fetchContents(path);
-    if (!data.content) throw new Error('파일 내용 없음: ' + path);
-    return decode64(data.content);
+    if (Array.isArray(data)) throw new Error('폴더입니다(파일이 아님): ' + path);
+    if (data.content) return decode64(data.content);
+    // 1MB 초과 파일: Contents API가 content를 안 주므로 Git Blob API로 재시도
+    if (data.sha) {
+      const blob = await fetchBlob(data.sha);
+      if (blob && blob.content) return decode64(blob.content);
+    }
+    throw new Error('파일 내용 없음: ' + path);
   }
 
   /* ── 파일 텍스트 + SHA 함께 읽기 ── */
   async function readFileWithSha(path) {
     const data = await fetchContents(path);
-    if (!data.content) throw new Error('파일 내용 없음: ' + path);
-    return { text: decode64(data.content), sha: data.sha };
+    if (Array.isArray(data)) throw new Error('폴더입니다(파일이 아님): ' + path);
+    if (data.content) return { text: decode64(data.content), sha: data.sha };
+    // 1MB 초과 파일: Contents API가 content를 안 주므로 Git Blob API로 재시도
+    if (data.sha) {
+      const blob = await fetchBlob(data.sha);
+      if (blob && blob.content) return { text: decode64(blob.content), sha: data.sha };
+    }
+    throw new Error('파일 내용 없음: ' + path);
   }
 
   /* ── 파일 쓰기 ── */
@@ -115,5 +140,5 @@ const GitHubModule = (() => {
     return { ...result, newSha: result?.content?.sha };
   }
 
-  return { save, load, configure, get, isReady, fetchContents, fetchTree, readFile, readFileWithSha, writeFile, decode64 };
+  return { save, load, configure, get, isReady, fetchContents, fetchTree, fetchBlob, readFile, readFileWithSha, writeFile, decode64 };
 })();
