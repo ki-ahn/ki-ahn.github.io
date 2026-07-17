@@ -1594,19 +1594,18 @@ function bkLookup() {
   window.open(`https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`, '_blank');
   bkHideHlPop();
 }
+
 function bkCopyText() {
-    // 복사할 텍스트를 가져오는 로직 (기존 하이라이트된 텍스트 변수명을 확인하여 넣어주세요)
-    // const textToCopy = getSelectedText(); // 예시: 현재 선택된 텍스트를 가져오는 함수라고 가정
     if (!_bkSelText) return;
 
     navigator.clipboard.writeText(_bkSelText).then(() => {
-        alert("클립보드에 복사되었습니다.");
-        // 복사 후 팝업을 닫고 싶다면 아래 호출
-        bkHideHlPop(); 
+        //alert("클립보드에 복사되었습니다.");
     }).catch(err => {
         console.error('복사 실패:', err);
     });
+    bkHideHlPop();
 }
+
 async function bkSaveHlToGitHub(filePath) {
   if (!GitHubModule.get().token) return;
   try {
