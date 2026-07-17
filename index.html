@@ -1596,9 +1596,10 @@ function bkLookup() {
 }
 function bkCopyText() {
     // 복사할 텍스트를 가져오는 로직 (기존 하이라이트된 텍스트 변수명을 확인하여 넣어주세요)
-    const textToCopy = getSelectedText(); // 예시: 현재 선택된 텍스트를 가져오는 함수라고 가정
+    // const textToCopy = getSelectedText(); // 예시: 현재 선택된 텍스트를 가져오는 함수라고 가정
+    if (!_bkSelText) return;
 
-    navigator.clipboard.writeText(textToCopy).then(() => {
+    navigator.clipboard.writeText(_bkSelText).then(() => {
         alert("클립보드에 복사되었습니다.");
         // 복사 후 팝업을 닫고 싶다면 아래 호출
         // bkHideHlPop(); 
