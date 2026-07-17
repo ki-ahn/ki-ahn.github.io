@@ -566,23 +566,20 @@ html[data-dark] #bk-sidebar {
 
 /* ══ PDF + 오디오 학습 모드 (챕터/오디오가 있는 노트를 열었을 때만 표시) ══ */
 #pdf-study-bar {
-  display: none; flex-direction: column; gap: 8px; padding: 10px 12px;
-  background: var(--paper); border-bottom: 1px solid var(--pbd); flex-shrink: 0;
+  display: none; align-items: center; gap: 10px; padding: 6px 12px;
+  background: var(--paper); border-bottom: 1px solid var(--pbd); flex-shrink: 0; flex-wrap: wrap;
 }
-#pdfst-booklabel { font-size: 13px; font-weight: 700; color: var(--pt); }
-#pdfst-audiorow { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+#pdfst-booklabel { font-size: 12px; font-weight: 700; color: var(--pt); white-space: nowrap; }
+#pdfst-audiorow { display: flex; gap: 6px; flex-wrap: wrap; }
 .pdfst-abtn {
-  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--pbd);
-  background: var(--ui-bg); color: var(--pt); font-size: 12px; cursor: pointer;
+  padding: 4px 9px; border-radius: 6px; border: 1px solid var(--pbd);
+  background: var(--ui-bg); color: var(--pt); font-size: 11px; cursor: pointer;
 }
 .pdfst-abtn:hover { background: var(--ac); color: #fff; border-color: var(--ac2); }
-#pdfst-chapters { display: flex; flex-wrap: wrap; gap: 6px; }
-.pdfst-chbtn {
-  padding: 6px 10px; border-radius: 6px; border: 1px solid var(--pbd);
-  background: var(--ui-bg); color: var(--pt); font-size: 12px; cursor: pointer;
-}
-.pdfst-chbtn.on { background: var(--ac); color: #fff; border-color: var(--ac2); }
-#pdfst-status { font-size: 11px; color: var(--pm); text-align: center; min-height: 14px; }
+#pdfst-status { font-size: 11px; color: var(--pm); }
+/* 목차 패널 안의 챕터 항목 (일반 노트의 h1~h4 항목과 같은 자리에 표시됨) */
+.bk-ti-ch { cursor: pointer; }
+.bk-ti-ch.on { color: var(--ac2); font-weight: 700; }
 /* ══════════════════════════════════════
    단어공부 — 책보기와 동일한 레이아웃
 ══════════════════════════════════════ */
@@ -840,7 +837,8 @@ html[data-dark] #bk-sidebar {
         <div class="bk-spl" id="bk-spl-l" onmousedown="bkDragStart(event,'l')" style="display:none"></div>
         <div id="bk-rw"><div id="bk-reader"></div></div>
 
-        <!-- PDF(+오디오 학습) 영역: .pdf 파일 클릭, 또는 pdf_file/chapters frontmatter가 있는 노트를 열면 표시 -->
+        <!-- PDF(+오디오 학습) 영역: .pdf 파일 클릭, 또는 pdf_file/chapters frontmatter가 있는 노트를 열면 표시
+             챕터 목록은 우측 "목차" 패널(#bk-toc)에 표시되어 PDF 위를 가리지 않음 -->
         <div id="bk-pdfarea">
           <div id="pdf-study-bar">
             <div id="pdfst-booklabel"></div>
@@ -851,7 +849,6 @@ html[data-dark] #bk-sidebar {
               <button class="pdfst-abtn" onclick="pdfStudySeek(3)">+3초 ⏩</button>
               <button class="pdfst-abtn" onclick="pdfStudyRestart()">🔄 다시시작</button>
             </div>
-            <div id="pdfst-chapters"></div>
             <div id="pdfst-status"></div>
             <audio id="pdfst-audio" style="display:none"></audio>
           </div>
@@ -1137,6 +1134,7 @@ async function bkOpenPdf(path) {
   if (el) { el.classList.add('active'); el.scrollIntoView({block:'nearest'}); }
   _pdfStudyBooks = [];
   document.getElementById('pdf-study-bar').style.display = 'none';
+  document.getElementById('bk-toclist').innerHTML = '<div style="font-size:12px;color:var(--pm);padding:5px 0">챕터 없음</div>';
   const fname = path.split('/').pop().replace(/\.pdf$/i, '');
   document.getElementById('bk-title').innerHTML = `<strong>📄 ${fname}</strong>`;
   bkShowPdf();
@@ -2261,18 +2259,21 @@ async function pdfStudyOpenFromNote(notePath, cfg) {
   document.getElementById('pdfst-booklabel').textContent = '🎧 ' + _pdfStudyBooks[0].name;
   document.getElementById('pdf-study-bar').style.display = 'flex';
   bkShowPdf();
-  pdfStudyRenderChapters(0);
+  pdfStudyBuildToc(0);         // 챕터 목록은 PDF 위가 아니라 목차 패널에 표시
+  document.getElementById('bk-tocbtn').style.display = '';
 
   // md 파일을 열자마자 연결된 pdf_file을 바로 불러옴 (챕터 클릭 없이도 표시)
   if (pdfPath) await pdfOpenFile(pdfPath);
 }
 
-function pdfStudyRenderChapters(bookIdx) {
-  const wrap = document.getElementById('pdfst-chapters');
+/* 챕터 목록을 "목차" 패널(#bk-toclist)에 채워넣음 — PDF 화면을 가리지 않고
+   기존 목차 버튼(bk-tocbtn)으로 열고 닫을 수 있음 */
+function pdfStudyBuildToc(bookIdx) {
+  const list = document.getElementById('bk-toclist');
   const book = _pdfStudyBooks[bookIdx];
-  if (!book) { wrap.innerHTML = ''; return; }
-  wrap.innerHTML = Object.keys(book.chapters).map(name =>
-    `<button class="pdfst-chbtn" data-name="${esc(name)}" onclick="pdfStudySelectChapter(${bookIdx}, this.dataset.name)">${esc(name)}</button>`
+  if (!book) { list.innerHTML = ''; return; }
+  list.innerHTML = Object.keys(book.chapters).map(name =>
+    `<div class="bk-ti bk-ti-ch" data-name="${esc(name)}" onclick="pdfStudySelectChapter(${bookIdx}, this.dataset.name)">${esc(name)}</div>`
   ).join('');
 }
 
@@ -2282,7 +2283,7 @@ async function pdfStudySelectChapter(bookIdx, name) {
   const data = book.chapters[name];
   if (!data) return;
 
-  document.querySelectorAll('#pdfst-chapters .pdfst-chbtn').forEach(b => b.classList.toggle('on', b.dataset.name === name));
+  document.querySelectorAll('#bk-toclist .bk-ti-ch').forEach(el => el.classList.toggle('on', el.dataset.name === name));
 
   const status = document.getElementById('pdfst-status');
   if (!book.pdfPath) {
