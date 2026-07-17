@@ -722,8 +722,7 @@ html[data-dark] #pdf-sidebar {
   <div id="cfg-box">
     <div id="cfg-tabs">
       <div class="cfg-tab on" onclick="switchCfgTab('github',this)">🔑 GitHub</div>
-      <div class="cfg-tab" onclick="switchCfgTab('reader',this)">📖 책보기</div>
-      <div class="cfg-tab" onclick="switchCfgTab('pdfstudy',this)">🎧 PDF학습</div>
+      <div class="cfg-tab" onclick="switchCfgTab('reader',this)">📖 읽기 설정</div>
     </div>
     <!-- GitHub 탭 -->
     <div class="cfg-pane on" id="cfgp-github">
@@ -739,13 +738,8 @@ html[data-dark] #pdf-sidebar {
       <input class="cfg-input" id="cfg-token" type="password" placeholder="ghp_xxxx…">
       <div class="cfg-hint">Settings → Developer Settings → Personal access tokens (repo 권한)<br>밑줄 GitHub 저장·공부횟수 업데이트에 필요합니다.</div>
     </div>
-    <!-- 책보기 탭 -->
+    <!-- 읽기 설정 탭 -->
     <div class="cfg-pane" id="cfgp-reader">
-      <label class="cfg-label">책보기 루트 폴더 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체)</small></label>
-      <input class="cfg-input" id="cfg-root" placeholder="예: Notes">
-      <label class="cfg-label">단어장 폴더 경로 <small style="text-transform:none;color:var(--ui-text3)">(비우면 전체 .md)</small></label>
-      <input class="cfg-input" id="cfg-words" placeholder="예: lao 또는 words">
-      <hr class="cfg-divider">
       <div class="cfg-setr">
         <div class="cfg-setl">글자 크기</div>
         <div class="cfg-fsb">
@@ -757,18 +751,8 @@ html[data-dark] #pdf-sidebar {
       </div>
       <div class="cfg-secs">성경 버전</div>
       <div class="cfg-vcbs" id="bk-vcbs"></div>
+      <div class="cfg-hint">📄 단어장(<code>|라오|영어|한글</code> 줄)과 🎧 PDF+오디오 학습(<code>pdf_file</code>/<code>chapters</code> frontmatter)은 폴더 설정 없이, 파일을 열 때 내용을 보고 자동으로 인식합니다.</div>
       <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
-    </div>
-    <!-- PDF학습 탭 -->
-    <div class="cfg-pane" id="cfgp-pdfstudy">
-      <label class="cfg-label">학습 설정 폴더 <small style="text-transform:none;color:var(--ui-text3)">(챕터/오디오 매핑 md 파일들이 있는 폴더)</small></label>
-      <input class="cfg-input" id="cfg-pdfcfg" placeholder="예: _resources/pdfs/_Config_pdf">
-      <div class="cfg-hint">
-        이 폴더 안의 각 .md 파일은 frontmatter에 아래 형식으로 되어 있어야 합니다:<br>
-        <code style="white-space:pre-line">pdf_file: "파일명.pdf"
-chapters:
-  1 챕터명: [페이지, "오디오경로.mp3", 시작초]</code>
-      </div>
     </div>
 
     <div class="cfg-row">
@@ -1005,10 +989,7 @@ function openCfg() {
   document.getElementById('cfg-user').value   = c.user || '';
   document.getElementById('cfg-repo').value   = c.repo || '';
   document.getElementById('cfg-branch').value = c.branch || 'main';
-  document.getElementById('cfg-words').value  = c.wordsFolder || '';
-  document.getElementById('cfg-root').value   = c.rootFolder || '';
   document.getElementById('cfg-bible').value  = c.bibleFolder || 'Bible';
-  document.getElementById('cfg-pdfcfg').value = c.pdfConfigFolder || '';
   document.getElementById('cfg-token').value  = c.token || '';
   updateEtcLabel();
   document.getElementById('cfg-overlay').classList.add('open');
@@ -1021,10 +1002,7 @@ function saveCfg() {
   GitHubModule.configure({
     user, repo,
     branch:      document.getElementById('cfg-branch').value.trim() || 'main',
-    wordsFolder: document.getElementById('cfg-words').value.trim().replace(/^\/+|\/+$/g, ''),
-    rootFolder:  document.getElementById('cfg-root').value.trim().replace(/^\/+|\/+$/g, ''),
     bibleFolder: document.getElementById('cfg-bible').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible',
-    pdfConfigFolder: document.getElementById('cfg-pdfcfg').value.trim().replace(/^\/+|\/+$/g, ''),
     token:       document.getElementById('cfg-token').value.trim(),
   });
   closeCfg();
@@ -1143,9 +1121,7 @@ async function bkLoadFiles() {
     const allFiles = tree.tree
       .filter(f => f.type==='blob' && (f.path.endsWith('.md') || f.path.endsWith('.pdf')))
       .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
-      .filter(f => !c.rootFolder  || f.path.startsWith(c.rootFolder + '/'))
       .filter(f => !c.bibleFolder || !f.path.startsWith(c.bibleFolder + '/'))
-      // .filter(f => !c.wordsFolder || !f.path.startsWith(c.wordsFolder + '/'))
       .map(f => f.path);
     _bkFiles = allFiles;  // md + pdf 모두 포함
     bkRenderTree(_bkFiles);
@@ -1212,6 +1188,14 @@ async function bkOpen(path) {
 
   try {
     _bkContent = await GitHubModule.readFile(path);
+
+    // frontmatter에 pdf_file + chapters가 있으면 PDF+오디오 학습 노트로 간주
+    const pdfCfg = pdfStudyParseConfig(_bkContent);
+    if (pdfCfg && pdfCfg.pdf_file && pdfCfg.chapters && Object.keys(pdfCfg.chapters).length) {
+      pdfStudyOpenFromNote(path, pdfCfg);
+      return;
+    }
+
     bkRender();
     if (_bkPos[path]) setTimeout(() => { document.getElementById('bk-rw').scrollTop = _bkPos[path]; }, 150);
     else document.getElementById('bk-rw').scrollTop = 0;
@@ -2320,16 +2304,16 @@ function pdfDragStart(e) {
 
 /* ══════════════════════════════════════
    PDF + 오디오 학습 모드
-   설정 폴더(cfg.pdfConfigFolder) 안의 .md 파일들을 읽어서
-   frontmatter의 pdf_file / chapters(페이지·오디오·시작초)로
-   챕터 버튼을 만들고, 클릭 시 PDF 페이지 이동 + 오디오 재생을 함께 처리
+   책보기에서 .md 파일을 열 때 frontmatter에 pdf_file/chapters가 있으면
+   (폴더 설정 없이) 자동으로 이 노트를 학습 노트로 인식해서 PDF 탭으로 전환.
+   pdf_file은 이 md 파일과 같은 폴더에 있다고 가정하고 경로를 계산함.
 ══════════════════════════════════════ */
-let _pdfStudyBooks     = [];   // [{path, name, pdf_file, chapters:{챕터명:{page,audio,start}}}]
+let _pdfStudyBooks     = [];   // 현재는 항상 1개: [{path, name, pdf_file, pdfPath, chapters}]
 let _pdfStudyCurBookIdx = -1;
 let _pdfStudyStartTime  = 0;
 const _pdfStudyAudioCache = new Map(); // path -> objectURL
 
-/* frontmatter의 chapters: 블록을 파싱 (page, "오디오경로", 시작초) */
+/* frontmatter의 chapters: 한 줄([page, "audio", start] 또는 페이지 숫자만)을 배열로 분해 */
 function pdfStudySplitYamlArray(s) {
   const items = []; let cur = ''; let inQ = false;
   for (let i = 0; i < s.length; i++) {
@@ -2342,6 +2326,7 @@ function pdfStudySplitYamlArray(s) {
   return items;
 }
 
+/* frontmatter 전체에서 pdf_file / chapters를 추출. 해당 없으면 null */
 function pdfStudyParseConfig(text) {
   const fmMatch = text.match(/^---\s*\n([\s\S]*?)\n---/);
   if (!fmMatch) return null;
@@ -2374,61 +2359,38 @@ function pdfStudyParseConfig(text) {
       if (!isNaN(page)) chapters[name] = { page, audio: null, start: 0 };
     }
   }
+  if (!pdfFile && !Object.keys(chapters).length) return null;
   return { pdf_file: pdfFile, chapters };
 }
 
-/* 설정 폴더의 .md 파일들을 읽어 학습 가능한 책 목록 구성 */
-async function pdfStudyLoadBooks() {
+/* bkOpen()에서 학습 노트로 판정된 .md 파일을 열었을 때 호출 — PDF 탭으로 전환해 바로 학습 준비 */
+function pdfStudyOpenFromNote(notePath, cfg) {
+  const dir = notePath.split('/').slice(0, -1).join('/');
+  const pdfPath = cfg.pdf_file.includes('/')
+    ? cfg.pdf_file
+    : (dir ? dir + '/' + cfg.pdf_file : cfg.pdf_file);
+
+  _pdfStudyBooks = [{
+    path: notePath,
+    name: notePath.split('/').pop().replace(/\.md$/i, ''),
+    pdf_file: cfg.pdf_file,
+    pdfPath,
+    chapters: cfg.chapters,
+  }];
+
+  switchTab('pdf');
+  document.getElementById('pdf-study-bar').classList.add('open');
   const sel = document.getElementById('pdfst-book');
-  const cfg = GitHubModule.get();
-  const folder = (cfg.pdfConfigFolder || '').trim();
-  if (!folder) {
-    sel.innerHTML = '<option value="">⚙ 설정 → PDF학습에서 폴더를 지정하세요</option>';
-    return;
-  }
-  sel.innerHTML = '<option value="">불러오는 중…</option>';
-  try {
-    const list = await GitHubModule.fetchContents(folder);
-    const mdFiles = (Array.isArray(list) ? list : [])
-      .filter(it => it.type === 'file' && /\.md$/i.test(it.name))
-      .sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}));
-
-    _pdfStudyBooks = [];
-    for (const item of mdFiles) {
-      try {
-        const text = await GitHubModule.readFile(item.path);
-        const parsed = pdfStudyParseConfig(text);
-        if (parsed && parsed.chapters && Object.keys(parsed.chapters).length) {
-          _pdfStudyBooks.push({ path: item.path, name: item.name.replace(/\.md$/i, ''), pdf_file: parsed.pdf_file, chapters: parsed.chapters });
-        }
-      } catch(e) { /* 개별 파일 파싱 오류는 건너뜀 */ }
-    }
-
-    if (!_pdfStudyBooks.length) {
-      sel.innerHTML = '<option value="">학습 설정 파일을 찾지 못했습니다</option>';
-      return;
-    }
-    sel.innerHTML = '<option value="">📖 학습할 책을 선택하세요</option>' +
-      _pdfStudyBooks.map((b,i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
-
-    // 마지막으로 선택했던 책 복원
-    const lastPath = localStorage.getItem('pdfstudy-last-book');
-    if (lastPath) {
-      const idx = _pdfStudyBooks.findIndex(b => b.path === lastPath);
-      if (idx >= 0) { sel.value = idx; pdfStudyOnBookChange(String(idx)); }
-    }
-  } catch(e) {
-    sel.innerHTML = '<option value="">불러오기 실패</option>';
-    AppToast.show('PDF 학습 목록 로드 실패: ' + e.message, 'error');
-  }
+  sel.innerHTML = `<option value="0">${esc(_pdfStudyBooks[0].name)}</option>`;
+  sel.value = '0';
+  pdfStudyOnBookChange('0');
+  AppToast.show('🎧 학습 노트를 열었습니다: ' + _pdfStudyBooks[0].name);
 }
 
 function pdfStudyOnBookChange(val) {
   if (val === '') { _pdfStudyCurBookIdx = -1; document.getElementById('pdfst-chapters').innerHTML = ''; return; }
   const idx = Number(val);
   _pdfStudyCurBookIdx = idx;
-  const book = _pdfStudyBooks[idx];
-  if (book) localStorage.setItem('pdfstudy-last-book', book.path);
   pdfStudyRenderChapters(idx);
 }
 
@@ -2439,20 +2401,6 @@ function pdfStudyRenderChapters(bookIdx) {
   wrap.innerHTML = Object.keys(book.chapters).map(name =>
     `<button class="pdfst-chbtn" data-name="${esc(name)}" onclick="pdfStudySelectChapter(${bookIdx}, this.dataset.name)">${esc(name)}</button>`
   ).join('');
-  // 마지막으로 선택했던 챕터 표시만 복원 (자동 이동/재생은 하지 않음)
-  const lastCh = localStorage.getItem('pdfstudy-last-chapter');
-  if (lastCh && book.chapters[lastCh]) {
-    wrap.querySelectorAll('.pdfst-chbtn').forEach(b => b.classList.toggle('on', b.dataset.name === lastCh));
-  }
-}
-
-/* pdf_file 값(파일명 또는 경로)을 실제 저장소 경로로 변환 */
-function pdfStudyResolvePdfPath(pdfFile) {
-  if (!pdfFile) return null;
-  if (pdfFile.includes('/')) return pdfFile;
-  const base = pdfFile.toLowerCase();
-  const found = _pdfFiles.find(p => p.split('/').pop().toLowerCase() === base);
-  return found || null;
 }
 
 async function pdfStudySelectChapter(bookIdx, name) {
@@ -2462,18 +2410,15 @@ async function pdfStudySelectChapter(bookIdx, name) {
   if (!data) return;
 
   document.querySelectorAll('#pdfst-chapters .pdfst-chbtn').forEach(b => b.classList.toggle('on', b.dataset.name === name));
-  localStorage.setItem('pdfstudy-last-chapter', name);
 
   const status = document.getElementById('pdfst-status');
-  const pdfPath = pdfStudyResolvePdfPath(book.pdf_file);
-  if (!pdfPath) {
-    AppToast.show('PDF 파일을 찾을 수 없습니다: ' + book.pdf_file, 'error');
+  if (!book.pdfPath) {
+    AppToast.show('PDF 파일 경로를 알 수 없습니다: ' + book.pdf_file, 'error');
   } else {
-    if (_pdfCurPath !== pdfPath) {
-      await pdfOpenFile(pdfPath);
+    if (_pdfCurPath !== book.pdfPath) {
+      await pdfOpenFile(book.pdfPath);
     }
-    const iframe = document.getElementById('pdf-iframe');
-    if (iframe._blobUrl) iframe.src = iframe._blobUrl + '#page=' + data.page;
+    pdfStudyJumpPage(data.page);
   }
 
   if (data.audio) {
@@ -2482,6 +2427,17 @@ async function pdfStudySelectChapter(bookIdx, name) {
   } else if (status) {
     status.textContent = '';
   }
+}
+
+/* iframe에 이미 로드된 PDF(blob URL)의 특정 페이지로 이동.
+   크롬 내장 PDF 뷰어는 같은 src에 #page=만 바꿔서는 페이지를 다시 읽지 않으므로
+   about:blank로 잠깐 비웠다가 다시 넣어 강제로 다시 열게 한다(네트워크 재요청 없음, blob이라 즉시). */
+function pdfStudyJumpPage(page) {
+  const iframe = document.getElementById('pdf-iframe');
+  if (!iframe || !iframe._blobUrl) return;
+  const target = iframe._blobUrl + '#page=' + page;
+  iframe.src = 'about:blank';
+  setTimeout(() => { iframe.src = target; }, 30);
 }
 
 /* 오디오 파일을 GitHub에서 받아와 Blob URL로 캐싱 (PDF와 동일한 1MB 초과 대응 방식) */
@@ -2549,10 +2505,11 @@ function pdfStudyRestart() {
 }
 
 function pdfStudyToggleBar() {
-  const bar = document.getElementById('pdf-study-bar');
-  const opening = !bar.classList.contains('open');
-  bar.classList.toggle('open', opening);
-  if (opening && !_pdfStudyBooks.length) pdfStudyLoadBooks();
+  if (!_pdfStudyBooks.length) {
+    AppToast.show('책보기에서 PDF 학습 노트(.md)를 먼저 열어주세요');
+    return;
+  }
+  document.getElementById('pdf-study-bar').classList.toggle('open');
 }
 
 /* ── 단어공부 사이드바 드래그 리사이즈 ── */

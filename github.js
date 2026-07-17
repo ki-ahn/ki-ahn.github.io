@@ -6,10 +6,7 @@ const GitHubModule = (() => {
 
   let _cfg = {
     user: '', repo: '', branch: 'main', token: '',
-    wordsFolder: '',   // 단어장 폴더
     bibleFolder: 'Bible',
-    rootFolder: '',    // 책보기 루트
-    pdfConfigFolder: '', // PDF+오디오 학습 설정(md) 폴더
   };
 
   const STORAGE_KEY = 'app_gh_cfg';
