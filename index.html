@@ -594,6 +594,27 @@ html[data-dark] #pdf-sidebar {
 #pdf-viewer-wrap { flex: 1; overflow: hidden; position: relative; background: var(--ui-bg2); }
 #pdf-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ui-text3); text-align: center; padding: 24px; }
 #pdf-iframe { width: 100%; height: 100%; border: none; display: none; background: var(--ui-bg); }
+
+/* ══ PDF + 오디오 학습 모드 ══ */
+#pdf-study-bar {
+  display: none; flex-direction: column; gap: 8px; padding: 10px 12px;
+  background: var(--paper); border-bottom: 1px solid var(--pbd); flex-shrink: 0;
+}
+#pdf-study-bar.open { display: flex; }
+#pdfst-book { width: 100%; padding: 7px 8px; border-radius: 6px; border: 1px solid var(--pbd); background: var(--ui-bg); color: var(--pt); font-size: 12px; }
+#pdfst-audiorow { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.pdfst-abtn {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid var(--pbd);
+  background: var(--ui-bg); color: var(--pt); font-size: 12px; cursor: pointer;
+}
+.pdfst-abtn:hover { background: var(--ac); color: #fff; border-color: var(--ac2); }
+#pdfst-chapters { display: flex; flex-wrap: wrap; gap: 6px; }
+.pdfst-chbtn {
+  padding: 6px 10px; border-radius: 6px; border: 1px solid var(--pbd);
+  background: var(--ui-bg); color: var(--pt); font-size: 12px; cursor: pointer;
+}
+.pdfst-chbtn.on { background: var(--ac); color: #fff; border-color: var(--ac2); }
+#pdfst-status { font-size: 11px; color: var(--pm); text-align: center; min-height: 14px; }
 /* ══════════════════════════════════════
    단어공부 — 책보기와 동일한 레이아웃
 ══════════════════════════════════════ */
@@ -702,6 +723,7 @@ html[data-dark] #pdf-sidebar {
     <div id="cfg-tabs">
       <div class="cfg-tab on" onclick="switchCfgTab('github',this)">🔑 GitHub</div>
       <div class="cfg-tab" onclick="switchCfgTab('reader',this)">📖 책보기</div>
+      <div class="cfg-tab" onclick="switchCfgTab('pdfstudy',this)">🎧 PDF학습</div>
     </div>
     <!-- GitHub 탭 -->
     <div class="cfg-pane on" id="cfgp-github">
@@ -736,6 +758,17 @@ html[data-dark] #pdf-sidebar {
       <div class="cfg-secs">성경 버전</div>
       <div class="cfg-vcbs" id="bk-vcbs"></div>
       <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
+    </div>
+    <!-- PDF학습 탭 -->
+    <div class="cfg-pane" id="cfgp-pdfstudy">
+      <label class="cfg-label">학습 설정 폴더 <small style="text-transform:none;color:var(--ui-text3)">(챕터/오디오 매핑 md 파일들이 있는 폴더)</small></label>
+      <input class="cfg-input" id="cfg-pdfcfg" placeholder="예: _resources/pdfs/_Config_pdf">
+      <div class="cfg-hint">
+        이 폴더 안의 각 .md 파일은 frontmatter에 아래 형식으로 되어 있어야 합니다:<br>
+        <code style="white-space:pre-line">pdf_file: "파일명.pdf"
+chapters:
+  1 챕터명: [페이지, "오디오경로.mp3", 시작초]</code>
+      </div>
     </div>
 
     <div class="cfg-row">
@@ -880,7 +913,21 @@ html[data-dark] #pdf-sidebar {
       <div id="pdf-topbar">
         <button class="bk-btn" id="pdf-sbbtn" onclick="pdfTogSidebar()">☰</button>
         <div id="pdf-title"><span style="color:var(--pm)">PDF를 선택하세요</span></div>
+        <button class="bk-btn" onclick="pdfStudyToggleBar()" id="pdfst-togbtn" title="PDF+오디오 학습 모드">🎧 학습</button>
         <button class="bk-btn" onclick="pdfOpenExternal()" id="pdf-newwin-btn" style="display:none" title="새 탭에서 열기">↗ 새 탭</button>
+      </div>
+      <div id="pdf-study-bar">
+        <select id="pdfst-book" onchange="pdfStudyOnBookChange(this.value)"><option value="">불러오는 중…</option></select>
+        <div id="pdfst-audiorow">
+          <button class="pdfst-abtn" onclick="pdfStudySeek(-3)">⏪ -3초</button>
+          <button class="pdfst-abtn" onclick="pdfStudyAudioPlay()">▶️ 재생</button>
+          <button class="pdfst-abtn" onclick="pdfStudyAudioPause()">⏸ 정지</button>
+          <button class="pdfst-abtn" onclick="pdfStudySeek(3)">+3초 ⏩</button>
+          <button class="pdfst-abtn" onclick="pdfStudyRestart()">🔄 다시시작</button>
+        </div>
+        <div id="pdfst-chapters"></div>
+        <div id="pdfst-status"></div>
+        <audio id="pdfst-audio" style="display:none"></audio>
       </div>
       <div id="pdf-viewer-wrap">
         <div id="pdf-placeholder">
@@ -961,6 +1008,7 @@ function openCfg() {
   document.getElementById('cfg-words').value  = c.wordsFolder || '';
   document.getElementById('cfg-root').value   = c.rootFolder || '';
   document.getElementById('cfg-bible').value  = c.bibleFolder || 'Bible';
+  document.getElementById('cfg-pdfcfg').value = c.pdfConfigFolder || '';
   document.getElementById('cfg-token').value  = c.token || '';
   updateEtcLabel();
   document.getElementById('cfg-overlay').classList.add('open');
@@ -976,6 +1024,7 @@ function saveCfg() {
     wordsFolder: document.getElementById('cfg-words').value.trim().replace(/^\/+|\/+$/g, ''),
     rootFolder:  document.getElementById('cfg-root').value.trim().replace(/^\/+|\/+$/g, ''),
     bibleFolder: document.getElementById('cfg-bible').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible',
+    pdfConfigFolder: document.getElementById('cfg-pdfcfg').value.trim().replace(/^\/+|\/+$/g, ''),
     token:       document.getElementById('cfg-token').value.trim(),
   });
   closeCfg();
@@ -2268,6 +2317,244 @@ function pdfDragStart(e) {
     up()    { _pdfDrag = null; }
   };
 }
+
+/* ══════════════════════════════════════
+   PDF + 오디오 학습 모드
+   설정 폴더(cfg.pdfConfigFolder) 안의 .md 파일들을 읽어서
+   frontmatter의 pdf_file / chapters(페이지·오디오·시작초)로
+   챕터 버튼을 만들고, 클릭 시 PDF 페이지 이동 + 오디오 재생을 함께 처리
+══════════════════════════════════════ */
+let _pdfStudyBooks     = [];   // [{path, name, pdf_file, chapters:{챕터명:{page,audio,start}}}]
+let _pdfStudyCurBookIdx = -1;
+let _pdfStudyStartTime  = 0;
+const _pdfStudyAudioCache = new Map(); // path -> objectURL
+
+/* frontmatter의 chapters: 블록을 파싱 (page, "오디오경로", 시작초) */
+function pdfStudySplitYamlArray(s) {
+  const items = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '"') { inQ = !inQ; cur += ch; continue; }
+    if (ch === ',' && !inQ) { items.push(cur.trim()); cur = ''; continue; }
+    cur += ch;
+  }
+  if (cur.trim()) items.push(cur.trim());
+  return items;
+}
+
+function pdfStudyParseConfig(text) {
+  const fmMatch = text.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (!fmMatch) return null;
+  const lines = fmMatch[1].split('\n');
+  let pdfFile = '';
+  const chapters = {};
+  let inChapters = false;
+
+  for (const raw of lines) {
+    if (/^pdf_file\s*:/.test(raw)) {
+      pdfFile = raw.replace(/^pdf_file\s*:\s*/, '').trim().replace(/^"|"$/g, '');
+      inChapters = false;
+      continue;
+    }
+    if (/^chapters\s*:\s*$/.test(raw)) { inChapters = true; continue; }
+    if (!inChapters) continue;
+    if (!/^\s{2,}\S/.test(raw)) { inChapters = false; continue; } // 들여쓰기 벗어나면 chapters 블록 종료
+    const m = raw.match(/^\s{2,}(.+?):\s*(\[[^\]]*\]|.+?)\s*$/);
+    if (!m) continue;
+    const name = m[1].trim();
+    const rawVal = m[2].trim();
+    if (rawVal.startsWith('[')) {
+      const parts = pdfStudySplitYamlArray(rawVal.slice(1, -1));
+      const page  = parseFloat(parts[0]);
+      const audio = parts[1] ? parts[1].trim().replace(/^"|"$/g, '') : null;
+      const start = parts[2] !== undefined ? parseFloat(parts[2]) : 0;
+      if (!isNaN(page)) chapters[name] = { page, audio: audio || null, start: isNaN(start) ? 0 : start };
+    } else {
+      const page = parseFloat(rawVal);
+      if (!isNaN(page)) chapters[name] = { page, audio: null, start: 0 };
+    }
+  }
+  return { pdf_file: pdfFile, chapters };
+}
+
+/* 설정 폴더의 .md 파일들을 읽어 학습 가능한 책 목록 구성 */
+async function pdfStudyLoadBooks() {
+  const sel = document.getElementById('pdfst-book');
+  const cfg = GitHubModule.get();
+  const folder = (cfg.pdfConfigFolder || '').trim();
+  if (!folder) {
+    sel.innerHTML = '<option value="">⚙ 설정 → PDF학습에서 폴더를 지정하세요</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">불러오는 중…</option>';
+  try {
+    const list = await GitHubModule.fetchContents(folder);
+    const mdFiles = (Array.isArray(list) ? list : [])
+      .filter(it => it.type === 'file' && /\.md$/i.test(it.name))
+      .sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}));
+
+    _pdfStudyBooks = [];
+    for (const item of mdFiles) {
+      try {
+        const text = await GitHubModule.readFile(item.path);
+        const parsed = pdfStudyParseConfig(text);
+        if (parsed && parsed.chapters && Object.keys(parsed.chapters).length) {
+          _pdfStudyBooks.push({ path: item.path, name: item.name.replace(/\.md$/i, ''), pdf_file: parsed.pdf_file, chapters: parsed.chapters });
+        }
+      } catch(e) { /* 개별 파일 파싱 오류는 건너뜀 */ }
+    }
+
+    if (!_pdfStudyBooks.length) {
+      sel.innerHTML = '<option value="">학습 설정 파일을 찾지 못했습니다</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">📖 학습할 책을 선택하세요</option>' +
+      _pdfStudyBooks.map((b,i) => `<option value="${i}">${esc(b.name)}</option>`).join('');
+
+    // 마지막으로 선택했던 책 복원
+    const lastPath = localStorage.getItem('pdfstudy-last-book');
+    if (lastPath) {
+      const idx = _pdfStudyBooks.findIndex(b => b.path === lastPath);
+      if (idx >= 0) { sel.value = idx; pdfStudyOnBookChange(String(idx)); }
+    }
+  } catch(e) {
+    sel.innerHTML = '<option value="">불러오기 실패</option>';
+    AppToast.show('PDF 학습 목록 로드 실패: ' + e.message, 'error');
+  }
+}
+
+function pdfStudyOnBookChange(val) {
+  if (val === '') { _pdfStudyCurBookIdx = -1; document.getElementById('pdfst-chapters').innerHTML = ''; return; }
+  const idx = Number(val);
+  _pdfStudyCurBookIdx = idx;
+  const book = _pdfStudyBooks[idx];
+  if (book) localStorage.setItem('pdfstudy-last-book', book.path);
+  pdfStudyRenderChapters(idx);
+}
+
+function pdfStudyRenderChapters(bookIdx) {
+  const wrap = document.getElementById('pdfst-chapters');
+  const book = _pdfStudyBooks[bookIdx];
+  if (!book) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = Object.keys(book.chapters).map(name =>
+    `<button class="pdfst-chbtn" data-name="${esc(name)}" onclick="pdfStudySelectChapter(${bookIdx}, this.dataset.name)">${esc(name)}</button>`
+  ).join('');
+  // 마지막으로 선택했던 챕터 표시만 복원 (자동 이동/재생은 하지 않음)
+  const lastCh = localStorage.getItem('pdfstudy-last-chapter');
+  if (lastCh && book.chapters[lastCh]) {
+    wrap.querySelectorAll('.pdfst-chbtn').forEach(b => b.classList.toggle('on', b.dataset.name === lastCh));
+  }
+}
+
+/* pdf_file 값(파일명 또는 경로)을 실제 저장소 경로로 변환 */
+function pdfStudyResolvePdfPath(pdfFile) {
+  if (!pdfFile) return null;
+  if (pdfFile.includes('/')) return pdfFile;
+  const base = pdfFile.toLowerCase();
+  const found = _pdfFiles.find(p => p.split('/').pop().toLowerCase() === base);
+  return found || null;
+}
+
+async function pdfStudySelectChapter(bookIdx, name) {
+  const book = _pdfStudyBooks[bookIdx];
+  if (!book) return;
+  const data = book.chapters[name];
+  if (!data) return;
+
+  document.querySelectorAll('#pdfst-chapters .pdfst-chbtn').forEach(b => b.classList.toggle('on', b.dataset.name === name));
+  localStorage.setItem('pdfstudy-last-chapter', name);
+
+  const status = document.getElementById('pdfst-status');
+  const pdfPath = pdfStudyResolvePdfPath(book.pdf_file);
+  if (!pdfPath) {
+    AppToast.show('PDF 파일을 찾을 수 없습니다: ' + book.pdf_file, 'error');
+  } else {
+    if (_pdfCurPath !== pdfPath) {
+      await pdfOpenFile(pdfPath);
+    }
+    const iframe = document.getElementById('pdf-iframe');
+    if (iframe._blobUrl) iframe.src = iframe._blobUrl + '#page=' + data.page;
+  }
+
+  if (data.audio) {
+    if (status) status.textContent = `🎧 ${name}`;
+    await pdfStudyPlayAudio(data.audio, data.start || 0);
+  } else if (status) {
+    status.textContent = '';
+  }
+}
+
+/* 오디오 파일을 GitHub에서 받아와 Blob URL로 캐싱 (PDF와 동일한 1MB 초과 대응 방식) */
+async function pdfStudyFetchAudioBlobUrl(path) {
+  const meta = await GitHubModule.fetchContents(path);
+  const cfg  = GitHubModule.get();
+  let bytes;
+  if (meta.encoding === 'base64' && meta.content) {
+    const b64 = meta.content.replace(/\n/g, '');
+    const raw = atob(b64);
+    bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  } else {
+    const sha = meta.sha;
+    const blobUrl = `https://api.github.com/repos/${cfg.user}/${cfg.repo}/git/blobs/${sha}`;
+    const headers = { 'Accept': 'application/vnd.github.raw' };
+    if (cfg.token) headers['Authorization'] = 'token ' + cfg.token;
+    const res = await fetch(blobUrl, { headers });
+    if (!res.ok) throw new Error(`오디오 다운로드 실패 (${res.status})`);
+    const buf = await res.arrayBuffer();
+    bytes = new Uint8Array(buf);
+  }
+  const mime = /\.mp3$/i.test(path) ? 'audio/mpeg' : 'audio/mp4';
+  const blob = new Blob([bytes], { type: mime });
+  return URL.createObjectURL(blob);
+}
+
+async function pdfStudyPlayAudio(path, start) {
+  const audioEl = document.getElementById('pdfst-audio');
+  const status  = document.getElementById('pdfst-status');
+  try {
+    let url = _pdfStudyAudioCache.get(path);
+    if (!url) {
+      if (status) status.textContent = '🎧 오디오 불러오는 중…';
+      url = await pdfStudyFetchAudioBlobUrl(path);
+      _pdfStudyAudioCache.set(path, url);
+    }
+    audioEl.pause();
+    audioEl.src = url;
+    audioEl.load();
+    _pdfStudyStartTime = start || 0;
+
+    const onCanPlay = () => {
+      audioEl.currentTime = _pdfStudyStartTime;
+      const p = audioEl.play();
+      if (p !== undefined) {
+        p.catch(() => { if (status) status.textContent = '⚠️ 자동재생이 차단되었습니다. ▶️ 버튼을 눌러주세요'; });
+      }
+      audioEl.removeEventListener('canplay', onCanPlay);
+    };
+    audioEl.addEventListener('canplay', onCanPlay);
+  } catch(e) {
+    if (status) status.textContent = '';
+    AppToast.show('오디오 로드 실패: ' + e.message, 'error');
+  }
+}
+
+function pdfStudyAudioPlay()  { document.getElementById('pdfst-audio').play().catch(()=>{}); }
+function pdfStudyAudioPause() { document.getElementById('pdfst-audio').pause(); }
+function pdfStudySeek(delta)  { const a = document.getElementById('pdfst-audio'); a.currentTime = Math.max(0, a.currentTime + delta); }
+function pdfStudyRestart() {
+  const a = document.getElementById('pdfst-audio');
+  a.currentTime = _pdfStudyStartTime || 0;
+  a.play().catch(()=>{});
+}
+
+function pdfStudyToggleBar() {
+  const bar = document.getElementById('pdf-study-bar');
+  const opening = !bar.classList.contains('open');
+  bar.classList.toggle('open', opening);
+  if (opening && !_pdfStudyBooks.length) pdfStudyLoadBooks();
+}
+
 /* ── 단어공부 사이드바 드래그 리사이즈 ── */
 let _stDrag = null;
 function stDragStart(e) {
