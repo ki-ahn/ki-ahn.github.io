@@ -1602,7 +1602,7 @@ function bkCopyText() {
     navigator.clipboard.writeText(_bkSelText).then(() => {
         alert("클립보드에 복사되었습니다.");
         // 복사 후 팝업을 닫고 싶다면 아래 호출
-        // bkHideHlPop(); 
+        bkHideHlPop(); 
     }).catch(err => {
         console.error('복사 실패:', err);
     });
