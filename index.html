@@ -9,7 +9,6 @@
 <title>Book Reader</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="github.js"></script>
-<script src="study.js"></script>
 <script src="bible.js"></script>
 <style>
 /* ══════════════════════════════════════
@@ -580,101 +579,10 @@ html[data-dark] #bk-sidebar {
 /* 목차 패널 안의 챕터 항목 (일반 노트의 h1~h4 항목과 같은 자리에 표시됨) */
 .bk-ti-ch { cursor: pointer; }
 .bk-ti-ch.on { color: var(--ac2); font-weight: 700; }
-/* ══════════════════════════════════════
-   단어공부 — 책보기와 동일한 레이아웃
-══════════════════════════════════════ */
-/* 단어 카드 */
-.sw-card {
-  background: var(--ui-bg2); border: 1px solid var(--ui-border);
-  border-radius: 12px; margin-bottom: 14px; overflow: hidden;
-  transition: border-color .15s;
-}
-.sw-card:hover { border-color: var(--ui-accent); }
-.sw-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px; border-bottom: 1px solid var(--ui-border);
-  background: var(--ui-bg3);
-}
-.sw-lao {
-  flex: 1; font-family: "Noto Sans Lao", Georgia, serif;
-  font-size: calc(var(--study-fs) + 3px);
-  color: var(--ui-accent); font-weight: 700;
-  cursor: pointer; transition: filter .15s;
-}
-.sw-pron { font-size: 12px; color: var(--ui-text3); margin-top: 2px; }
-.sw-audio-btn {
-  width: 34px; height: 34px; border-radius: 50%;
-  border: 1px solid var(--ui-border); background: var(--ui-bg);
-  color: var(--ui-text2); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; transition: all .13s; flex-shrink: 0;
-}
-.sw-audio-btn:hover { background: var(--ui-accent3); color: #000; border-color: var(--ui-accent3); }
-.sw-audio-btn:disabled { opacity: .3; cursor: not-allowed; }
-.sw-body { padding: 10px 16px 6px; display: flex; flex-direction: column; gap: 8px; }
-.sw-row { display: flex; align-items: center; gap: 10px; }
-.sw-label {
-  font-size: 10px; font-weight: 700; color: var(--ui-text3);
-  text-transform: uppercase; letter-spacing: .5px; width: 28px; flex-shrink: 0;
-}
-.sw-val {
-  flex: 1; font-size: var(--study-fs); color: var(--ui-text);
-  cursor: pointer; transition: filter .15s; line-height: 1.4;
-}
-.sw-val.eng { color: var(--ui-accent2); }
-.sw-val.vis-hidden { filter: blur(5px); pointer-events: auto; }
-.sw-val.vis-hidden:hover { filter: blur(2px); }
-.sw-lao.vis-hidden { filter: blur(5px); pointer-events: auto; }
-.sw-lao.vis-hidden:hover { filter: blur(2px); }
-.sw-tts-btn {
-  background: none; border: 1px solid var(--ui-border);
-  border-radius: 5px; padding: 2px 8px; font-size: 11px;
-  color: var(--ui-text3); cursor: pointer; transition: all .12s; flex-shrink: 0;
-}
-.sw-tts-btn:hover, .sw-tts-btn.playing {
-  background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2);
-}
-.sw-foot {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 16px; border-top: 1px solid var(--ui-border);
-}
-.sw-count-label { font-size: 11px; color: var(--ui-text3); }
-.sw-count-num {
-  font-size: 18px; font-weight: 700; color: var(--ui-accent);
-  font-family: monospace; min-width: 28px; text-align: center;
-  transition: transform .2s;
-}
-.sw-count-num.bump { transform: scale(1.6); }
-.sw-count-btns { display: flex; gap: 4px; }
-.sw-cbtn {
-  width: 28px; height: 28px; border-radius: 7px;
-  border: 1px solid var(--ui-border); background: var(--ui-bg3);
-  color: var(--ui-text2); cursor: pointer; font-size: 15px;
-  display: flex; align-items: center; justify-content: center; transition: all .13s;
-}
-.sw-cbtn.inc:hover { background: var(--ui-accent3); color: #000; border-color: var(--ui-accent3); }
-.sw-cbtn.dec:hover { background: var(--ui-danger); color: #fff; border-color: var(--ui-danger); }
-/* 저장 버튼 강조 */
-#study-save-btn.dirty {
-  border-color: var(--ui-accent3) !important; color: var(--ui-accent3) !important;
-  font-weight: 700; animation: savePulse 1.8s ease-in-out infinite;
-}
-@keyframes savePulse {
-  0%,100% { box-shadow: 0 0 0 0 rgba(125,211,168,.5); }
-  50%     { box-shadow: 0 0 0 5px rgba(125,211,168,0); }
-}
-/* 토글 버튼 (topbar용) */
+/* 토글 버튼 (topbar용 — 단어공부 인라인 마커의 라오/영어/한글 표시 토글에 사용) */
 .tog-btn { padding: 3px 10px; border-radius: 16px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--ui-border); background: var(--ui-bg3); color: var(--ui-text2); transition: all .13s; white-space: nowrap; }
 .tog-btn.on { background: var(--ui-accent2); color: #fff; border-color: var(--ui-accent2); }
 .tog-btn:hover:not(.on) { border-color: var(--ui-text2); color: var(--ui-text); }
-.play-all-btn { padding: 3px 10px; border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--ui-accent3); background: transparent; color: var(--ui-accent3); display: flex; align-items: center; gap: 4px; transition: all .13s; white-space: nowrap; }
-.play-all-btn:hover { background: var(--ui-accent3); color: #fff; }
-/* 상태 */
-.s-status { text-align: center; padding: 56px 18px; color: var(--ui-text3); }
-.s-icon { font-size: 38px; margin-bottom: 10px; }
-.s-status h3 { font-size: 14px; color: var(--ui-text2); font-weight: 400; margin-bottom: 6px; }
-.s-status p { font-size: 13px; line-height: 1.6; }
-.s-loader { width: 28px; height: 28px; border: 3px solid var(--ui-border); border-top-color: var(--ui-accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
 </style>
 </head>
 <body>
@@ -747,7 +655,6 @@ html[data-dark] #bk-sidebar {
   </div>
   <div class="bk-hlpop-divider"></div>
   <button class="bk-hlpop-btn" onclick="bkLookup()" title="네이버 사전 검색">사전</button>
-  <button class="bk-hlpop-btn" onclick="bkCopyText()" title="복사하기">복사</button>
   <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()" title="메모 추가">메모</button>
   <input id="bk-hlpop-note" placeholder="메모 후 Enter…" style="display:none"
     onkeydown="if(event.key==='Enter'){bkSaveHlWithMemo();} if(event.key==='Escape'){bkHideHlPop();}">
@@ -953,32 +860,12 @@ function saveCfg() {
   closeCfg();
   updateEtcLabel();
   bkSyncBible();
-  const c2 = GitHubModule.get();
-  if (document.getElementById('st-repo-lbl'))
-    document.getElementById('st-repo-lbl').textContent = `${c2.user}/${c2.repo}`;
   bkLoadFiles();
-  StudyModule.loadNotebooks();
 }
 function updateEtcLabel() {
   const c = GitHubModule.get();
   const el = document.getElementById('etc-gh-label');
   if (el) el.textContent = c.user && c.repo ? `${c.user}/${c.repo}` : '미설정';
-}
-
-/* ── 단어공부 글자크기 ── */
-function studyFontSize(sz, btn) {
-  StudyModule.setFontSize(sz);
-  document.querySelectorAll('#cfgp-study .cfg-fsbtn').forEach(b => b.classList.remove('on'));
-  btn?.classList.add('on');
-}
-function studyFontSizeRestore() {
-  const sz = parseInt(localStorage.getItem('study-fs') || '19');
-  StudyModule.setFontSize(sz);
-  const sizes = [17, 19, 21, 24];
-  const idx = sizes.indexOf(sz);
-  const btns = document.querySelectorAll('#cfgp-study .cfg-fsbtn');
-  btns.forEach(b => b.classList.remove('on'));
-  if (btns[idx >= 0 ? idx : 1]) btns[idx >= 0 ? idx : 1].classList.add('on');
 }
 
 /* ══════════════════════════════════════
@@ -1594,19 +1481,6 @@ function bkLookup() {
   window.open(`https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`, '_blank');
   bkHideHlPop();
 }
-
-function bkCopyText() {
-    if (!_bkSelText) return;
-
-    navigator.clipboard.writeText(_bkSelText).then(() => {
-        //alert("클립보드에 복사되었습니다.");
-        AppToast.show('클립보드에 복사되었습니다.');
-    }).catch(err => {
-        console.error('복사 실패:', err);
-    });
-    bkHideHlPop();
-}
-
 async function bkSaveHlToGitHub(filePath) {
   if (!GitHubModule.get().token) return;
   try {
@@ -1809,11 +1683,9 @@ function bkDragStart(e, side) {
 }
 document.addEventListener('mousemove', e => {
   if (_bkDrag)  _bkDrag.move(e);
-  if (_stDrag)  _stDrag.move(e);
 });
 document.addEventListener('mouseup', e => {
   if (_bkDrag)  _bkDrag.up(e);
-  if (_stDrag)  _stDrag.up(e);
 });
 
 /* 키보드 */
@@ -2392,17 +2264,6 @@ function pdfStudyRestart() {
   a.play().catch(()=>{});
 }
 
-/* ── 단어공부 사이드바 드래그 리사이즈 ── */
-let _stDrag = null;
-function stDragStart(e) {
-  e.preventDefault();
-  const sb = document.getElementById('st-sidebar');
-  const sx = e.clientX, sw = sb.offsetWidth;
-  _stDrag = {
-    move(e) { sb.style.width = Math.max(80, Math.min(400, sw + (e.clientX - sx))) + 'px'; },
-    up()    { _stDrag = null; }
-  };
-}
 (function init() {
   GitHubModule.load();
   bkLoadStore();
@@ -2413,8 +2274,6 @@ function stDragStart(e) {
   const c = GitHubModule.get();
   if (c.user && c.repo) {
     document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
-    if (document.getElementById('st-repo-lbl'))
-      document.getElementById('st-repo-lbl').textContent = `${c.user}/${c.repo}`;
     bkTogSidebar();
     bkLoadFiles();
   } else {
