@@ -18,8 +18,8 @@ const BibleViewModule = (() => {
 
   let _cfg = {
     bibleFolder: 'Bible',
-    hymnFolder: 'Hymn',
-    ccmFolder: 'CCM',
+    hymnFolder: 'Bible/Hymn',
+    ccmFolder: 'Bible/CCM',
     enabledVersions: ['개역개정', 'ESV'],
   };
 
@@ -116,6 +116,7 @@ const BibleViewModule = (() => {
     // 1) 성경구절: (창 1) 또는 창 1  (괄호는 있어도 없어도 인식)
     const parsed = BibleModule.parseRef(q);
     if (parsed && BibleModule.BOOK_MAP[parsed.book]) {
+      AppToast.show('parsed');
       _showBibleRef(parsed);
       return;
     }
