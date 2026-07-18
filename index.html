@@ -900,6 +900,9 @@ function switchTab(name) {
   document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('on'));
   document.getElementById('panel-' + name).classList.add('on');
   document.getElementById('tab-' + name).classList.add('on');
+  if (name === 'bible'){
+    BibleViewModule.init();
+  }
 }
 
 /* ══ 설정 모달 ══ */
