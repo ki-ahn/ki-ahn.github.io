@@ -291,23 +291,3 @@ const BibleViewModule = (() => {
 
   return { configure, init, search, pickBook };
 })();
-
-// bibleview.js 하단에 추가
-// bibleview.js 하단
-(function() {
-    const checkAndInit = setInterval(() => {
-        const btn = document.getElementById('bible-search-btn');
-        if (btn) {
-            console.log("BibleView: 자동 초기화 감지!");
-            
-            // 수정 부분: 단순히 init()이 아니라 객체 메서드로 호출
-            if (typeof BibleViewModule !== 'undefined' && typeof BibleViewModule.init === 'function') {
-                BibleViewModule.init();
-                clearInterval(checkAndInit);
-            } else {
-                console.error("BibleViewModule.init을 찾을 수 없습니다.");
-                clearInterval(checkAndInit);
-            }
-        }
-    }, 500); 
-})();
