@@ -284,3 +284,5 @@ const BibleViewModule = (() => {
 
   return { configure, init, search, pickBook };
 })();
+
+window.BibleViewModule = BibleViewModule;
