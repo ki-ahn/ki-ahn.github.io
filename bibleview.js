@@ -272,6 +272,7 @@ const BibleViewModule = (() => {
      초기화 (입력창/버튼 바인딩 + 목차 렌더)
   ══════════════════════════════════════ */
   function init() {
+    AppToast.show('initialized Bible');
     const input = document.getElementById('bible-input');
     const btn   = document.getElementById('bible-search-btn');
     if (btn)   btn.addEventListener('click', () => search());

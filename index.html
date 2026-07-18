@@ -713,6 +713,7 @@ html[data-dark] #bible-sidebar {
   </div>
   <div class="bk-hlpop-divider"></div>
   <button class="bk-hlpop-btn" onclick="bkLookup()" title="네이버 사전 검색">사전</button>
+  <button class="bk-hlpop-btn" onclick="bkLookup()" title="텍스트 복사">복사</button>
   <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()" title="메모 추가">메모</button>
   <input id="bk-hlpop-note" placeholder="메모 후 Enter…" style="display:none"
     onkeydown="if(event.key==='Enter'){bkSaveHlWithMemo();} if(event.key==='Escape'){bkHideHlPop();}">
@@ -1583,6 +1584,19 @@ function bkLookup() {
   window.open(`https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`, '_blank');
   bkHideHlPop();
 }
+
+function bkCopyText() {
+  if (!_bkSelText) return;
+
+  navigator.clipboard.writeText(_bkSelText).then(() => {
+    AppToast.show('📋 텍스트가 클립보드에 복사되었습니다');
+  }).catch(err => {
+      console.error('복사 실패:', err);
+  });
+  bkHideHlPop();
+}
+
+
 async function bkSaveHlToGitHub(filePath) {
   if (!GitHubModule.get().token) return;
   try {
