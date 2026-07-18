@@ -108,6 +108,7 @@ const BibleViewModule = (() => {
      검색 라우팅
   ══════════════════════════════════════ */
   function search(raw) {
+    console.log("search() 호출됨");
     const input = document.getElementById('bible-input');
     const q = (raw !== undefined ? raw : (input ? input.value : '')).trim();
     if (!q) return;
