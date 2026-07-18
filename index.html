@@ -655,7 +655,6 @@ html[data-dark] #bk-sidebar {
   </div>
   <div class="bk-hlpop-divider"></div>
   <button class="bk-hlpop-btn" onclick="bkLookup()" title="네이버 사전 검색">사전</button>
-  <button class="bk-hlpop-btn" onclick="bkCopyText()" title="복사하기">복사</button>
   <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()" title="메모 추가">메모</button>
   <input id="bk-hlpop-note" placeholder="메모 후 Enter…" style="display:none"
     onkeydown="if(event.key==='Enter'){bkSaveHlWithMemo();} if(event.key==='Escape'){bkHideHlPop();}">
@@ -737,7 +736,7 @@ html[data-dark] #bk-sidebar {
       <div id="bk-content">
         <div id="bk-sidebar">
           <div class="bk-sbh"><h1>📖 Book Reader</h1><p id="bk-repo-lbl">저장소를 연결하세요</p></div>
-          <div class="bk-sbs"><input placeholder="파일 필터…" oninput="bkFilterTree(this.value)"></div>
+          <div class="bk-sbs"><input id="bk-filter-input" type="text" placeholder="파일 필터…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
           <div id="bk-ftree"><div style="padding:16px;color:#5a5040;font-size:12px;text-align:center">저장소를 연결하세요</div></div>
           <div class="bk-sbf">
             <button class="bk-sbb" onclick="bkRefresh()">↺ 새로고침</button>
@@ -954,7 +953,6 @@ async function bkLoadFiles() {
     const allFiles = tree.tree
       .filter(f => f.type==='blob' && (f.path.endsWith('.md') || f.path.endsWith('.pdf')))
       .filter(f => !f.path.split('/').some(p => p.startsWith('.')))
-      .filter(f => !c.bibleFolder || !f.path.startsWith(c.bibleFolder + '/'))
       .map(f => f.path);
     _bkFiles = allFiles;  // md + pdf 모두 포함
     bkRenderTree(_bkFiles);
@@ -1002,10 +1000,17 @@ function bkRNode(node, d) {
   return html;
 }
 function bkFilterTree(q) {
-  q = q.toLowerCase();
-  if (!q) { bkRenderTree(_bkFiles); return; }
-  bkRenderTree(_bkFiles.filter(p => p.toLowerCase().includes(q)));
+  try {
+    q = (q || '').toLowerCase();
+    if (!q) { bkRenderTree(_bkFiles); return; }
+    bkRenderTree(_bkFiles.filter(p => p.toLowerCase().includes(q)));
+  } catch(e) { console.error('bkFilterTree error:', e); }
 }
+(function bindBkFilterInput() {
+  const input = document.getElementById('bk-filter-input');
+  if (!input) return;
+  input.addEventListener('input', () => bkFilterTree(input.value));
+})();
 /* 마크다운 리더 ↔ PDF 뷰어 영역 전환 */
 function bkShowReader() {
   document.getElementById('bk-rw').style.display = '';
@@ -1482,18 +1487,6 @@ function bkLookup() {
   window.open(`https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`, '_blank');
   bkHideHlPop();
 }
-
-function bkCopyText() {
-  if (!_bkSelText) return;
-  navigator.clipboard.writeText(_bkSelText).then(() => {
-    //alert("클립보드에 복사되었습니다.");
-    AppToast.show('클립보드에 복사되었습니다.');
-  }).catch(err => {
-    console.error('복사 실패:', err);
-  });
-  bkHideHlPop();
-}
-
 async function bkSaveHlToGitHub(filePath) {
   if (!GitHubModule.get().token) return;
   try {
