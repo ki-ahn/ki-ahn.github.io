@@ -112,6 +112,11 @@ const BibleViewModule = (() => {
     if (!q) return;
     if (input) input.value = q;
 
+    // "검색" 버튼을 클릭하면 브라우저가 포커스를 버튼으로 옮기므로,
+    // 검색을 넘긴 직후(다음 틱) 다시 입력란으로 포커스를 되돌려서
+    // 바로 이어서 타이핑할 수 있게 한다.
+    if (input) setTimeout(() => input.focus(), 0);
+
     // 1) 성경구절: (창 1) 또는 창 1  (괄호는 있어도 없어도 인식)
     const parsed = BibleModule.parseRef(q);
     if (parsed && BibleModule.BOOK_MAP[parsed.book]) {
@@ -154,7 +159,7 @@ const BibleViewModule = (() => {
   function _verseHtml(verses) {
     if (!verses.length) return `<span class="bible-no-verse">해당 절을 찾을 수 없습니다</span>`;
     return verses.map(v =>
-      `<span class="bible-verse-line"><sup class="bible-verse-num">${v.num}</sup><span class="bible-verse-txt">${esc(v.text)}</span></span>`
+      `<span class="bible-verse-line"><sup class="bible-verse-num">${v.num}</sup><span class="bible-verse-txt">${v.text}</span></span>`
     ).join(' ');
   }
   function _groupsHtml(verseGroups, bookData, chapter) {
