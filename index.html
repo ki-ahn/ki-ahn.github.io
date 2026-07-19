@@ -412,6 +412,7 @@ html[data-dark] #bk-sidebar {
   height: 100%; overflow: hidden; flex-shrink: 0;
   border-right: 1px solid var(--sb-bdr);
 }
+#bible-sidebar.closed { display: none; }
 html:not([data-dark]) #bible-sidebar {
   --sb-bg:    #f0ece4; --sb-bg2:   #e4dfd5; --sb-bg3:   #d8d0c4;
   --sb-text:  #2c2010; --sb-text2: #7a6a50; --sb-acc:   #8a6010;
@@ -431,20 +432,51 @@ html[data-dark] #bible-sidebar {
 #bible-toc { flex: 1; overflow-y: auto; padding: 4px 0; }
 #bible-toc::-webkit-scrollbar { width: 3px; }
 #bible-toc::-webkit-scrollbar-thumb { background: var(--sb-bg3); }
+.bible-toc-empty { padding: 14px 12px; color: var(--sb-text2); font-size: 11.5px; line-height: 1.6; text-align: center; }
+#bible-toc .bk-fi.active { background: var(--sb-acc); color: #fff; }
 
+#bible-spl { flex-shrink: 0; }
 #bible-main-col { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100%; overflow: hidden; }
-#bible-main { flex: 1; overflow-y: auto; padding: 24px 28px; }
+#bible-topbar {
+  background: var(--paper); border-bottom: 1px solid var(--pbd);
+  padding: 0 10px; height: 44px; display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  transition: background .2s;
+}
+#bible-topbar-title { flex: 1; font-size: 12px; color: var(--pm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#bible-fsz-ctrl { display: flex; gap: 4px; flex-shrink: 0; }
+
+#bible-main { flex: 1; overflow-y: auto; padding: 24px 28px; --bible-fs: 15px; }
 .bible-empty { text-align: center; color: var(--pm); margin-top: 60px; line-height: 1.7; font-size: 13px; }
 .bible-empty code { background: var(--paper); border: 1px solid var(--pbd); border-radius: 4px; padding: 1px 5px; }
 .bible-view-hd { font-size: 15px; font-weight: 700; color: var(--pt); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--pbd); }
-.bible-view-body { display: flex; flex-direction: column; gap: 18px; }
+
+/* 성경 본문 병렬(다단) 표시 — 좁은 화면에선 자동으로 1단으로 줄어듦 */
+.bible-view-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px 22px; align-items: start; }
+.bible-all-block { min-width: 0; }
 .bible-ver-label { font-size: 11px; font-weight: 700; color: var(--ac2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+#bible-main .bible-verse-txt { font-size: var(--bible-fs); }
+#bible-main .bible-verse-num { font-size: calc(var(--bible-fs) - 4px); }
+
+/* 이미지(찬송가/CCM) + 클릭 확대·축소 */
 .bible-img-wrap { text-align: center; }
-.bible-img-wrap img { max-width: 100%; max-height: 78vh; border-radius: 8px; border: 1px solid var(--pbd); box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+.bible-img-wrap img { max-width: 100%; max-height: 78vh; border-radius: 8px; border: 1px solid var(--pbd); box-shadow: 0 2px 10px rgba(0,0,0,.15); cursor: zoom-in; transition: max-width .15s, max-height .15s; }
+.bible-img-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 499; cursor: zoom-out; }
+.bible-img-backdrop.show { display: block; }
+.bible-img-wrap img.zoomed {
+  cursor: zoom-out; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  max-width: 96vw; max-height: 96vh; width: auto; height: auto; z-index: 500;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+}
+
+/* 검색결과 여러개일 때 목차란에 뜨는 리스트 (bk-fi 재사용) */
 .bible-ccm-list { display: flex; flex-direction: column; gap: 6px; }
 .bible-ccm-item { text-align: left; padding: 9px 12px; border-radius: 7px; border: 1px solid var(--pbd); background: var(--paper); color: var(--pt); font-size: 13px; cursor: pointer; }
 .bible-ccm-item:hover { background: var(--ac); color: #fff; border-color: var(--ac2); }
-@media(max-width:820px) { #bible-sidebar { width: 210px; } #bible-main { padding: 18px 16px; } }
+@media(max-width:820px) {
+  #bible-sidebar { width: 210px; }
+  #bible-main { padding: 18px 16px; }
+  .bible-view-body { grid-template-columns: 1fr; }
+}
 
 /* splitter */
 .bk-spl { width: 4px; flex-shrink: 0; cursor: col-resize; background: transparent; transition: background .15s; user-select: none; }
@@ -662,9 +694,9 @@ html[data-dark] #bible-sidebar {
       <label class="cfg-label">성경 데이터 폴더</label>
       <input class="cfg-input" id="cfg-bible" value="Bible">
       <label class="cfg-label">찬송가 이미지 폴더 <small style="text-transform:none;color:var(--ui-text3)">(성경 탭에서 번호로 검색)</small></label>
-      <input class="cfg-input" id="cfg-hymn" placeholder="예: Hymn" value="Hymn">
+      <input class="cfg-input" id="cfg-hymn" placeholder="예: Bible/Hymn" value="Bible/Hymn">
       <label class="cfg-label">CCM 이미지 폴더 <small style="text-transform:none;color:var(--ui-text3)">(성경 탭에서 제목으로 검색)</small></label>
-      <input class="cfg-input" id="cfg-ccm" placeholder="예: CCM" value="CCM">
+      <input class="cfg-input" id="cfg-ccm" placeholder="예: Bible/CCM" value="Bible/CCM">
       <label class="cfg-label">Personal Access Token <small style="text-transform:none;color:var(--ui-text3)">(쓰기 시 필요)</small></label>
       <input class="cfg-input" id="cfg-token" type="password" placeholder="ghp_xxxx…">
       <div class="cfg-hint">Settings → Developer Settings → Personal access tokens (repo 권한)<br>밑줄 GitHub 저장·공부횟수 업데이트에 필요합니다.</div>
@@ -713,6 +745,7 @@ html[data-dark] #bible-sidebar {
   </div>
   <div class="bk-hlpop-divider"></div>
   <button class="bk-hlpop-btn" onclick="bkLookup()" title="네이버 사전 검색">사전</button>
+  <button class="bk-hlpop-btn" onclick="bkCopySelected()" title="선택한 텍스트 복사">복사</button>
   <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()" title="메모 추가">메모</button>
   <input id="bk-hlpop-note" placeholder="메모 후 Enter…" style="display:none"
     onkeydown="if(event.key==='Enter'){bkSaveHlWithMemo();} if(event.key==='Escape'){bkHideHlPop();}">
@@ -849,11 +882,20 @@ html[data-dark] #bible-sidebar {
         <button id="bible-search-btn">검색</button>
       </div>
       <div id="bible-toc-wrap">
-        <div class="bk-sbh-sub">목차</div>
-        <div id="bible-toc"></div>
+        <div class="bk-sbh-sub" id="bible-toc-label">검색 결과</div>
+        <div id="bible-toc"><div class="bible-toc-empty">찬송가·CCM 검색 결과가<br>여러 개면 여기 표시됩니다</div></div>
       </div>
     </div>
+    <div class="bk-spl" id="bible-spl" onmousedown="bibleDragStart(event)" style="display:block"></div>
     <div id="bible-main-col">
+      <div id="bible-topbar">
+        <button class="bk-btn" id="bible-sbbtn" onclick="bibleTogSidebar()">☰</button>
+        <div id="bible-topbar-title"></div>
+        <div id="bible-fsz-ctrl" title="글자 크기">
+          <button class="bk-btn" onclick="bibleFontSize(-1)">A－</button>
+          <button class="bk-btn" onclick="bibleFontSize(1)">A＋</button>
+        </div>
+      </div>
       <div id="bible-main">
         <div class="bible-empty">
           <div style="font-size:40px;margin-bottom:10px">📕</div>
@@ -895,11 +937,20 @@ function toggleDark() {
 
 /* ══ 탭 전환 ══ */
 function switchTab(name) {
+  // 탭을 넘어갈 때 이전 탭에 남아있던 포커스를 명시적으로 해제
+  // (display:none으로 숨겨진 input에 포커스가 남아있으면 다른 탭 입력란 포커스가 안 잡히는 경우가 있음)
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
   document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('on'));
   document.getElementById('panel-' + name).classList.add('on');
   document.getElementById('tab-' + name).classList.add('on');
-  if (name === 'bible') bibleViewCheckLoaded();
+
+  if (name === 'bible') {
+    bibleViewCheckLoaded();
+    // 성경 탭을 열면 항상 입력란에 커서가 있도록 강제 포커스
+    setTimeout(() => document.getElementById('bible-input')?.focus(), 60);
+  }
 }
 
 /* bibleview.js가 실제로 로드됐는지 확인. 안 됐으면 콘솔+화면에 눈에 띄게 경고를 남긴다
@@ -948,8 +999,8 @@ function openCfg() {
   document.getElementById('cfg-repo').value   = c.repo || '';
   document.getElementById('cfg-branch').value = c.branch || 'main';
   document.getElementById('cfg-bible').value  = c.bibleFolder || 'Bible';
-  document.getElementById('cfg-hymn').value   = c.hymnFolder || 'Hymn';
-  document.getElementById('cfg-ccm').value    = c.ccmFolder || 'CCM';
+  document.getElementById('cfg-hymn').value   = c.hymnFolder || 'Bible/Hymn';
+  document.getElementById('cfg-ccm').value    = c.ccmFolder || 'Bible/CCM';
   document.getElementById('cfg-token').value  = c.token || '';
   updateEtcLabel();
   document.getElementById('cfg-overlay').classList.add('open');
@@ -963,8 +1014,8 @@ function saveCfg() {
     user, repo,
     branch:      document.getElementById('cfg-branch').value.trim() || 'main',
     bibleFolder: document.getElementById('cfg-bible').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible',
-    hymnFolder:  document.getElementById('cfg-hymn').value.trim().replace(/^\/+|\/+$/g, '') || 'Hymn',
-    ccmFolder:   document.getElementById('cfg-ccm').value.trim().replace(/^\/+|\/+$/g, '') || 'CCM',
+    hymnFolder:  document.getElementById('cfg-hymn').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible/Hymn',
+    ccmFolder:   document.getElementById('cfg-ccm').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible/CCM',
     token:       document.getElementById('cfg-token').value.trim(),
   });
   closeCfg();
@@ -1036,8 +1087,8 @@ function bkSyncBible() {
   if (window.BibleViewModule) {
     BibleViewModule.configure({
       bibleFolder: c.bibleFolder || 'Bible',
-      hymnFolder: c.hymnFolder || 'Hymn',
-      ccmFolder: c.ccmFolder || 'CCM',
+      hymnFolder: c.hymnFolder || 'Bible/Hymn',
+      ccmFolder: c.ccmFolder || 'Bible/CCM',
       enabledVersions: _bkS.vers,
     });
   }
@@ -1605,6 +1656,14 @@ function bkLookup() {
   window.open(`https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`, '_blank');
   bkHideHlPop();
 }
+function bkCopySelected() {
+  if (!_bkSelText) return;
+  const text = _bkSelText;
+  navigator.clipboard.writeText(text).then(() => {
+    AppToast.show('📋 복사됨: ' + (text.length > 30 ? text.slice(0,30) + '…' : text));
+  }).catch(() => AppToast.show('복사 실패', 'error'));
+  bkHideHlPop();
+}
 async function bkSaveHlToGitHub(filePath) {
   if (!GitHubModule.get().token) return;
   try {
@@ -1807,10 +1866,41 @@ function bkDragStart(e, side) {
 }
 document.addEventListener('mousemove', e => {
   if (_bkDrag)  _bkDrag.move(e);
+  if (_bibleDrag) _bibleDrag.move(e);
 });
 document.addEventListener('mouseup', e => {
   if (_bkDrag)  _bkDrag.up(e);
+  if (_bibleDrag) _bibleDrag.up(e);
 });
+
+/* ── 성경 탭: 목차(사이드바) 토글 + 드래그 리사이즈 + 글자 크기 ── */
+function bibleTogSidebar() {
+  const sb = document.getElementById('bible-sidebar');
+  sb.classList.toggle('closed');
+  const open = !sb.classList.contains('closed');
+  const spl = document.getElementById('bible-spl');
+  if (spl) spl.style.display = open ? 'block' : 'none';
+  document.getElementById('bible-sbbtn').classList.toggle('on', open);
+}
+let _bibleDrag = null;
+function bibleDragStart(e) {
+  e.preventDefault();
+  const spl = document.getElementById('bible-spl');
+  spl.classList.add('drag');
+  const sb = document.getElementById('bible-sidebar');
+  const sx = e.clientX, sw = sb.offsetWidth;
+  _bibleDrag = {
+    move(e) { sb.style.width = Math.max(180, Math.min(400, sw + (e.clientX - sx))) + 'px'; },
+    up()    { spl.classList.remove('drag'); _bibleDrag = null; }
+  };
+}
+let _bibleFs = parseInt(localStorage.getItem('bible-fs') || '15');
+function bibleFontSize(delta) {
+  _bibleFs = Math.max(11, Math.min(26, _bibleFs + delta));
+  const main = document.getElementById('bible-main');
+  if (main) main.style.setProperty('--bible-fs', _bibleFs + 'px');
+  localStorage.setItem('bible-fs', _bibleFs);
+}
 
 /* 키보드 */
 document.addEventListener('keydown', e => {
@@ -2396,6 +2486,7 @@ function pdfStudyRestart() {
   bkSyncBible();
   BibleModule.injectStyles();
   bibleViewCheckLoaded();
+  document.getElementById('bible-main').style.setProperty('--bible-fs', _bibleFs + 'px');
   const c = GitHubModule.get();
   if (c.user && c.repo) {
     document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;

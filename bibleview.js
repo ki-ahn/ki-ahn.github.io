@@ -9,6 +9,9 @@
  *   123                     → 찬송가 이미지 (hymnFolder 안에서 번호로 찾음)
  *   거룩                     → CCM 이미지 (ccmFolder 안에서 제목 부분일치로 찾음)
  *
+ * 찬송가/CCM 검색 결과가 여러 개면 왼쪽 "검색 결과" 목록에 표시되고,
+ * 하나를 클릭하면 오른쪽에 이미지가 뜬다 (이미지는 클릭해서 확대/축소 가능).
+ *
  * 아래를 그대로 재사용한다:
  *   - BibleModule.BOOK_MAP / parseRef / tts   (bible.js)
  *   - GitHubModule.fetchContents / fetchBlob / readFile  (github.js)
@@ -42,6 +45,10 @@ const BibleViewModule = (() => {
     const ext = path.split('.').pop().toLowerCase();
     return { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp', svg:'image/svg+xml' }[ext] || 'application/octet-stream';
   }
+  function _setTitle(text) {
+    const el = document.getElementById('bible-topbar-title');
+    if (el) el.textContent = text || '';
+  }
 
   /* ── 이미지 파일을 GitHub에서 받아와 Blob URL로 변환 (1MB 초과 대응 포함) ── */
   async function _fetchImageBlobUrl(path) {
@@ -72,43 +79,34 @@ const BibleViewModule = (() => {
   }
 
   /* ══════════════════════════════════════
-     목차(66권) 리스트
+     왼쪽 "검색 결과" 목록 (찬송가/CCM 다중매칭용)
   ══════════════════════════════════════ */
-  function _bookList() {
-    const seen = new Set();
-    const arr = [];
-    Object.entries(BibleModule.BOOK_MAP).forEach(([key, info]) => {
-      if (seen.has(info.num)) return;
-      seen.add(info.num);
-      arr.push({ short: key, full: info.full, num: info.num });
+  function _clearResultList() {
+    const label = document.getElementById('bible-toc-label');
+    const toc = document.getElementById('bible-toc');
+    if (label) label.textContent = '검색 결과';
+    if (toc) toc.innerHTML = '<div class="bible-toc-empty">찬송가·CCM 검색 결과가<br>여러 개면 여기 표시됩니다</div>';
+  }
+
+  function _renderResultList(title, items, onPick) {
+    const label = document.getElementById('bible-toc-label');
+    const toc = document.getElementById('bible-toc');
+    if (!toc) return;
+    if (label) label.textContent = `${title} (${items.length})`;
+    toc.innerHTML = items.map((it, i) => `<div class="bk-fi" data-idx="${i}">${esc(_stripExt(it.name))}</div>`).join('');
+    toc.querySelectorAll('.bk-fi').forEach((el, i) => {
+      el.onclick = () => {
+        toc.querySelectorAll('.bk-fi').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        onPick(items[i]);
+      };
     });
-    arr.sort((a, b) => a.num.localeCompare(b.num));
-    return arr;
-  }
-
-  function _renderToc() {
-    const el = document.getElementById('bible-toc');
-    if (!el) return;
-    const books = _bookList();
-    const ot = books.filter(b => parseInt(b.num) <= 39);
-    const nt = books.filter(b => parseInt(b.num) > 39);
-    const row = b => `<div class="bk-fi" onclick="BibleViewModule.pickBook('${b.short}')">${esc(b.full)}</div>`;
-    el.innerHTML =
-      `<div class="bk-tf open" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>구약 (${ot.length})</div>` +
-      `<div class="bk-tc open">${ot.map(row).join('')}</div>` +
-      `<div class="bk-tf open" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')"><span class="arr">▶</span>신약 (${nt.length})</div>` +
-      `<div class="bk-tc open">${nt.map(row).join('')}</div>`;
-  }
-
-  function pickBook(short) {
-    search(`(${short} 1)`);
   }
 
   /* ══════════════════════════════════════
      검색 라우팅
   ══════════════════════════════════════ */
   function search(raw) {
-    console.log("search() 호출됨");
     const input = document.getElementById('bible-input');
     const q = (raw !== undefined ? raw : (input ? input.value : '')).trim();
     if (!q) return;
@@ -117,7 +115,7 @@ const BibleViewModule = (() => {
     // 1) 성경구절: (창 1) 또는 창 1  (괄호는 있어도 없어도 인식)
     const parsed = BibleModule.parseRef(q);
     if (parsed && BibleModule.BOOK_MAP[parsed.book]) {
-      AppToast.show('parsed');
+      _clearResultList();
       _showBibleRef(parsed);
       return;
     }
@@ -184,6 +182,7 @@ const BibleViewModule = (() => {
         .map(g => g.length === 1 ? `${g[0]}절` : `${g[0]}~${g[g.length-1]}절`)
         .join(', ');
     }
+    _setTitle('📖 ' + refLabel);
 
     let html = `<div class="bible-view-hd">📖 ${esc(refLabel)}</div><div class="bible-view-body">`;
     results.forEach((r, i) => {
@@ -202,7 +201,36 @@ const BibleViewModule = (() => {
     main.innerHTML = html;
   }
 
-  /* ── 찬송가 (번호로 이미지 찾기) ── */
+  /* ── 이미지(찬송가/CCM) 공통 렌더링 — 클릭으로 확대/축소 ── */
+  async function _renderImage(icon, label, file) {
+    const main = document.getElementById('bible-main');
+    main.innerHTML = '<div class="bible-loading">불러오는 중…</div>';
+    try {
+      const url = await _fetchImageBlobUrl(file.path);
+      _setTitle(`${icon} ${label}`);
+      main.innerHTML =
+        `<div class="bible-view-hd">${icon} ${esc(label)}</div>` +
+        `<div class="bible-img-wrap">` +
+        `<div class="bible-img-backdrop" onclick="BibleViewModule.unzoomImage()"></div>` +
+        `<img src="${url}" alt="${esc(label)}" onclick="BibleViewModule.toggleZoom(this)" title="클릭: 확대 / 다시 클릭: 원래대로">` +
+        `</div>`;
+    } catch(e) {
+      main.innerHTML = `<div class="bible-error">⚠ ${esc(e.message)}</div>`;
+    }
+  }
+
+  function toggleZoom(img) {
+    const backdrop = img.parentElement.querySelector('.bible-img-backdrop');
+    const zoomed = img.classList.toggle('zoomed');
+    if (backdrop) backdrop.classList.toggle('show', zoomed);
+    document.body.style.overflow = zoomed ? 'hidden' : '';
+  }
+  function unzoomImage() {
+    const img = document.querySelector('.bible-img-wrap img.zoomed');
+    if (img) toggleZoom(img);
+  }
+
+  /* ── 찬송가 (번호로 이미지 찾기, 여러 개 걸리면 목록에서 고르게) ── */
   async function _showHymn(num) {
     const main = document.getElementById('bible-main');
     if (!main) return;
@@ -210,24 +238,32 @@ const BibleViewModule = (() => {
     try {
       if (!_hymnList) _hymnList = await _listImageFolder(_cfg.hymnFolder);
       if (!_hymnList.length) {
-        main.innerHTML = `<div class="bible-error">⚠ 찬송가 폴더(${esc(_cfg.hymnFolder)})에서 이미지를 찾지 못했습니다.<br>설정 → 읽기 설정에서 폴더 경로를 확인해주세요.</div>`;
+        _clearResultList();
+        main.innerHTML = `<div class="bible-error">⚠ 찬송가 폴더(${esc(_cfg.hymnFolder)})에서 이미지를 찾지 못했습니다.<br>설정 → GitHub에서 폴더 경로를 확인해주세요.</div>`;
         return;
       }
       const target = String(parseInt(num, 10));
-      let match = _hymnList.find(f => _stripExt(f.name) === target);
-      if (!match) match = _hymnList.find(f => new RegExp(`(^|\\D)0*${target}(\\D|$)`).test(_stripExt(f.name)));
-      if (!match) {
+      let matches = _hymnList.filter(f => _stripExt(f.name) === target);
+      if (!matches.length) matches = _hymnList.filter(f => new RegExp(`(^|\\D)0*${target}(\\D|$)`).test(_stripExt(f.name)));
+      if (!matches.length) {
+        _clearResultList();
         main.innerHTML = `<div class="bible-error">⚠ ${esc(target)}장 찬송가를 찾지 못했습니다.</div>`;
         return;
       }
-      const url = await _fetchImageBlobUrl(match.path);
-      main.innerHTML = `<div class="bible-view-hd">🎵 찬송가 ${esc(target)}장</div><div class="bible-img-wrap"><img src="${url}" alt="찬송가 ${esc(target)}장"></div>`;
+      if (matches.length === 1) {
+        _clearResultList();
+        await _renderImage('🎵', `찬송가 ${target}장`, matches[0]);
+      } else {
+        _renderResultList(`🎵 찬송가 ${target}장`, matches, (f) => _renderImage('🎵', _stripExt(f.name), f));
+        main.innerHTML = '<div class="bible-empty">왼쪽 검색 결과에서 하나를 선택하세요</div>';
+        _setTitle(`🎵 찬송가 ${target}장 (${matches.length}개)`);
+      }
     } catch(e) {
       main.innerHTML = `<div class="bible-error">⚠ ${esc(e.message)}</div>`;
     }
   }
 
-  /* ── CCM (제목 부분일치로 이미지 찾기) ── */
+  /* ── CCM (제목 부분일치로 이미지 찾기, 여러 개 걸리면 목록에서 고르게) ── */
   async function _showCcm(query) {
     const main = document.getElementById('bible-main');
     if (!main) return;
@@ -235,54 +271,42 @@ const BibleViewModule = (() => {
     try {
       if (!_ccmList) _ccmList = await _listImageFolder(_cfg.ccmFolder);
       if (!_ccmList.length) {
-        main.innerHTML = `<div class="bible-error">⚠ CCM 폴더(${esc(_cfg.ccmFolder)})에서 이미지를 찾지 못했습니다.<br>설정 → 읽기 설정에서 폴더 경로를 확인해주세요.</div>`;
+        _clearResultList();
+        main.innerHTML = `<div class="bible-error">⚠ CCM 폴더(${esc(_cfg.ccmFolder)})에서 이미지를 찾지 못했습니다.<br>설정 → GitHub에서 폴더 경로를 확인해주세요.</div>`;
         return;
       }
       const q = query.toLowerCase();
       const matches = _ccmList.filter(f => _stripExt(f.name).toLowerCase().includes(q));
       if (!matches.length) {
+        _clearResultList();
         main.innerHTML = `<div class="bible-error">⚠ "${esc(query)}"와 일치하는 CCM을 찾지 못했습니다.</div>`;
         return;
       }
       if (matches.length === 1) {
-        await _renderCcmImage(matches[0]);
+        _clearResultList();
+        await _renderImage('🎤', _stripExt(matches[0].name), matches[0]);
       } else {
-        main.innerHTML = `<div class="bible-view-hd">🎤 "${esc(query)}" 검색 결과 (${matches.length}개)</div>` +
-          `<div class="bible-ccm-list">${matches.map((f, i) => `<button class="bible-ccm-item" data-idx="${i}">${esc(_stripExt(f.name))}</button>`).join('')}</div>`;
-        main.querySelectorAll('.bible-ccm-item').forEach((btn, i) => {
-          btn.onclick = () => _renderCcmImage(matches[i]);
-        });
+        _renderResultList(`🎤 "${query}"`, matches, (f) => _renderImage('🎤', _stripExt(f.name), f));
+        main.innerHTML = '<div class="bible-empty">왼쪽 검색 결과에서 하나를 선택하세요</div>';
+        _setTitle(`🎤 "${query}" 검색 결과 (${matches.length}개)`);
       }
-    } catch(e) {
-      main.innerHTML = `<div class="bible-error">⚠ ${esc(e.message)}</div>`;
-    }
-  }
-
-  async function _renderCcmImage(file) {
-    const main = document.getElementById('bible-main');
-    main.innerHTML = '<div class="bible-loading">🎤 불러오는 중…</div>';
-    try {
-      const url = await _fetchImageBlobUrl(file.path);
-      main.innerHTML = `<div class="bible-view-hd">🎤 ${esc(_stripExt(file.name))}</div><div class="bible-img-wrap"><img src="${url}" alt="${esc(file.name)}"></div>`;
     } catch(e) {
       main.innerHTML = `<div class="bible-error">⚠ ${esc(e.message)}</div>`;
     }
   }
 
   /* ══════════════════════════════════════
-     초기화 (입력창/버튼 바인딩 + 목차 렌더)
+     초기화 (입력창/버튼 바인딩)
   ══════════════════════════════════════ */
   function init() {
-    console.log("BibleViewModule.init() 실행됨!"); // 추가
-    AppToast.show('initialized Bible');
     const input = document.getElementById('bible-input');
     const btn   = document.getElementById('bible-search-btn');
     if (btn)   btn.addEventListener('click', () => search());
     if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
-    _renderToc();
+    _clearResultList();
   }
 
-  return { configure, init, search, pickBook };
+  return { configure, init, search, toggleZoom, unzoomImage };
 })();
 
 window.BibleViewModule = BibleViewModule;

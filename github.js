@@ -7,8 +7,8 @@ const GitHubModule = (() => {
   let _cfg = {
     user: '', repo: '', branch: 'main', token: '',
     bibleFolder: 'Bible',
-    hymnFolder: 'Hymn',
-    ccmFolder: 'CCM',
+    hymnFolder: 'Bible/Hymn',
+    ccmFolder: 'Bible/CCM',
   };
 
   const STORAGE_KEY = 'app_gh_cfg';
