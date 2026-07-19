@@ -713,7 +713,6 @@ html[data-dark] #bible-sidebar {
   </div>
   <div class="bk-hlpop-divider"></div>
   <button class="bk-hlpop-btn" onclick="bkLookup()" title="네이버 사전 검색">사전</button>
-  <button class="bk-hlpop-btn" onclick="bkLookup()" title="텍스트 복사">복사</button>
   <button class="bk-hlpop-btn" id="bk-hlpop-memo-btn" onclick="bkTogMemo()" title="메모 추가">메모</button>
   <input id="bk-hlpop-note" placeholder="메모 후 Enter…" style="display:none"
     onkeydown="if(event.key==='Enter'){bkSaveHlWithMemo();} if(event.key==='Escape'){bkHideHlPop();}">
@@ -900,9 +899,28 @@ function switchTab(name) {
   document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('on'));
   document.getElementById('panel-' + name).classList.add('on');
   document.getElementById('tab-' + name).classList.add('on');
-  if (name === 'bible'){
-    BibleViewModule.init();
+  if (name === 'bible') bibleViewCheckLoaded();
+}
+
+/* bibleview.js가 실제로 로드됐는지 확인. 안 됐으면 콘솔+화면에 눈에 띄게 경고를 남긴다
+   (파일을 저장소에 올리는 걸 깜빡했을 때 "성경 탭이 조용히 먹통"이 되는 것을 방지) */
+let _bibleViewReady = false;
+function bibleViewCheckLoaded() {
+  if (window.BibleViewModule) {
+    if (!_bibleViewReady) { BibleViewModule.init(); _bibleViewReady = true; }
+    return true;
   }
+  console.error('[성경 탭] bibleview.js 로드 실패 — 저장소에 파일이 있는지 확인하세요.');
+  const main = document.getElementById('bible-main');
+  if (main) {
+    main.innerHTML =
+      '<div class="bible-error">⚠ <strong>bibleview.js 파일을 찾을 수 없습니다.</strong><br><br>' +
+      '저장소에 <code>index.html</code> · <code>github.js</code> · <code>bible.js</code>와 같은 위치에 ' +
+      '<code>bibleview.js</code> 파일을 올려주셔야 "성경" 탭이 동작합니다.<br><br>' +
+      '파일을 올리신 뒤 페이지를 새로고침 해주세요.</div>';
+  }
+  if (window.AppToast) AppToast.show('⚠ bibleview.js가 로드되지 않았습니다', 'error');
+  return false;
 }
 
 /* ══ 설정 모달 ══ */
@@ -1587,19 +1605,6 @@ function bkLookup() {
   window.open(`https://dict.naver.com/search.dict?query=${encodeURIComponent(_bkSelText)}`, '_blank');
   bkHideHlPop();
 }
-
-function bkCopyText() {
-  if (!_bkSelText) return;
-
-  navigator.clipboard.writeText(_bkSelText).then(() => {
-    AppToast.show('📋 텍스트가 클립보드에 복사되었습니다');
-  }).catch(err => {
-      console.error('복사 실패:', err);
-  });
-  bkHideHlPop();
-}
-
-
 async function bkSaveHlToGitHub(filePath) {
   if (!GitHubModule.get().token) return;
   try {
@@ -2390,7 +2395,7 @@ function pdfStudyRestart() {
   bkApplyTheme();
   bkSyncBible();
   BibleModule.injectStyles();
-  if (window.BibleViewModule) BibleViewModule.init();
+  bibleViewCheckLoaded();
   const c = GitHubModule.get();
   if (c.user && c.repo) {
     document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
