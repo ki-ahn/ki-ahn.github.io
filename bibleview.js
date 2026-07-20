@@ -21,6 +21,7 @@ const BibleViewModule = (() => {
 
   let _cfg = {
     bibleFolder: 'Bible',
+    mdFolder: 'Bible',
     hymnFolder: 'Bible/Hymn',
     ccmFolder: 'Bible/CCM',
     enabledVersions: ['개역개정', 'ESV'],
@@ -370,7 +371,7 @@ const BibleViewModule = (() => {
     if (_hymnData) { _renderDataList('hymn', _hymnData, (num, title) => _resolveAndShowImage('hymn', num, title, '🎵')); return; }
     if (_hymnList) { _renderFolderList('hymn', _hymnList, '🎵'); return; }
     if (toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
-    _hymnData = await _loadDataMd(_cfg.hymnFolder, 'HymnData.md');
+    _hymnData = await _loadDataMd(_cfg.mdFolder, 'HymnData.md');
     if (_hymnData) { _renderDataList('hymn', _hymnData, (num, title) => _resolveAndShowImage('hymn', num, title, '🎵')); return; }
     _hymnList = await _listImageFolder(_cfg.hymnFolder);
     _renderFolderList('hymn', _hymnList, '🎵');
@@ -381,7 +382,7 @@ const BibleViewModule = (() => {
     if (_ccmData) { _renderDataList('ccm', _ccmData, (num, title) => _resolveAndShowImage('ccm', num, title, '🎤')); return; }
     if (_ccmList) { _renderFolderList('ccm', _ccmList, '🎤'); return; }
     if (toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
-    _ccmData = await _loadDataMd(_cfg.ccmFolder, 'CcmData.md');
+    _ccmData = await _loadDataMd(_cfg.mdFolder, 'CcmData.md');
     if (_ccmData) { _renderDataList('ccm', _ccmData, (num, title) => _resolveAndShowImage('ccm', num, title, '🎤')); return; }
     _ccmList = await _listImageFolder(_cfg.ccmFolder);
     _renderFolderList('ccm', _ccmList, '🎤');
