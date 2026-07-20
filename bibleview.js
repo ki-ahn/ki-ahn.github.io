@@ -112,6 +112,10 @@ const BibleViewModule = (() => {
     if (!q) return;
     if (input) input.value = q;
 
+    // 이전 검색에서 이미지를 확대(zoom)한 채로 새 검색을 하면
+    // 그 이미지 DOM은 사라지지만 body에 걸어둔 overflow:hidden은 안 풀리므로 여기서 초기화
+    document.body.style.overflow = '';
+
     // "검색" 버튼을 클릭하면 브라우저가 포커스를 버튼으로 옮기므로,
     // 검색을 넘긴 직후(다음 틱) 다시 입력란으로 포커스를 되돌려서
     // 바로 이어서 타이핑할 수 있게 한다.
@@ -309,6 +313,19 @@ const BibleViewModule = (() => {
     if (btn)   btn.addEventListener('click', () => search());
     if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
     _clearResultList();
+
+    // 안전장치: 성경 탭이 화면에 떠 있는 동안 포커스가 어디에도 없이(body로) 빠지면
+    // 자동으로 다시 입력란에 포커스를 준다. (결과를 보다가 다시 검색하려 할 때
+    // 포커스가 안 잡히던 문제 대비 — 원인이 무엇이든 이걸로 항상 복구됨)
+    document.addEventListener('focusout', () => {
+      setTimeout(() => {
+        const panel = document.getElementById('panel-bible');
+        if (!panel || !panel.classList.contains('on')) return;
+        if (document.activeElement === document.body) {
+          document.getElementById('bible-input')?.focus();
+        }
+      }, 40);
+    });
   }
 
   return { configure, init, search, toggleZoom, unzoomImage };
