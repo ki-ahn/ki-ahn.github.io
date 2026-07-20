@@ -36,6 +36,7 @@ const BibleViewModule = (() => {
     if (!opts) return;
     if (opts.hymnFolder !== undefined && opts.hymnFolder !== _cfg.hymnFolder) { _hymnList = null; _hymnData = null; }
     if (opts.ccmFolder  !== undefined && opts.ccmFolder  !== _cfg.ccmFolder)  { _ccmList  = null; _ccmData  = null; }
+    if (opts.mdFolder   !== undefined && opts.mdFolder   !== _cfg.mdFolder)   { _hymnData = null; _ccmData  = null; }
     Object.assign(_cfg, opts);
   }
 
@@ -263,12 +264,18 @@ const BibleViewModule = (() => {
     return list.length ? list : null;
   }
 
-  async function _loadDataMd(folder, filename) {
-    try {
+  async function _loadDataMd(filename, folderCandidates) {
+    const tried = new Set();
+    for (const folder of folderCandidates) {
       const path = folder ? `${folder}/${filename}` : filename;
-      const text = await GitHubModule.readFile(path);
-      return _parseDataMd(text);
-    } catch(e) { return null; }
+      if (tried.has(path)) continue;
+      tried.add(path);
+      try {
+        const text = await GitHubModule.readFile(path);
+        return _parseDataMd(text);
+      } catch(e) { /* 다음 후보 경로로 계속 시도 */ }
+    }
+    return null;
   }
 
   /* ── 찬송/CCM 탭: 전체 목록을 왼쪽에 쭉 표시(카테고리 구분 포함), 클릭하면 오른쪽에 이미지 ──
@@ -371,7 +378,7 @@ const BibleViewModule = (() => {
     if (_hymnData) { _renderDataList('hymn', _hymnData, (num, title) => _resolveAndShowImage('hymn', num, title, '🎵')); return; }
     if (_hymnList) { _renderFolderList('hymn', _hymnList, '🎵'); return; }
     if (toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
-    _hymnData = await _loadDataMd(_cfg.mdFolder, 'HymnData.md');
+    _hymnData = await _loadDataMd('HymnData.md', [_cfg.mdFolder, _cfg.hymnFolder, '']);
     if (_hymnData) { _renderDataList('hymn', _hymnData, (num, title) => _resolveAndShowImage('hymn', num, title, '🎵')); return; }
     _hymnList = await _listImageFolder(_cfg.hymnFolder);
     _renderFolderList('hymn', _hymnList, '🎵');
@@ -382,7 +389,7 @@ const BibleViewModule = (() => {
     if (_ccmData) { _renderDataList('ccm', _ccmData, (num, title) => _resolveAndShowImage('ccm', num, title, '🎤')); return; }
     if (_ccmList) { _renderFolderList('ccm', _ccmList, '🎤'); return; }
     if (toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
-    _ccmData = await _loadDataMd(_cfg.mdFolder, 'CcmData.md');
+    _ccmData = await _loadDataMd('CcmData.md', [_cfg.mdFolder, _cfg.ccmFolder, '']);
     if (_ccmData) { _renderDataList('ccm', _ccmData, (num, title) => _resolveAndShowImage('ccm', num, title, '🎤')); return; }
     _ccmList = await _listImageFolder(_cfg.ccmFolder);
     _renderFolderList('ccm', _ccmList, '🎤');
@@ -474,34 +481,43 @@ const BibleViewModule = (() => {
     });
 
     // 안전장치: 성경/찬송/CCM 탭이 화면에 떠 있는 동안 포커스가 어디에도 없이(body로) 빠지면
-    // 자동으로 다시 해당 탭 입력란에 포커스를 준다. (결과를 보다가 다시 검색하려 할 때
-    // 포커스가 안 잡히던 문제 대비 — 원인이 무엇이든 이걸로 항상 복구됨)
+    // 자동으로 다시 해당 탭 입력란에 포커스를 준다.
     document.addEventListener('focusout', () => {
       setTimeout(() => {
         const ns = ['bible', 'hymn', 'ccm'].find(n => document.getElementById('panel-' + n)?.classList.contains('on'));
         if (!ns) return;
         if (document.activeElement === document.body) {
+          console.log('[BLV] focusout→body 감지, 재포커스 시도:', ns + '-input');
           document.getElementById(ns + '-input')?.focus();
         }
       }, 40);
     });
 
-    // 더 강한 안전장치: 입력란을 클릭했는데도 브라우저 기본 동작으로 포커스가 안 잡히는
-    // 경우가 있어서(원인 불명), 클릭(mousedown) 자체를 가로채 직접 blur→focus를 실행한다.
-    // 무엇이 포커스를 막고 있든 상관없이 우회해서 항상 커서가 잡히게 하기 위함.
+    // 더 강한 안전장치 + 진단 로그: 입력란 클릭 시 무슨 일이 일어나는지 전부 콘솔에 남긴다.
     ['bible', 'hymn', 'ccm'].forEach(ns => {
       const inp = document.getElementById(ns + '-input');
       if (!inp) return;
       inp.addEventListener('mousedown', () => {
-        if (document.activeElement === inp) return; // 이미 포커스면 그냥 기본 동작에 맡김
-        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-        setTimeout(() => inp.focus(), 0);
+        const before = document.activeElement;
+        console.log('[BLV] mousedown on', ns + '-input', '| 클릭 전 activeElement =', before?.id || before?.tagName);
+        if (before === inp) {
+          console.log('[BLV] → 이미 activeElement가 이 입력란임 (그래도 진짜 타이핑 되는지 확인 필요)');
+          return;
+        }
+        if (before && before.blur) before.blur();
+        setTimeout(() => {
+          inp.focus();
+          console.log('[BLV] → blur+focus 실행함. focus 후 activeElement =', document.activeElement?.id || document.activeElement?.tagName);
+        }, 0);
       });
       inp.addEventListener('touchstart', () => {
         if (document.activeElement === inp) return;
         if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
         setTimeout(() => inp.focus(), 0);
       }, { passive: true });
+      inp.addEventListener('focus', () => console.log('[BLV]', ns + '-input', 'focus 이벤트 발생'));
+      inp.addEventListener('blur',  () => console.log('[BLV]', ns + '-input', 'blur 이벤트 발생 (포커스 빠짐)'));
+      inp.addEventListener('keydown', e => console.log('[BLV]', ns + '-input', 'keydown:', e.key));
     });
   }
 

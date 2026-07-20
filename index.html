@@ -708,6 +708,8 @@ html[data-dark] .blv-sidebar {
       <input class="cfg-input" id="cfg-hymn" placeholder="예: Bible/Hymn" value="Bible/Hymn">
       <label class="cfg-label">CCM 이미지 폴더 <small style="text-transform:none;color:var(--ui-text3)">(성경 탭에서 제목으로 검색)</small></label>
       <input class="cfg-input" id="cfg-ccm" placeholder="예: Bible/CCM" value="Bible/CCM">
+      <label class="cfg-label">HymnData.md / CcmData.md 폴더 <small style="text-transform:none;color:var(--ui-text3)">(찬송·CCM 탭의 목록 데이터 파일 위치)</small></label>
+      <input class="cfg-input" id="cfg-mddata" placeholder="예: Bible" value="Bible">
       <label class="cfg-label">Personal Access Token <small style="text-transform:none;color:var(--ui-text3)">(쓰기 시 필요)</small></label>
       <input class="cfg-input" id="cfg-token" type="password" placeholder="ghp_xxxx…">
       <div class="cfg-hint">Settings → Developer Settings → Personal access tokens (repo 권한)<br>밑줄 GitHub 저장·공부횟수 업데이트에 필요합니다.</div>
@@ -1076,6 +1078,7 @@ function openCfg() {
   document.getElementById('cfg-bible').value  = c.bibleFolder || 'Bible';
   document.getElementById('cfg-hymn').value   = c.hymnFolder || 'Bible/Hymn';
   document.getElementById('cfg-ccm').value    = c.ccmFolder || 'Bible/CCM';
+  document.getElementById('cfg-mddata').value = c.mdFolder || 'Bible';
   document.getElementById('cfg-token').value  = c.token || '';
   updateEtcLabel();
   document.getElementById('cfg-overlay').classList.add('open');
@@ -1091,6 +1094,7 @@ function saveCfg() {
     bibleFolder: document.getElementById('cfg-bible').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible',
     hymnFolder:  document.getElementById('cfg-hymn').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible/Hymn',
     ccmFolder:   document.getElementById('cfg-ccm').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible/CCM',
+    mdFolder:    document.getElementById('cfg-mddata').value.trim().replace(/^\/+|\/+$/g, '') || 'Bible',
     token:       document.getElementById('cfg-token').value.trim(),
   });
   closeCfg();
@@ -1164,6 +1168,7 @@ function bkSyncBible() {
       bibleFolder: c.bibleFolder || 'Bible',
       hymnFolder: c.hymnFolder || 'Bible/Hymn',
       ccmFolder: c.ccmFolder || 'Bible/CCM',
+      mdFolder: c.mdFolder || 'Bible',
       enabledVersions: _bkS.vers,
     });
   }

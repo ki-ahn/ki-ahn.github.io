@@ -7,6 +7,7 @@ const GitHubModule = (() => {
   let _cfg = {
     user: '', repo: '', branch: 'main', token: '',
     bibleFolder: 'Bible',
+    mdFolder: 'Bible',
     hymnFolder: 'Bible/Hymn',
     ccmFolder: 'Bible/CCM',
   };
