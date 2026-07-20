@@ -45,8 +45,8 @@ const BibleViewModule = (() => {
     const ext = path.split('.').pop().toLowerCase();
     return { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp', svg:'image/svg+xml' }[ext] || 'application/octet-stream';
   }
-  function _setTitle(text) {
-    const el = document.getElementById('bible-topbar-title');
+  function _setTitle(ns, text) {
+    const el = document.getElementById(ns + '-topbar-title');
     if (el) el.textContent = text || '';
   }
 
@@ -191,7 +191,7 @@ const BibleViewModule = (() => {
         .map(g => g.length === 1 ? `${g[0]}절` : `${g[0]}~${g[g.length-1]}절`)
         .join(', ');
     }
-    _setTitle('📖 ' + refLabel);
+    _setTitle('bible', '📖 ' + refLabel);
 
     let html = `<div class="bible-view-hd">📖 ${esc(refLabel)}</div><div class="bible-view-body">`;
     results.forEach((r, i) => {
@@ -211,12 +211,13 @@ const BibleViewModule = (() => {
   }
 
   /* ── 이미지(찬송가/CCM) 공통 렌더링 — 클릭으로 확대/축소 ── */
-  async function _renderImage(icon, label, file) {
-    const main = document.getElementById('bible-main');
+  async function _renderImageInto(ns, icon, label, file) {
+    const main = document.getElementById(ns + '-main');
+    if (!main) return;
     main.innerHTML = '<div class="bible-loading">불러오는 중…</div>';
     try {
       const url = await _fetchImageBlobUrl(file.path);
-      _setTitle(`${icon} ${label}`);
+      _setTitle(ns, `${icon} ${label}`);
       main.innerHTML =
         `<div class="bible-view-hd">${icon} ${esc(label)}</div>` +
         `<div class="bible-img-wrap">` +
@@ -239,7 +240,55 @@ const BibleViewModule = (() => {
     if (img) toggleZoom(img);
   }
 
-  /* ── 찬송가 (번호로 이미지 찾기, 여러 개 걸리면 목록에서 고르게) ── */
+  /* ── 찬송/CCM 탭: 전체 목록을 왼쪽에 쭉 표시하고, 클릭하면 오른쪽에 이미지 ── */
+  function _renderFolderList(ns, items, icon) {
+    const toc = document.getElementById(ns + '-toc');
+    const label = document.getElementById(ns + '-toc-label');
+    if (!toc) return;
+    if (!items.length) {
+      if (label) label.textContent = '전체 목록';
+      toc.innerHTML = `<div class="bible-toc-empty">폴더에 이미지가 없습니다.<br>설정 → GitHub에서 폴더 경로를 확인해주세요.</div>`;
+      return;
+    }
+    const sorted = [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    if (label) label.textContent = `전체 목록 (${sorted.length})`;
+    toc.innerHTML = sorted.map((it, i) => `<div class="bk-fi" data-idx="${i}">${esc(_stripExt(it.name))}</div>`).join('');
+    toc.querySelectorAll('.bk-fi').forEach((el, i) => {
+      el.onclick = () => {
+        toc.querySelectorAll('.bk-fi').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        _renderImageInto(ns, icon, _stripExt(sorted[i].name), sorted[i]);
+      };
+    });
+  }
+
+  /* 찬송/입력창에 타이핑하면 이미 불러온 전체 목록 안에서 실시간으로 걸러줌 */
+  function _filterList(ns) {
+    const input = document.getElementById(ns + '-input');
+    const full = ns === 'hymn' ? _hymnList : _ccmList;
+    if (!full) return;
+    const icon = ns === 'hymn' ? '🎵' : '🎤';
+    const q = (input?.value || '').trim().toLowerCase();
+    const filtered = q ? full.filter(f => _stripExt(f.name).toLowerCase().includes(q)) : full;
+    _renderFolderList(ns, filtered, icon);
+  }
+
+  /* 찬송 탭 진입 시 전체 목록 로드(캐시되면 재사용) */
+  async function showHymnList() {
+    const toc = document.getElementById('hymn-toc');
+    if (!_hymnList && toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
+    if (!_hymnList) _hymnList = await _listImageFolder(_cfg.hymnFolder);
+    _renderFolderList('hymn', _hymnList, '🎵');
+  }
+  /* CCM 탭 진입 시 전체 목록 로드(캐시되면 재사용) */
+  async function showCcmList() {
+    const toc = document.getElementById('ccm-toc');
+    if (!_ccmList && toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
+    if (!_ccmList) _ccmList = await _listImageFolder(_cfg.ccmFolder);
+    _renderFolderList('ccm', _ccmList, '🎤');
+  }
+
+  /* ── 성경 탭 안에서 "123"/"거룩" 입력했을 때 쓰는 찬송가/CCM 검색 (여러 개면 왼쪽 결과에서 고르게) ── */
   async function _showHymn(num) {
     const main = document.getElementById('bible-main');
     if (!main) return;
@@ -261,11 +310,11 @@ const BibleViewModule = (() => {
       }
       if (matches.length === 1) {
         _clearResultList();
-        await _renderImage('🎵', `찬송가 ${target}장`, matches[0]);
+        await _renderImageInto('bible', '🎵', `찬송가 ${target}장`, matches[0]);
       } else {
-        _renderResultList(`🎵 찬송가 ${target}장`, matches, (f) => _renderImage('🎵', _stripExt(f.name), f));
+        _renderResultList(`🎵 찬송가 ${target}장`, matches, (f) => _renderImageInto('bible', '🎵', _stripExt(f.name), f));
         main.innerHTML = '<div class="bible-empty">왼쪽 검색 결과에서 하나를 선택하세요</div>';
-        _setTitle(`🎵 찬송가 ${target}장 (${matches.length}개)`);
+        _setTitle('bible', `🎵 찬송가 ${target}장 (${matches.length}개)`);
       }
     } catch(e) {
       main.innerHTML = `<div class="bible-error">⚠ ${esc(e.message)}</div>`;
@@ -293,11 +342,11 @@ const BibleViewModule = (() => {
       }
       if (matches.length === 1) {
         _clearResultList();
-        await _renderImage('🎤', _stripExt(matches[0].name), matches[0]);
+        await _renderImageInto('bible', '🎤', _stripExt(matches[0].name), matches[0]);
       } else {
-        _renderResultList(`🎤 "${query}"`, matches, (f) => _renderImage('🎤', _stripExt(f.name), f));
+        _renderResultList(`🎤 "${query}"`, matches, (f) => _renderImageInto('bible', '🎤', _stripExt(f.name), f));
         main.innerHTML = '<div class="bible-empty">왼쪽 검색 결과에서 하나를 선택하세요</div>';
-        _setTitle(`🎤 "${query}" 검색 결과 (${matches.length}개)`);
+        _setTitle('bible', `🎤 "${query}" 검색 결과 (${matches.length}개)`);
       }
     } catch(e) {
       main.innerHTML = `<div class="bible-error">⚠ ${esc(e.message)}</div>`;
@@ -314,21 +363,30 @@ const BibleViewModule = (() => {
     if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
     _clearResultList();
 
-    // 안전장치: 성경 탭이 화면에 떠 있는 동안 포커스가 어디에도 없이(body로) 빠지면
-    // 자동으로 다시 입력란에 포커스를 준다. (결과를 보다가 다시 검색하려 할 때
+    // 찬송/CCM 탭: 입력하는 즉시(oninput) 이미 불러온 전체 목록을 실시간으로 걸러줌
+    ['hymn', 'ccm'].forEach(ns => {
+      const inp = document.getElementById(ns + '-input');
+      const b   = document.getElementById(ns + '-search-btn');
+      if (inp) inp.addEventListener('input', () => _filterList(ns));
+      if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') _filterList(ns); });
+      if (b)   b.addEventListener('click', () => _filterList(ns));
+    });
+
+    // 안전장치: 성경/찬송/CCM 탭이 화면에 떠 있는 동안 포커스가 어디에도 없이(body로) 빠지면
+    // 자동으로 다시 해당 탭 입력란에 포커스를 준다. (결과를 보다가 다시 검색하려 할 때
     // 포커스가 안 잡히던 문제 대비 — 원인이 무엇이든 이걸로 항상 복구됨)
     document.addEventListener('focusout', () => {
       setTimeout(() => {
-        const panel = document.getElementById('panel-bible');
-        if (!panel || !panel.classList.contains('on')) return;
+        const ns = ['bible', 'hymn', 'ccm'].find(n => document.getElementById('panel-' + n)?.classList.contains('on'));
+        if (!ns) return;
         if (document.activeElement === document.body) {
-          document.getElementById('bible-input')?.focus();
+          document.getElementById(ns + '-input')?.focus();
         }
       }, 40);
     });
   }
 
-  return { configure, init, search, toggleZoom, unzoomImage };
+  return { configure, init, search, toggleZoom, unzoomImage, showHymnList, showCcmList };
 })();
 
 window.BibleViewModule = BibleViewModule;
