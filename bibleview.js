@@ -26,13 +26,15 @@ const BibleViewModule = (() => {
     enabledVersions: ['개역개정', 'ESV'],
   };
 
-  let _hymnList = null; // [{name, path}] 캐시 (폴더 목록)
+  let _hymnList = null; // [{name, path}] 캐시 (폴더 이미지 목록 — HymnData.md 없을 때 폴백용)
   let _ccmList  = null;
+  let _hymnData = null; // HymnData.md 파싱 결과: [{type:'cat',label,range} | {type:'item',num,title}]
+  let _ccmData  = null; // CcmData.md 파싱 결과 (형식 동일)
 
   function configure(opts) {
     if (!opts) return;
-    if (opts.hymnFolder !== undefined && opts.hymnFolder !== _cfg.hymnFolder) _hymnList = null;
-    if (opts.ccmFolder  !== undefined && opts.ccmFolder  !== _cfg.ccmFolder)  _ccmList  = null;
+    if (opts.hymnFolder !== undefined && opts.hymnFolder !== _cfg.hymnFolder) { _hymnList = null; _hymnData = null; }
+    if (opts.ccmFolder  !== undefined && opts.ccmFolder  !== _cfg.ccmFolder)  { _ccmList  = null; _ccmData  = null; }
     Object.assign(_cfg, opts);
   }
 
@@ -240,7 +242,95 @@ const BibleViewModule = (() => {
     if (img) toggleZoom(img);
   }
 
-  /* ── 찬송/CCM 탭: 전체 목록을 왼쪽에 쭉 표시하고, 클릭하면 오른쪽에 이미지 ── */
+  /* ── HymnData.md / CcmData.md 파싱 ──
+     { "예배 ": "1~62장", "1": "만복의 근원 하나님 - 통1", "2": "...", "경배 ": "8~17장", "8": "...", ... }
+     같은 JSON 형태. 키가 순수 숫자면 항목(번호+제목), 아니면 카테고리 구분(값은 범위 설명)으로 본다.
+     원래 순서(카테고리 → 그 아래 번호들)를 그대로 유지해서 리스트로 만든다. */
+  function _parseDataMd(text) {
+    // JSON.parse를 쓰면 "1","2" 같은 숫자형 키를 JS가 자동으로 맨 앞으로 재정렬해버려서
+    // 카테고리가 번호들 사이사이에 섞여 있던 원래 순서가 깨진다.
+    // 그래서 JSON으로 파싱하지 않고 원문을 "키":"값" 순서 그대로 정규식으로 읽는다.
+    const list = [];
+    const re = /"([^"]*)"\s*:\s*"([^"]*)"/g;
+    let m;
+    while ((m = re.exec(text))) {
+      const key = m[1].trim();
+      const val = m[2].trim();
+      if (/^\d+$/.test(key)) list.push({ type: 'item', num: key, title: val });
+      else list.push({ type: 'cat', label: key, range: val });
+    }
+    return list.length ? list : null;
+  }
+
+  async function _loadDataMd(folder, filename) {
+    try {
+      const path = folder ? `${folder}/${filename}` : filename;
+      const text = await GitHubModule.readFile(path);
+      return _parseDataMd(text);
+    } catch(e) { return null; }
+  }
+
+  /* ── 찬송/CCM 탭: 전체 목록을 왼쪽에 쭉 표시(카테고리 구분 포함), 클릭하면 오른쪽에 이미지 ──
+     resolveFile(num, title) 콜백이 실제 이미지 파일을 찾아서 보여준다 */
+  function _renderDataList(ns, list, resolveFile) {
+    const toc = document.getElementById(ns + '-toc');
+    const label = document.getElementById(ns + '-toc-label');
+    if (!toc) return;
+    const itemCount = list.filter(x => x.type === 'item').length;
+    if (!itemCount) {
+      if (label) label.textContent = '전체 목록';
+      toc.innerHTML = `<div class="bible-toc-empty">일치하는 항목이 없습니다</div>`;
+      return;
+    }
+    if (label) label.textContent = `전체 목록 (${itemCount})`;
+    toc.innerHTML = list.map(x => x.type === 'cat'
+      ? `<div class="bk-tf blv-cat">${esc(x.label)} <span class="blv-cat-range">${esc(x.range)}</span></div>`
+      : `<div class="bk-fi" data-num="${esc(x.num)}" data-title="${esc(x.title)}">${esc(x.num)}. ${esc(x.title)}</div>`
+    ).join('');
+    toc.querySelectorAll('.bk-fi').forEach(el => {
+      el.onclick = () => {
+        toc.querySelectorAll('.bk-fi').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        resolveFile(el.dataset.num, el.dataset.title);
+      };
+    });
+  }
+
+  /* 검색어로 데이터 목록을 거르되, 매칭된 항목이 하나라도 있는 카테고리 구분은 살려서 보여줌 */
+  function _filterDataList(list, q) {
+    if (!q) return list;
+    const result = [];
+    let pendingCat = null, catAdded = false;
+    for (const x of list) {
+      if (x.type === 'cat') { pendingCat = x; catAdded = false; continue; }
+      if (x.num.includes(q) || x.title.toLowerCase().includes(q)) {
+        if (pendingCat && !catAdded) { result.push(pendingCat); catAdded = true; }
+        result.push(x);
+      }
+    }
+    return result;
+  }
+
+  /* 번호(num)로 실제 이미지 파일을 찾아서(폴더 목록 안에서) 보여줌 — HymnData.md/CcmData.md엔 파일명이 없으므로 필요 */
+  async function _resolveAndShowImage(ns, num, title, icon) {
+    const folder = ns === 'hymn' ? _cfg.hymnFolder : _cfg.ccmFolder;
+    let list = ns === 'hymn' ? _hymnList : _ccmList;
+    if (!list) {
+      list = await _listImageFolder(folder);
+      if (ns === 'hymn') _hymnList = list; else _ccmList = list;
+    }
+    const target = String(parseInt(num, 10));
+    let match = list.find(f => _stripExt(f.name) === target);
+    if (!match) match = list.find(f => new RegExp(`(^|\\D)0*${target}(\\D|$)`).test(_stripExt(f.name)));
+    if (!match) {
+      const main = document.getElementById(ns + '-main');
+      if (main) main.innerHTML = `<div class="bible-error">⚠ ${esc(num)}번 이미지 파일을 폴더(${esc(folder)})에서 찾지 못했습니다.</div>`;
+      return;
+    }
+    await _renderImageInto(ns, icon, `${num}. ${title}`, match);
+  }
+
+  /* ── 찬송/CCM 탭: HymnData.md/CcmData.md가 있으면 그걸로, 없으면 폴더 스캔으로 폴백 ── */
   function _renderFolderList(ns, items, icon) {
     const toc = document.getElementById(ns + '-toc');
     const label = document.getElementById(ns + '-toc-label');
@@ -262,31 +352,45 @@ const BibleViewModule = (() => {
     });
   }
 
-  /* 찬송/입력창에 타이핑하면 이미 불러온 전체 목록 안에서 실시간으로 걸러줌 */
+  /* 입력창에 타이핑하면 실시간으로 걸러줌 (HymnData.md/CcmData.md 있으면 번호+제목으로, 없으면 파일명으로) */
   function _filterList(ns) {
     const input = document.getElementById(ns + '-input');
+    const q = (input?.value || '').trim().toLowerCase();
+    const icon = ns === 'hymn' ? '🎵' : '🎤';
+    const data = ns === 'hymn' ? _hymnData : _ccmData;
+    if (data) {
+      _renderDataList(ns, _filterDataList(data, q), (num, title) => _resolveAndShowImage(ns, num, title, icon));
+      return;
+    }
     const full = ns === 'hymn' ? _hymnList : _ccmList;
     if (!full) return;
-    const icon = ns === 'hymn' ? '🎵' : '🎤';
-    const q = (input?.value || '').trim().toLowerCase();
     const filtered = q ? full.filter(f => _stripExt(f.name).toLowerCase().includes(q)) : full;
     _renderFolderList(ns, filtered, icon);
   }
 
-  /* 찬송 탭 진입 시 전체 목록 로드(캐시되면 재사용) */
+  /* 찬송 탭 진입 시 전체 목록 로드(캐시되면 재사용) — HymnData.md 우선, 없으면 폴더 스캔 */
   async function showHymnList() {
     const toc = document.getElementById('hymn-toc');
-    if (!_hymnList && toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
-    if (!_hymnList) _hymnList = await _listImageFolder(_cfg.hymnFolder);
+    if (_hymnData) { _renderDataList('hymn', _hymnData, (num, title) => _resolveAndShowImage('hymn', num, title, '🎵')); return; }
+    if (_hymnList) { _renderFolderList('hymn', _hymnList, '🎵'); return; }
+    if (toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
+    _hymnData = await _loadDataMd(_cfg.hymnFolder, 'HymnData.md');
+    if (_hymnData) { _renderDataList('hymn', _hymnData, (num, title) => _resolveAndShowImage('hymn', num, title, '🎵')); return; }
+    _hymnList = await _listImageFolder(_cfg.hymnFolder);
     _renderFolderList('hymn', _hymnList, '🎵');
   }
-  /* CCM 탭 진입 시 전체 목록 로드(캐시되면 재사용) */
+  /* CCM 탭 진입 시 전체 목록 로드(캐시되면 재사용) — CcmData.md 우선, 없으면 폴더 스캔 */
   async function showCcmList() {
     const toc = document.getElementById('ccm-toc');
-    if (!_ccmList && toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
-    if (!_ccmList) _ccmList = await _listImageFolder(_cfg.ccmFolder);
+    if (_ccmData) { _renderDataList('ccm', _ccmData, (num, title) => _resolveAndShowImage('ccm', num, title, '🎤')); return; }
+    if (_ccmList) { _renderFolderList('ccm', _ccmList, '🎤'); return; }
+    if (toc) toc.innerHTML = '<div class="bible-toc-empty">불러오는 중…</div>';
+    _ccmData = await _loadDataMd(_cfg.ccmFolder, 'CcmData.md');
+    if (_ccmData) { _renderDataList('ccm', _ccmData, (num, title) => _resolveAndShowImage('ccm', num, title, '🎤')); return; }
+    _ccmList = await _listImageFolder(_cfg.ccmFolder);
     _renderFolderList('ccm', _ccmList, '🎤');
   }
+
 
   /* ── 성경 탭 안에서 "123"/"거룩" 입력했을 때 쓰는 찬송가/CCM 검색 (여러 개면 왼쪽 결과에서 고르게) ── */
   async function _showHymn(num) {
