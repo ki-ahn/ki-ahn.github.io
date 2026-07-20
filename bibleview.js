@@ -285,7 +285,7 @@ const BibleViewModule = (() => {
     if (label) label.textContent = `전체 목록 (${itemCount})`;
     toc.innerHTML = list.map(x => x.type === 'cat'
       ? `<div class="bk-tf blv-cat">${esc(x.label)} <span class="blv-cat-range">${esc(x.range)}</span></div>`
-      : `<div class="bk-fi" data-num="${esc(x.num)}" data-title="${esc(x.title)}">${esc(x.num)}. ${esc(x.title)}</div>`
+      : `<div class="bk-fi blv-item" data-num="${esc(x.num)}" data-title="${esc(x.title)}">${esc(x.num)}. ${esc(x.title)}</div>`
     ).join('');
     toc.querySelectorAll('.bk-fi').forEach(el => {
       el.onclick = () => {
@@ -311,23 +311,19 @@ const BibleViewModule = (() => {
     return result;
   }
 
-  /* 번호(num)로 실제 이미지 파일을 찾아서(폴더 목록 안에서) 보여줌 — HymnData.md/CcmData.md엔 파일명이 없으므로 필요 */
+  /* HymnData.md/CcmData.md 목록에서 항목을 클릭했을 때 이미지를 바로 불러온다.
+     - 찬송: 번호에 ".jpg"만 붙여서 바로 경로를 만든다 (폴더 스캔 안 함)
+     - CCM: 값(title) 자체가 이미 "파일명.확장자" 형태이므로 그대로 경로에 붙여서 쓴다 (폴더 스캔 안 함) */
   async function _resolveAndShowImage(ns, num, title, icon) {
-    const folder = ns === 'hymn' ? _cfg.hymnFolder : _cfg.ccmFolder;
-    let list = ns === 'hymn' ? _hymnList : _ccmList;
-    if (!list) {
-      list = await _listImageFolder(folder);
-      if (ns === 'hymn') _hymnList = list; else _ccmList = list;
+    let path, label;
+    if (ns === 'hymn') {
+      path = `${_cfg.hymnFolder}/${num}.jpg`;
+      label = `${num}. ${title}`;
+    } else {
+      path = `${_cfg.ccmFolder}/${title}`;
+      label = _stripExt(title);
     }
-    const target = String(parseInt(num, 10));
-    let match = list.find(f => _stripExt(f.name) === target);
-    if (!match) match = list.find(f => new RegExp(`(^|\\D)0*${target}(\\D|$)`).test(_stripExt(f.name)));
-    if (!match) {
-      const main = document.getElementById(ns + '-main');
-      if (main) main.innerHTML = `<div class="bible-error">⚠ ${esc(num)}번 이미지 파일을 폴더(${esc(folder)})에서 찾지 못했습니다.</div>`;
-      return;
-    }
-    await _renderImageInto(ns, icon, `${num}. ${title}`, match);
+    await _renderImageInto(ns, icon, label, { path });
   }
 
   /* ── 찬송/CCM 탭: HymnData.md/CcmData.md가 있으면 그걸로, 없으면 폴더 스캔으로 폴백 ── */
@@ -487,6 +483,24 @@ const BibleViewModule = (() => {
           document.getElementById(ns + '-input')?.focus();
         }
       }, 40);
+    });
+
+    // 더 강한 안전장치: 입력란을 클릭했는데도 브라우저 기본 동작으로 포커스가 안 잡히는
+    // 경우가 있어서(원인 불명), 클릭(mousedown) 자체를 가로채 직접 blur→focus를 실행한다.
+    // 무엇이 포커스를 막고 있든 상관없이 우회해서 항상 커서가 잡히게 하기 위함.
+    ['bible', 'hymn', 'ccm'].forEach(ns => {
+      const inp = document.getElementById(ns + '-input');
+      if (!inp) return;
+      inp.addEventListener('mousedown', () => {
+        if (document.activeElement === inp) return; // 이미 포커스면 그냥 기본 동작에 맡김
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        setTimeout(() => inp.focus(), 0);
+      });
+      inp.addEventListener('touchstart', () => {
+        if (document.activeElement === inp) return;
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        setTimeout(() => inp.focus(), 0);
+      }, { passive: true });
     });
   }
 
