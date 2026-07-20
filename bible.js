@@ -603,7 +603,7 @@ const BibleModule = (() => {
 
       .bible-content {
         font-family: var(--font-body, Georgia, serif);
-        font-style: italic; line-height: 1.9;
+        font-style: normal; line-height: 1.9;
         color: var(--text, #2c2416);
       }
       .bible-verse-line { display: inline; }
