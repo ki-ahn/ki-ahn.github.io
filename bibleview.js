@@ -320,12 +320,13 @@ const BibleViewModule = (() => {
   }
 
   /* HymnData.md/CcmData.md 목록에서 항목을 클릭했을 때 이미지를 바로 불러온다.
-     - 찬송: 번호에 ".jpg"만 붙여서 바로 경로를 만든다 (폴더 스캔 안 함)
+     - 찬송: 번호를 3자리로 0-패딩해서 ".jpg"를 붙인다 (1→001.jpg, 42→042.jpg), 폴더 스캔 안 함
      - CCM: 값(title) 자체가 이미 "파일명.확장자" 형태이므로 그대로 경로에 붙여서 쓴다 (폴더 스캔 안 함) */
   async function _resolveAndShowImage(ns, num, title, icon) {
     let path, label;
     if (ns === 'hymn') {
-      path = `${_cfg.hymnFolder}/${num}.jpg`;
+      const padded = String(parseInt(num, 10)).padStart(3, '0');
+      path = `${_cfg.hymnFolder}/${padded}.jpg`;
       label = `${num}. ${title}`;
     } else {
       path = `${_cfg.ccmFolder}/${title}`;
@@ -482,33 +483,41 @@ const BibleViewModule = (() => {
 
     // 안전장치: 성경/찬송/CCM 탭이 화면에 떠 있는 동안 포커스가 어디에도 없이(body로) 빠지면
     // 자동으로 다시 해당 탭 입력란에 포커스를 준다.
+    // 단, 뭔가(예: 브라우저 확장 프로그램)가 계속 포커스를 다시 뺏어가는 경우
+    // 무한으로 핑퐁하며 오히려 상황을 악화시킬 수 있어서, 짧은 시간에 너무 자주
+    // 반복되면 자동 재시도를 멈추고 사용자에게 알려준다.
+    let _refocusCount = 0, _refocusWindowStart = 0, _refocusWarned = false;
     document.addEventListener('focusout', () => {
       setTimeout(() => {
         const ns = ['bible', 'hymn', 'ccm'].find(n => document.getElementById('panel-' + n)?.classList.contains('on'));
         if (!ns) return;
-        if (document.activeElement === document.body) {
-          console.log('[BLV] focusout→body 감지, 재포커스 시도:', ns + '-input');
-          document.getElementById(ns + '-input')?.focus();
+        if (document.activeElement !== document.body) return;
+
+        const now = Date.now();
+        if (now - _refocusWindowStart > 2000) { _refocusWindowStart = now; _refocusCount = 0; _refocusWarned = false; }
+        _refocusCount++;
+        if (_refocusCount > 6) {
+          if (!_refocusWarned) {
+            _refocusWarned = true;
+            console.warn('[BLV] 2초 안에 포커스가 ' + _refocusCount + '번 이상 빠짐 — 브라우저 확장 프로그램이 포커스를 가로채고 있을 가능성이 높습니다. 시크릿 창에서 확인해보세요.');
+            if (window.AppToast) AppToast.show('⚠ 입력란 포커스가 계속 풀립니다. 확장 프로그램 때문일 수 있어요 — 시크릿 창에서 확인해보세요.', 'error');
+          }
+          return; // 계속 싸우지 않고 멈춤
         }
+        console.log('[BLV] focusout→body 감지, 재포커스 시도:', ns + '-input');
+        document.getElementById(ns + '-input')?.focus();
       }, 40);
     });
 
-    // 더 강한 안전장치 + 진단 로그: 입력란 클릭 시 무슨 일이 일어나는지 전부 콘솔에 남긴다.
+    // 입력란 클릭 시 무슨 일이 일어나는지 진단 로그 (원인 파악되면 제거 예정)
     ['bible', 'hymn', 'ccm'].forEach(ns => {
       const inp = document.getElementById(ns + '-input');
       if (!inp) return;
       inp.addEventListener('mousedown', () => {
         const before = document.activeElement;
-        console.log('[BLV] mousedown on', ns + '-input', '| 클릭 전 activeElement =', before?.id || before?.tagName);
-        if (before === inp) {
-          console.log('[BLV] → 이미 activeElement가 이 입력란임 (그래도 진짜 타이핑 되는지 확인 필요)');
-          return;
-        }
+        if (before === inp) return;
         if (before && before.blur) before.blur();
-        setTimeout(() => {
-          inp.focus();
-          console.log('[BLV] → blur+focus 실행함. focus 후 activeElement =', document.activeElement?.id || document.activeElement?.tagName);
-        }, 0);
+        setTimeout(() => inp.focus(), 0);
       });
       inp.addEventListener('touchstart', () => {
         if (document.activeElement === inp) return;
@@ -517,7 +526,6 @@ const BibleViewModule = (() => {
       }, { passive: true });
       inp.addEventListener('focus', () => console.log('[BLV]', ns + '-input', 'focus 이벤트 발생'));
       inp.addEventListener('blur',  () => console.log('[BLV]', ns + '-input', 'blur 이벤트 발생 (포커스 빠짐)'));
-      inp.addEventListener('keydown', e => console.log('[BLV]', ns + '-input', 'keydown:', e.key));
     });
   }
 
