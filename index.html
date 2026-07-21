@@ -1064,12 +1064,8 @@ function switchCfgTab(name, el) {
     if (first) {
       first.focus();
       // iOS Safari: focus 후 blur/focus 반복으로 키보드 강제 활성화
-      //irst.blur();
-      //setTimeout(() => first.focus(), 50);
-      setTimeout(() => {
-          const first = pane.querySelector("input.cfg-input");
-          first?.focus();
-      }, 100);
+      first.blur();
+      setTimeout(() => first.focus(), 50);
     }
   }, 150);
 }
