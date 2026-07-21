@@ -610,7 +610,7 @@ const BibleModule = (() => {
       .bible-verse-num  {
         font-size: 9px; font-weight: 700;
         color: var(--accent2, #8b6914);
-        vertical-align: super; margin-right: 2px;
+        vertical-align: sub; margin-right: 2px;
         font-style: normal; font-family: var(--font-ui, sans-serif);
       }
       .bible-verse-txt  { display: inline; }
