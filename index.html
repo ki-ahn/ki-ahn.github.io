@@ -1586,6 +1586,11 @@ async function bkOpenByName(noteName, heading) {
 document.addEventListener('mouseup', e => {
   // 팝업 자체 클릭 무시
   if (e.target.closest('#bk-hlpop')) return;
+  // 입력란/텍스트에어리아/셀렉트 등 폼 요소를 클릭한 거면 밑줄 기능과 무관하니 완전히 무시.
+  // (이걸 안 걸러서 아래 removeAllRanges()가 방금 클릭해 포커스된 입력란까지 건드려
+  //  페이지 전체 입력란에서 포커스가 안 잡히는 버그가 있었음)
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable || e.target.closest('input, textarea, select, [contenteditable]')) return;
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.toString().trim()) {
     // 클릭이 팝업 밖이면 닫기
@@ -1614,6 +1619,7 @@ document.addEventListener('mouseup', e => {
 });
 document.addEventListener('touchend', e => {
   if (e.target.closest('#bk-hlpop')) return;
+  if (e.target.closest('input, textarea, select, [contenteditable]')) return;
   setTimeout(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
