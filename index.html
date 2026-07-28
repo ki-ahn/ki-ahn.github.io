@@ -1697,16 +1697,49 @@ async function bkSaveHlWithMemo() {
 }
 
 // 실제 저장 로직 — 저장 즉시 _bkSelText 초기화로 중복 방지
+/* 텍스트 text가 root 안에서 (beforeNode, beforeOffset) 위치보다 앞서 몇 번 등장했는지 센다.
+   저장 시점에 "이 하이라이트가 몇 번째 occurrence인지" 기록해두면, 나중에 다시 렌더링할 때
+   같은 단어가 여러 번 나와도 정확히 같은 자리를 찾아 다시 칠할 수 있다. */
+function _bkCountPriorOccurrences(root, text, beforeNode, beforeOffset) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+  let n, count = 0;
+  while (n = w.nextNode()) {
+    const limit = (n === beforeNode) ? beforeOffset : n.textContent.length;
+    let from = 0, idx;
+    while ((idx = n.textContent.indexOf(text, from)) !== -1 && idx < limit) {
+      count++;
+      from = idx + 1;
+    }
+    if (n === beforeNode) break;
+  }
+  return count;
+}
+
 async function bkDoSaveHl(note) {
   if (!_bkSelR || !_bkCur || !_bkSelText) { bkHideHlPop(); return; }
   // 중복 저장 방지: 저장 시작 전에 선택 텍스트 초기화
   const textToSave = _bkSelText;
+  const rangeToApply = _bkSelR.cloneRange();
   _bkSelText = '';
   if (!_bkHls[_bkCur]) _bkHls[_bkCur] = [];
   const id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
-  _bkHls[_bkCur].push({ id, text: textToSave, color: _bkHlCol, note, date: new Date().toISOString() });
+
+  const reader = document.getElementById('bk-reader');
+  const occurrenceIndex = _bkCountPriorOccurrences(reader, textToSave, rangeToApply.startContainer, rangeToApply.startOffset);
+
+  _bkHls[_bkCur].push({ id, text: textToSave, color: _bkHlCol, note, date: new Date().toISOString(), occurrenceIndex });
   bkSaveStore();
-  bkApplyHls();
+
+  // 방금 선택한 바로 그 위치에 재검색 없이 즉시 정확하게 적용
+  try {
+    const span = document.createElement('span');
+    span.className = `hl hl-${_bkHlCol}`; span.dataset.hlId = id; span.title = note || '';
+    rangeToApply.surroundContents(span);
+  } catch(e) {
+    // 선택 범위가 여러 요소에 걸쳐 있는 등 드문 경우엔 occurrenceIndex 기반 재검색으로 대체
+    try { bkHlDom(reader, textToSave, _bkHlCol, id, note, occurrenceIndex); } catch(e2) {}
+  }
+
   bkHideHlPop();
   AppToast.show(note ? '✏️ 밑줄+메모 저장됨' : '✏️ 밑줄 저장됨');
   // GitHub 저장은 비동기 (UI 블록 안 함)
@@ -1777,21 +1810,43 @@ async function bkLoadHlFromGitHub(filePath) {
 function bkApplyHls() {
   if (!_bkCur || !_bkHls[_bkCur]) return;
   const reader = document.getElementById('bk-reader');
-  _bkHls[_bkCur].forEach(h => { try { bkHlDom(reader, h.text, h.color, h.id, h.note); } catch(e) {} });
+  _bkHls[_bkCur].forEach(h => { try { bkHlDom(reader, h.text, h.color, h.id, h.note, h.occurrenceIndex || 0); } catch(e) {} });
 }
-function bkHlDom(el, text, color, id, note) {
+function bkHlDom(el, text, color, id, note, occurrenceIndex) {
+  occurrenceIndex = occurrenceIndex || 0;
   const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
   const nodes = []; let n;
   while (n = w.nextNode()) nodes.push(n);
+  let seen = 0;
   for (const tn of nodes) {
-    const idx = tn.textContent.indexOf(text);
-    if (idx === -1) continue;
     if (tn.parentNode.classList?.contains('hl')) continue;
-    const span = document.createElement('span');
-    span.className = `hl hl-${color}`; span.dataset.hlId = id; span.title = note || '';
-    const r = document.createRange();
-    r.setStart(tn, idx); r.setEnd(tn, idx + text.length);
-    try { r.surroundContents(span); break; } catch(e) {}
+    let from = 0, idx;
+    while ((idx = tn.textContent.indexOf(text, from)) !== -1) {
+      if (seen === occurrenceIndex) {
+        const span = document.createElement('span');
+        span.className = `hl hl-${color}`; span.dataset.hlId = id; span.title = note || '';
+        const r = document.createRange();
+        r.setStart(tn, idx); r.setEnd(tn, idx + text.length);
+        try { r.surroundContents(span); } catch(e) {}
+        return;
+      }
+      seen++;
+      from = idx + 1;
+    }
+  }
+  // occurrenceIndex를 못 찾았으면(문서가 바뀌었거나 한 경우) 첫 번째 미적용 위치라도 칠해서 최소한 표시는 되게 함
+  if (seen > 0 && seen <= occurrenceIndex) {
+    for (const tn of nodes) {
+      if (tn.parentNode.classList?.contains('hl')) continue;
+      const idx = tn.textContent.indexOf(text);
+      if (idx === -1) continue;
+      const span = document.createElement('span');
+      span.className = `hl hl-${color}`; span.dataset.hlId = id; span.title = note || '';
+      const r = document.createRange();
+      r.setStart(tn, idx); r.setEnd(tn, idx + text.length);
+      try { r.surroundContents(span); } catch(e) {}
+      return;
+    }
   }
 }
 /* 밑줄 패널 */
