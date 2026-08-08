@@ -1651,6 +1651,12 @@ document.addEventListener('touchend', e => {
     _bkSelR = range.cloneRange();
     _bkSelText = sel.toString().trim();
     const rect = range.getBoundingClientRect();
+
+    // 안드로이드에서 텍스트를 선택하면 뜨는 기본 선택 툴바(복사/공유 등)가
+    // 우리 밑줄 팝업을 가려서 안 보이는 문제 대비: 필요한 정보(범위/텍스트)를
+    // 이미 붙잡았으니, 네이티브 선택 자체는 지워서 기본 툴바가 뜨지 않게 한다.
+    sel.removeAllRanges();
+
     const pop = document.getElementById('bk-hlpop');
     const note = document.getElementById('bk-hlpop-note');
     note.style.display = 'none'; note.value = '';
@@ -1663,6 +1669,12 @@ document.addEventListener('touchend', e => {
     pop.style.top  = top + 'px';
     pop.classList.add('show');
   }, 100);
+});
+document.addEventListener('contextmenu', e => {
+  // 책 본문 안에서 뜨는 길게 눌러 나오는 기본 메뉴도 막아서 우리 팝업과 안 겹치게 함
+  if (e.target.closest('#bk-reader') && !e.target.closest('input, textarea, select, [contenteditable]')) {
+    e.preventDefault();
+  }
 });
 /* ── #태그 색상 처리 ── */
 function bkColorTags(el) {
