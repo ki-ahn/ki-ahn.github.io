@@ -591,6 +591,7 @@ html[data-dark] .blv-sidebar {
   border-radius: 10px; padding: 8px 10px; box-shadow: 0 6px 22px rgba(0,0,0,.2);
   display: none; z-index: 700; gap: 8px; align-items: center; flex-wrap: wrap;
   min-width: 200px; max-width: 280px;
+  will-change: transform, left, top; transform: translateZ(0);
 }
 #bk-hlpop.show { display: flex; }
 .bk-hlpop-colors { display: flex; gap: 6px; align-items: center; }
@@ -1667,7 +1668,14 @@ document.addEventListener('touchend', e => {
     if (top < 8) top = rect.bottom + 8;
     pop.style.left = left + 'px';
     pop.style.top  = top + 'px';
-    pop.classList.add('show');
+
+    // 모바일에서 터치 이벤트 이후 setTimeout 안에서 position:fixed 요소를 새로 보이게 하면
+    // 스크롤 등 다음 화면 갱신 전까지 실제로 그려지지 않는 경우가 있어서(안드로이드에서 확인됨),
+    // requestAnimationFrame + 강제 리플로우로 즉시 페인트되도록 한다.
+    requestAnimationFrame(() => {
+      pop.classList.add('show');
+      void pop.offsetHeight; // 강제 리플로우
+    });
   }, 100);
 });
 document.addEventListener('contextmenu', e => {
