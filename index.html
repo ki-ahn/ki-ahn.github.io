@@ -485,7 +485,7 @@ html[data-dark] .blv-sidebar {
 .bible-view-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px 22px; align-items: start; }
 .bible-all-block { min-width: 0; }
 .bible-ver-label { font-size: 11px; font-weight: 700; color: var(--ac2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-#bible-main .bible-content { font-style: normal; font-family: 'Nanum Myeongjo', Georgia, serif; line-height: 1.9; }
+#bible-main .bible-content { font-style: normal; font-family: var(--bible-font-family, 'Nanum Myeongjo', Georgia, serif); line-height: 1.9; }
 #bible-main .bible-verse-txt { font-size: var(--bible-fs); }
 #bible-main .bible-verse-line { display: block; margin-bottom: 6px; }
 #bible-main .bible-verse-num { font-family: var(--font-ui, -apple-system, sans-serif); }
@@ -750,6 +750,11 @@ html[data-dark] .blv-sidebar {
       </div>
       <div class="cfg-secs">성경 버전</div>
       <div class="cfg-vcbs" id="bk-vcbs"></div>
+      <div class="cfg-secs">성경 본문 폰트</div>
+      <select class="cfg-input" id="cfg-bible-font" onchange="bkApplyBibleFont(this.value)">
+        <option value="">불러오는 중…</option>
+      </select>
+      <div class="cfg-hint">📁 저장소의 <code>fonts</code> 폴더 안에 있는 폰트 파일(.ttf/.otf/.woff2)을 자동으로 찾아 목록으로 보여줍니다. 새 폰트를 그 폴더에 올리시면 여기 자동으로 나타납니다.</div>
       <div class="cfg-hint">📄 단어장(<code>|라오|영어|한글</code> 줄)과 🎧 PDF+오디오 학습(<code>pdf_file</code>/<code>chapters</code> frontmatter)은 폴더 설정 없이, 파일을 열 때 내용을 보고 자동으로 인식합니다.</div>
       <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
     </div>
@@ -1104,6 +1109,7 @@ function openCfg() {
   document.getElementById('cfg-mddata').value = c.mdFolder || 'Bible';
   document.getElementById('cfg-token').value  = c.token || '';
   updateEtcLabel();
+  bkLoadFontOptions();
   document.getElementById('cfg-overlay').classList.add('open');
 }
 function closeCfg() { document.getElementById('cfg-overlay').classList.remove('open'); }
@@ -2080,6 +2086,50 @@ function bibleFontSize(delta) {
   localStorage.setItem('bible-fs', _bibleFs);
 }
 
+/* ── 성경 본문 폰트 선택: 저장소의 fonts/ 폴더 목록을 읽어서 드롭다운으로 보여주고,
+   고른 폰트를 동적으로 @font-face 등록 + 적용. 시스템 기본을 고르면 기본 서체로 돌아감. ── */
+async function bkLoadFontOptions() {
+  const sel = document.getElementById('cfg-bible-font');
+  if (!sel) return;
+  const saved = localStorage.getItem('bible-font-path') || '';
+  sel.innerHTML = '<option value="">불러오는 중…</option>';
+  const opts = ['<option value="">시스템 기본</option>'];
+  try {
+    const list = await GitHubModule.fetchContents('fonts');
+    if (Array.isArray(list)) {
+      list
+        .filter(it => it.type === 'file' && /\.(ttf|otf|woff2?|)$/i.test(it.name) && /\.(ttf|otf|woff2?)$/i.test(it.name))
+        .sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}))
+        .forEach(f => {
+          opts.push(`<option value="${f.path.replace(/"/g,'&quot;')}">${f.name.replace(/</g,'&lt;')}</option>`);
+        });
+    }
+  } catch(e) { /* fonts 폴더가 없으면 시스템 기본만 남김 */ }
+  sel.innerHTML = opts.join('');
+  if ([...sel.options].some(o => o.value === saved)) sel.value = saved;
+}
+
+function bkApplyBibleFont(path) {
+  localStorage.setItem('bible-font-path', path || '');
+  const main = document.getElementById('bible-main');
+  if (!main) return;
+  if (!path) {
+    main.style.setProperty('--bible-font-family', 'Georgia, serif');
+    return;
+  }
+  const safeName = 'CustomBibleFont_' + path.replace(/[^a-zA-Z0-9]/g, '_');
+  const styleId = 'bk-custom-font-' + safeName;
+  if (!document.getElementById(styleId)) {
+    const ext = (path.split('.').pop() || '').toLowerCase();
+    const fmt = { ttf: 'truetype', otf: 'opentype', woff2: 'woff2', woff: 'woff' }[ext] || 'truetype';
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `@font-face { font-family: '${safeName}'; src: url('${path}') format('${fmt}'); font-display: swap; }`;
+    document.head.appendChild(style);
+  }
+  main.style.setProperty('--bible-font-family', `'${safeName}', 'Nanum Myeongjo', Georgia, serif`);
+}
+
 /* 키보드 */
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
@@ -2665,6 +2715,7 @@ function pdfStudyRestart() {
   BibleModule.injectStyles();
   bibleViewCheckLoaded();
   document.getElementById('bible-main').style.setProperty('--bible-fs', _bibleFs + 'px');
+  bkApplyBibleFont(localStorage.getItem('bible-font-path') || '');
   const c = GitHubModule.get();
   if (c.user && c.repo) {
     document.getElementById('bk-repo-lbl').textContent = `${c.user}/${c.repo}`;
