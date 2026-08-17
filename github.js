@@ -49,6 +49,18 @@ const GitHubModule = (() => {
     return r.json();
   }
 
+  /* 설정된 데이터 저장소(_cfg.repo)가 아닌 다른 저장소(예: 정적 사이트가 있는
+     user.github.io 저장소)의 내용을 조회할 때 사용. user/repo/branch를 직접 지정한다. */
+  async function fetchContentsFrom(user, repo, branch, path) {
+    const url = `https://api.github.com/repos/${user}/${repo}/contents/${path}?ref=${branch || 'main'}`;
+    const r = await fetch(url, { headers: headers(), cache: 'no-store' });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error((e.message || `HTTP ${r.status}`) + '\n경로: ' + path);
+    }
+    return r.json();
+  }
+
   async function fetchTree() {
     const url = `https://api.github.com/repos/${_cfg.user}/${_cfg.repo}/git/trees/${_cfg.branch}?recursive=1`;
     const r = await fetch(url, { headers: headers() });
@@ -141,5 +153,5 @@ const GitHubModule = (() => {
     return { ...result, newSha: result?.content?.sha };
   }
 
-  return { save, load, configure, get, isReady, fetchContents, fetchTree, fetchBlob, readFile, readFileWithSha, writeFile, decode64 };
+  return { save, load, configure, get, isReady, fetchContents, fetchContentsFrom, fetchTree, fetchBlob, readFile, readFileWithSha, writeFile, decode64 };
 })();

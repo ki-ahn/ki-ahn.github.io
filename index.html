@@ -2094,17 +2094,34 @@ async function bkLoadFontOptions() {
   const saved = localStorage.getItem('bible-font-path') || '';
   sel.innerHTML = '<option value="">불러오는 중…</option>';
   const opts = ['<option value="">시스템 기본</option>'];
-  try {
-    const list = await GitHubModule.fetchContents('fonts');
-    if (Array.isArray(list)) {
-      list
-        .filter(it => it.type === 'file' && /\.(ttf|otf|woff2?|)$/i.test(it.name) && /\.(ttf|otf|woff2?)$/i.test(it.name))
-        .sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}))
-        .forEach(f => {
-          opts.push(`<option value="${f.path.replace(/"/g,'&quot;')}">${f.name.replace(/</g,'&lt;')}</option>`);
-        });
-    }
-  } catch(e) { /* fonts 폴더가 없으면 시스템 기본만 남김 */ }
+  const c = GitHubModule.get();
+
+  // fonts 폴더는 대부분 index.html이 있는 "정적 사이트 저장소"(사용자명.github.io)에 있고,
+  // 성경/찬송 등 데이터를 가져오는 저장소(GitHub 설정에 등록된 repo)와는 다른 저장소인 경우가 많다.
+  // 그래서 먼저 사용자명.github.io 저장소를 시도하고, 안 되면 데이터 저장소도 한번 더 시도한다.
+  let list = null;
+  if (c.user) {
+    try {
+      const staticRepo = `${c.user}.github.io`;
+      const r = await GitHubModule.fetchContentsFrom(c.user, staticRepo, c.branch || 'main', 'fonts');
+      if (Array.isArray(r)) list = r;
+    } catch(e) { /* 다음으로 폴백 */ }
+  }
+  if (!list) {
+    try {
+      const r = await GitHubModule.fetchContents('fonts');
+      if (Array.isArray(r)) list = r;
+    } catch(e) { /* fonts 폴더를 어디서도 못 찾음 */ }
+  }
+
+  if (list) {
+    list
+      .filter(it => it.type === 'file' && /\.(ttf|otf|woff2?)$/i.test(it.name))
+      .sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}))
+      .forEach(f => {
+        opts.push(`<option value="${f.path.replace(/"/g,'&quot;')}">${f.name.replace(/</g,'&lt;')}</option>`);
+      });
+  }
   sel.innerHTML = opts.join('');
   if ([...sel.options].some(o => o.value === saved)) sel.value = saved;
 }
