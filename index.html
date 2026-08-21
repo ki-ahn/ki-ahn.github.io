@@ -2134,7 +2134,7 @@ function bkApplyBibleFont(path) {
   const reader = document.getElementById('bk-reader');
   if (!main && !reader) return;
   if (!path) {
-    main?.style.setProperty('--bible-font-family', '-apple-system, "Noto Sans KR", sans-serif');
+    main?.style.setProperty('--reader-font-family', '-apple-system, "Noto Sans KR", sans-serif');
     reader?.style.removeProperty('--reader-font-family');
     return;
   }
