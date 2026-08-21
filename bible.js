@@ -602,7 +602,7 @@ const BibleModule = (() => {
       .bible-all-block:first-child { padding-top: 0; }
 
       .bible-content {
-        font-family: var(--font-body, Georgia, serif);
+        font-family: var(--font-body, "Noto Sans Lao", Georgia, serif);
         font-style: normal; line-height: 1.9;
         color: var(--text, #2c2416);
       }
