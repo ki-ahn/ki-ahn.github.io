@@ -523,7 +523,7 @@ html[data-dark] .blv-sidebar {
 #bk-reader {
   max-width: 740px; margin: 0 auto; background: var(--paper); border-radius: 4px;
   box-shadow: 0 2px 20px rgba(0,0,0,.1); padding: 48px 60px;
-  font-family: "Noto Sans Lao", Georgia, "Times New Roman", serif;
+  font-family: var(--reader-font-family, "Noto Sans Lao", Georgia, "Times New Roman", serif);
   line-height: 1.85; color: var(--pt); font-size: 17px;
   word-break: normal; overflow-wrap: break-word;
   -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
@@ -750,11 +750,11 @@ html[data-dark] .blv-sidebar {
       </div>
       <div class="cfg-secs">성경 버전</div>
       <div class="cfg-vcbs" id="bk-vcbs"></div>
-      <div class="cfg-secs">성경 본문 폰트</div>
+      <div class="cfg-secs">성경 · 책보기 본문 폰트</div>
       <select class="cfg-input" id="cfg-bible-font" onchange="bkApplyBibleFont(this.value)">
         <option value="">불러오는 중…</option>
       </select>
-      <div class="cfg-hint">📁 저장소의 <code>fonts</code> 폴더 안에 있는 폰트 파일(.ttf/.otf/.woff2)을 자동으로 찾아 목록으로 보여줍니다. 새 폰트를 그 폴더에 올리시면 여기 자동으로 나타납니다.</div>
+      <div class="cfg-hint">📁 저장소의 <code>fonts</code> 폴더 안에 있는 폰트 파일(.ttf/.otf/.woff2)을 자동으로 찾아 성경과 책보기 본문에 적용합니다. 새 폰트를 그 폴더에 올리시면 여기 자동으로 나타납니다.</div>
       <div class="cfg-hint">📄 단어장(<code>|라오|영어|한글</code> 줄)과 🎧 PDF+오디오 학습(<code>pdf_file</code>/<code>chapters</code> frontmatter)은 폴더 설정 없이, 파일을 열 때 내용을 보고 자동으로 인식합니다.</div>
       <button class="cfg-reset" onclick="bkResetSettings()">⚠ 책보기 설정 초기화</button>
     </div>
@@ -2131,9 +2131,11 @@ async function bkLoadFontOptions() {
 function bkApplyBibleFont(path) {
   localStorage.setItem('bible-font-path', path || '');
   const main = document.getElementById('bible-main');
-  if (!main) return;
+  const reader = document.getElementById('bk-reader');
+  if (!main && !reader) return;
   if (!path) {
-    main.style.setProperty('--bible-font-family', '-apple-system, "Noto Sans KR", sans-serif');
+    main?.style.setProperty('--bible-font-family', '-apple-system, "Noto Sans KR", sans-serif');
+    reader?.style.removeProperty('--reader-font-family');
     return;
   }
   const safeName = 'CustomBibleFont_' + path.replace(/[^a-zA-Z0-9]/g, '_');
@@ -2146,7 +2148,9 @@ function bkApplyBibleFont(path) {
     style.textContent = `@font-face { font-family: '${safeName}'; src: url('${path}') format('${fmt}'); font-display: swap; }`;
     document.head.appendChild(style);
   }
-  main.style.setProperty('--bible-font-family', `'${safeName}', 'Nanum Myeongjo', -apple-system, "Noto Sans KR", sans-serif`);
+  const fontFamily = `'${safeName}', 'Nanum Myeongjo', -apple-system, "Noto Sans KR", sans-serif`;
+  main?.style.setProperty('--bible-font-family', fontFamily);
+  reader?.style.setProperty('--reader-font-family', fontFamily);
 }
 
 /* 키보드 */
