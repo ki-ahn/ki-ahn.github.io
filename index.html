@@ -2119,7 +2119,9 @@ async function bkLoadFontOptions() {
       .filter(it => it.type === 'file' && /\.(ttf|otf|woff2?)$/i.test(it.name))
       .sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}))
       .forEach(f => {
-        opts.push(`<option value="${f.path.replace(/"/g,'&quot;')}">${f.name.replace(/</g,'&lt;')}</option>`);
+        //opts.push(`<option value="${f.path.replace(/"/g,'&quot;')}">${f.name.replace(/</g,'&lt;')}</option>`);
+        const fontUrl = f.download_url || f.path;
+        opts.push(`<option value="${fontUrl.replace(/"/g, '&quot;')}">${f.name.replace(/</g, '&lt;')}</option>`);
       });
   }
   sel.innerHTML = opts.join('');
